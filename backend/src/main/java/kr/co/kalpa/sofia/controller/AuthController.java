@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import kr.co.kalpa.sofia.domain.RefreshToken;
 import kr.co.kalpa.sofia.dto.LoginRequest;
 import kr.co.kalpa.sofia.security.JwtUtils;
+import kr.co.kalpa.sofia.security.UserDetailsImpl;
 import kr.co.kalpa.sofia.security.UserDetailsServiceImpl;
 import kr.co.kalpa.sofia.service.RefreshTokenService;
 import lombok.RequiredArgsConstructor;

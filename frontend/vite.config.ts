@@ -18,7 +18,12 @@ export default defineConfig({
     },
   },
   server: {
-    port: 5173
+    port: 5173,
+    proxy: {
+      '/sofia/api': {
+        target: 'http://localhost:9595',
+        changeOrigin: true,
+      }
+    }
   },
-  base: process.env.NODE_ENV === 'production' ? '/pcms/' : '/',
 })

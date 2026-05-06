@@ -3,25 +3,39 @@ package kr.co.kalpa.sofia.security;
 import io.jsonwebtoken.*;
 import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
+import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.security.core.Authentication;
+import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
+import org.springframework.web.util.WebUtils;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
 import java.util.Date;
 
-import jakarta.servlet.http.Cookie;
-import jakarta.servlet.http.HttpServletRequest;
-import org.springframework.http.ResponseCookie;
-import org.springframework.web.util.WebUtils;
-...
+@Component
+public class JwtUtils {
+
+    @Value("${jwt.secret}")
+    private String jwtSecret;
+
+    @Value("${jwt.expiration}")
+    private int jwtExpirationMs;
+
     @Value("${jwt.cookieName:sofia-jwt}")
     private String jwtCookie;
 
     @Value("${jwt.refreshCookieName:sofia-refresh-jwt}")
     private String jwtRefreshCookie;
+
+    private SecretKey key;
+
+    @PostConstruct
+    public void init() {
+        this.key = Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
+    }
 
     public String getJwtFromCookies(HttpServletRequest request) {
         return getCookieValueByName(request, jwtCookie);
@@ -60,7 +74,6 @@ import org.springframework.web.util.WebUtils;
             return null;
         }
     }
-    ...
 
     public String generateJwtTokenFromUsername(String username) {
         return Jwts.builder()
