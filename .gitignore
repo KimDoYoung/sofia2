@@ -25,6 +25,7 @@ dist-ssr
 backend/.gradle/
 backend/build/
 backend/out/
+backend/bin
 
 # Frontend specific
 frontend/node_modules/

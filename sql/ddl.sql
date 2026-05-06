@@ -1,5 +1,5 @@
 -- 1. 상위 테이블인 image_folders를 먼저 생성합니다.
-CREATE TABLE image_folders (
+CREATE TABLE IF NOT EXISTS  image_folders (
     id SERIAL PRIMARY KEY,
     folder_name TEXT NOT NULL,
     last_load_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -7,7 +7,7 @@ CREATE TABLE image_folders (
 );
 
 -- 2. image_files 테이블을 생성합니다.
-CREATE TABLE image_files (
+CREATE TABLE IF NOT EXISTS image_files (
     id SERIAL PRIMARY KEY,
     org_name TEXT NOT NULL,
     hash_code TEXT NOT NULL,
@@ -35,5 +35,22 @@ CREATE TABLE image_files (
 );
 
 -- 3. 검색 성능 향상을 위한 인덱스 추가 (추천)
-CREATE INDEX idx_image_files_folder_id ON image_files(folder_id);
-CREATE INDEX idx_image_files_hash_code ON image_files(hash_code);
+CREATE INDEX IF NOT EXISTS idx_image_files_folder_id ON image_files(folder_id);
+CREATE INDEX IF NOT EXISTS idx_image_files_hash_code ON image_files(hash_code);
+
+
+CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL,           -- 사용자 식별자 (FK 권장)
+    token_value VARCHAR(512) NOT NULL, -- JWT Refresh Token 문자열
+    issued_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at TIMESTAMP NOT NULL,     -- 만료 시간 (Redis의 TTL 역할)
+    revoked BOOLEAN DEFAULT FALSE,      -- 보안 사고 시 즉시 무효화용
+    
+    -- 조회 성능 최적화 및 유니크 제약
+    CONSTRAINT uk_refresh_token_value UNIQUE (token_value)
+);
+
+-- 인덱스 설정 (조회 속도 향상)
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
