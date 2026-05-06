@@ -1,3 +1,5 @@
+#  base folder
+data/
 # Java / Gradle
 .gradle/
 build/

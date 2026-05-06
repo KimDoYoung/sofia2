@@ -54,3 +54,22 @@ CREATE TABLE IF NOT EXISTS refresh_tokens (
 -- 인덱스 설정 (조회 속도 향상)
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 CREATE INDEX IF NOT EXISTS idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
+
+
+-- cms.users definition
+
+-- Drop table
+
+-- DROP TABLE cms.users;
+
+CREATE TABLE IF NOT EXISTS sofia.users (
+    id bigserial NOT NULL,
+    user_id varchar(50) NOT NULL,
+    user_pw varchar(200) NOT NULL,
+    user_nm varchar(100) NULL,
+    created_at timestamptz DEFAULT CURRENT_TIMESTAMP NULL,
+    CONSTRAINT users_pkey PRIMARY KEY (id),
+	CONSTRAINT users_user_id_key UNIQUE (user_id)
+);
+
+INSERT INTO sofia.users(user_id, user_pw, user_nm) VALUES('kdy987', 'kalpa987!', 'KimDoYoung');

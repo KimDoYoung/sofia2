@@ -22,14 +22,7 @@ public class DataInitializer implements CommandLineRunner {
 
     @Override
     public void run(String... args) {
-        if (userRepository.findByUsername("admin").isEmpty()) {
-            User admin = User.builder()
-                    .username("admin")
-                    .password(passwordEncoder.encode("admin123"))
-                    .roles(Set.of("ROLE_ADMIN", "ROLE_USER"))
-                    .build();
-            userRepository.save(admin);
-        }
+        // User data already exists in DB (kdy987/1111)
 
         if (imageFolderRepository.findAll().isEmpty()) {
             ImageFolder defaultFolder = ImageFolder.builder()
