@@ -111,16 +111,31 @@ resolve_mode() {
 
 load_env() {
     local env_file="$SCRIPT_DIR/.env.${SOFIA_MODE}"
-    if [[ ! -f "$env_file" ]]; then
-        error "환경변수 파일을 찾을 수 없습니다: $env_file"
-        exit 1
+    local backend_env_file="$BACKEND_DIR/.env.${SOFIA_MODE}"
+    local loaded=false
+
+    if [[ -f "$env_file" ]]; then
+        set -a
+        # shellcheck disable=SC1090
+        source "$env_file"
+        set +a
+        info "환경변수 로드 완료 ($env_file)"
+        loaded=true
     fi
 
-    set -a
-    # shellcheck disable=SC1090
-    source "$env_file"
-    set +a
-    info "환경변수 로드 완료 ($env_file)"
+    if [[ -f "$backend_env_file" ]]; then
+        set -a
+        # shellcheck disable=SC1090
+        source "$backend_env_file"
+        set +a
+        info "환경변수 로드 완료 ($backend_env_file)"
+        loaded=true
+    fi
+
+    if [[ "$loaded" == false ]]; then
+        error "환경변수 파일을 찾을 수 없습니다: $env_file 또는 $backend_env_file"
+        exit 1
+    fi
 }
 
 check_java() {

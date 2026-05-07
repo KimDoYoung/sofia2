@@ -2,6 +2,9 @@ import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from 'react-
 import LoginPage from '@/domain/user/LoginPage';
 import TopBar from '@/shared/layout/TopBar';
 import { useAuthStore } from '@/store/authStore';
+import FolderListPage from '@/domain/folder/FolderListPage';
+import ImageListPage from '@/domain/folder/ImageListPage';
+import ImageViewPage from '@/domain/folder/ImageViewPage';
 
 const ProtectedLayout = () => {
   const { isAuthenticated } = useAuthStore();
@@ -20,23 +23,15 @@ const ProtectedLayout = () => {
   );
 };
 
-const Dashboard = () => {
-  return (
-    <div className="bg-white p-6 rounded-xl shadow-sm border">
-      <h2 className="text-2xl font-bold mb-4">Dashboard</h2>
-      <p className="text-gray-600">Welcome to SOFIA!</p>
-    </div>
-  );
-};
-
 function App() {
   return (
     <Router>
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedLayout />}>
-          <Route path="/" element={<Dashboard />} />
-          {/* Add more protected routes here */}
+          <Route path="/" element={<FolderListPage />} />
+          <Route path="/folder/:folderId" element={<ImageListPage />} />
+          <Route path="/image/:imageId" element={<ImageViewPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

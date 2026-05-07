@@ -1,5 +1,6 @@
 package kr.co.kalpa.sofia.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.LocalDateTime;
@@ -25,7 +26,7 @@ public class ImageFile {
     @Column(nullable = false)
     private Integer seq;
 
-    @ManyToOne(fetch = FetchType.LAZY)
+    @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "folder_id")
     private ImageFolder folder;
 

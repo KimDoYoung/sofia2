@@ -1,5 +1,6 @@
 package kr.co.kalpa.sofia.domain;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.*;
 import java.time.ZonedDateTime;
@@ -27,5 +28,6 @@ public class ImageFolder {
 
     @OneToMany(mappedBy = "folder", cascade = CascadeType.ALL, orphanRemoval = true)
     @Builder.Default
+    @JsonIgnore
     private List<ImageFile> imageFiles = new ArrayList<>();
 }

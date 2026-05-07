@@ -23,14 +23,5 @@ public class DataInitializer implements CommandLineRunner {
     @Override
     public void run(String... args) {
         // User data already exists in DB (kdy987/1111)
-
-        if (imageFolderRepository.findAll().isEmpty()) {
-            ImageFolder defaultFolder = ImageFolder.builder()
-                    .folderName("Default Folder")
-                    .lastLoadTime(ZonedDateTime.now())
-                    .note("Initial default folder")
-                    .build();
-            imageFolderRepository.save(defaultFolder);
-        }
     }
 }

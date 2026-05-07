@@ -17,6 +17,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -26,6 +27,10 @@ public class ImageService {
     private final ImageFileRepository imageFileRepository;
     private final ImageFolderRepository imageFolderRepository;
     private final MetadataService metadataService;
+
+    public List<ImageFile> getImagesByFolder(Long folderId) {
+        return imageFileRepository.findByFolderIdOrderBySeqAsc(folderId);
+    }
 
     private final String uploadDir = "uploads/";
 
