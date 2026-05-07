@@ -61,7 +61,12 @@ const TopBar = () => {
           </button>
         </div>
         <div className="flex items-center gap-4">
-          <span className="text-sm text-gray-600 font-medium">{name}님</span>
+          <span 
+            className="text-sm text-gray-600 font-medium cursor-pointer hover:text-blue-600 hover:underline transition-all"
+            onClick={() => navigate('/settings')}
+          >
+            {name}님
+          </span>
           <button
             onClick={handleLogout}
             className="text-sm px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"

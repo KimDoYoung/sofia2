@@ -3,6 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Maximize, Download } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
 
 interface ImageFile {
   id: number;
@@ -39,6 +41,15 @@ const ImageViewPage = () => {
 
   if (isLoading) return <div className="p-8 text-center">Loading image...</div>;
   if (!image) return <div className="p-8 text-center">Image not found</div>;
+
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      return format(parseISO(dateStr), 'yyyy-MM-dd HH:mm:ss (EEE)', { locale: ko });
+    } catch (e) {
+      return dateStr;
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -102,7 +113,7 @@ const ImageViewPage = () => {
               <span className="text-gray-500">해상도</span>
               <span className="text-gray-800 font-medium">{image.imageWidth} x {image.imageHeight}</span>
               <span className="text-gray-500">촬영일시</span>
-              <span className="text-gray-800 font-medium">{image.captureDateTime || '-'}</span>
+              <span className="text-gray-800 font-medium">{formatDateTime(image.captureDateTime)}</span>
             </div>
           </div>
 

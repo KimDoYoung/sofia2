@@ -1,8 +1,10 @@
-import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { LayoutGrid, List as ListIcon, ChevronLeft } from 'lucide-react';
+import { format, parseISO } from 'date-fns';
+import { ko } from 'date-fns/locale';
+import { useUIStore } from '@/store/uiStore';
 
 interface ImageFile {
   id: number;
@@ -16,7 +18,7 @@ interface ImageFile {
 const ImageListPage = () => {
   const { folderId } = useParams();
   const navigate = useNavigate();
-  const [viewMode, setViewMode] = useState<'thumb' | 'list'>('thumb');
+  const { imageListViewMode: viewMode, setImageListViewMode: setViewMode } = useUIStore();
 
   const { data: images, isLoading } = useQuery<ImageFile[]>({
     queryKey: ['folder-images', folderId],
@@ -27,6 +29,15 @@ const ImageListPage = () => {
   });
 
   if (isLoading) return <div className="p-8 text-center">Loading images...</div>;
+
+  const formatDateTime = (dateStr?: string) => {
+    if (!dateStr) return '-';
+    try {
+      return format(parseISO(dateStr), 'yyyy-MM-dd HH:mm:ss (EEE)', { locale: ko });
+    } catch (e) {
+      return dateStr;
+    }
+  };
 
   return (
     <div className="space-y-4">
@@ -108,7 +119,7 @@ const ImageListPage = () => {
                   <td className="px-4 py-3 text-sm font-medium text-gray-800">{img.orgName}</td>
                   <td className="px-4 py-3 text-sm text-gray-600 uppercase">{img.imageFormat}</td>
                   <td className="px-4 py-3 text-sm text-gray-600">{img.imageWidth} x {img.imageHeight}</td>
-                  <td className="px-4 py-3 text-sm text-gray-600">{img.captureDateTime || '-'}</td>
+                  <td className="px-4 py-3 text-sm text-gray-600 whitespace-nowrap">{formatDateTime(img.captureDateTime)}</td>
                 </tr>
               ))}
             </tbody>

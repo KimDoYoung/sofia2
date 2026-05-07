@@ -1,5 +1,6 @@
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
+import { formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
@@ -28,12 +29,12 @@ const FolderListPage = () => {
 
   const columnDefs: ColDef[] = [
     { field: 'id', headerName: 'ID', width: 80 },
-    { 
-      field: 'folderName', 
-      headerName: '폴더명', 
+    {
+      field: 'folderName',
+      headerName: '폴더명',
       flex: 1,
       cellRenderer: (params: any) => (
-        <button 
+        <button
           className="text-blue-600 hover:underline font-medium"
           onClick={() => navigate(`/folder/${params.data.id}`)}
         >
@@ -41,7 +42,12 @@ const FolderListPage = () => {
         </button>
       )
     },
-    { field: 'lastLoadTime', headerName: '마지막 로드 시간', width: 200 },
+    { 
+      field: 'lastLoadTime', 
+      headerName: '마지막 로드 시간', 
+      width: 220,
+      valueFormatter: (params: any) => formatDate(params.value)
+    },
     { field: 'note', headerName: '비고', flex: 1 },
   ];
 
@@ -52,7 +58,7 @@ const FolderListPage = () => {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-gray-800">폴더 목록</h2>
       </div>
-      
+
       <div className="w-full h-[600px] shadow-sm rounded-lg overflow-hidden">
         <AgGridReact
           theme={themeQuartz}

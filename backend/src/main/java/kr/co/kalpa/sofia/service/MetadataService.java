@@ -34,7 +34,7 @@ public class MetadataService {
             if (subIfdDir != null) {
                 Date date = subIfdDir.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
                 if (date != null) {
-                    imageFile.setCaptureDateTime(date.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime());
+                    imageFile.setCaptureDateTime(date.toInstant().atZone(java.time.ZoneOffset.UTC).toLocalDateTime());
                 }
                 imageFile.setShutterSpeed(subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_SHUTTER_SPEED));
                 imageFile.setApertureValue(subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_APERTURE));

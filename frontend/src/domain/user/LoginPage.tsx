@@ -65,24 +65,22 @@ function LoginPage() {
 
           <div className="mb-3">
             <label className="block text-sm text-gray-600 mb-1">🔒 비밀번호</label>
-            <div className="flex justify-center">
-              <div className="flex w-64">
-                <input
-                  type={showPassword ? 'text' : 'password'}
-                  value={password}
-                  readOnly
-                  placeholder="••••"
-                  className="flex-1 h-11 px-4 border border-gray-300 rounded-l-lg text-center text-xl font-bold tracking-[10px] focus:outline-none"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword((v) => !v)}
-                  disabled={isLoading}
-                  className="w-11 h-11 border border-l-0 border-gray-300 rounded-r-lg flex items-center justify-center text-gray-500 hover:text-gray-700 hover:bg-gray-50"
-                >
-                  {showPassword ? '🙈' : '👁️'}
-                </button>
-              </div>
+            <div className="relative w-full">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                readOnly
+                placeholder="••••"
+                className="w-full h-11 pl-4 pr-12 border border-gray-300 rounded-lg text-xl tracking-[10px] focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 disabled:opacity-50"
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((v) => !v)}
+                disabled={isLoading}
+                className="absolute inset-y-0 right-0 w-12 flex items-center justify-center text-gray-500 hover:text-gray-700 disabled:opacity-50"
+              >
+                {showPassword ? '🙈' : '👁️'}
+              </button>
             </div>
 
             <div className="grid grid-cols-3 gap-3 mt-4">
