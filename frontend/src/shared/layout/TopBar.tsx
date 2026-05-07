@@ -4,12 +4,22 @@ import { useAuthStore } from '@/store/authStore';
 import { apiClient } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Plus, X, Loader2 } from 'lucide-react';
+import axios from 'axios';
 
 const TopBar = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { name, clearAuth } = useAuthStore();
   const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const { data: healthData } = useQuery({
+    queryKey: ['health'],
+    queryFn: async () => {
+      const res = await axios.get('/sofia/health');
+      return res.data;
+    },
+    staleTime: 5 * 60 * 1000,
+  });
 
   const { data: subfolders, isLoading: isLoadingSubfolders } = useQuery<string[]>({
     queryKey: ['subfolders'],
@@ -46,12 +56,17 @@ const TopBar = () => {
     <>
       <div className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-sm">
         <div className="flex items-center gap-6">
-          <h1 
-            className="text-xl font-bold text-blue-600 cursor-pointer"
+          <h1
+            className="text-xl font-bold text-blue-600 cursor-pointer flex items-baseline gap-2"
             onClick={() => navigate('/')}
           >
-            SOFIA
+            Sofia
+            {healthData?.version && <span className="text-xs text-blue-400 font-medium tracking-wide">v{healthData.version}</span>}
+            <span className="text-xs text-gray-400 font-normal">view of images in folder</span>
           </h1>
+
+        </div>
+        <div className="flex items-center gap-4">
           <button
             onClick={() => setIsModalOpen(true)}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
@@ -59,9 +74,7 @@ const TopBar = () => {
             <Plus size={18} />
             Add New Folder
           </button>
-        </div>
-        <div className="flex items-center gap-4">
-          <span 
+          <span
             className="text-sm text-gray-600 font-medium cursor-pointer hover:text-blue-600 hover:underline transition-all"
             onClick={() => navigate('/settings')}
           >
@@ -85,7 +98,7 @@ const TopBar = () => {
                 <X size={20} />
               </button>
             </div>
-            
+
             <div className="p-4 max-h-[400px] overflow-y-auto">
               {isLoadingSubfolders ? (
                 <div className="flex flex-col items-center py-8">
@@ -116,7 +129,7 @@ const TopBar = () => {
                 </div>
               )}
             </div>
-            
+
             <div className="p-4 bg-gray-50 border-t flex justify-end">
               <button
                 onClick={() => setIsModalOpen(false)}

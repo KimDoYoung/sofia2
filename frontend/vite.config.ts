@@ -23,6 +23,10 @@ export default defineConfig({
       '/sofia/api': {
         target: 'http://localhost:9595',
         changeOrigin: true,
+      },
+      '/sofia/health': {
+        target: 'http://localhost:9595',
+        changeOrigin: true,
       }
     }
   },
