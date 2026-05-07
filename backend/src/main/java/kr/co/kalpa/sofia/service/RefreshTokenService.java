@@ -1,6 +1,7 @@
 package kr.co.kalpa.sofia.service;
 
 import kr.co.kalpa.sofia.domain.RefreshToken;
+import kr.co.kalpa.sofia.domain.User;
 import kr.co.kalpa.sofia.repository.RefreshTokenRepository;
 import kr.co.kalpa.sofia.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,10 +26,15 @@ public class RefreshTokenService {
         return refreshTokenRepository.findByToken(token);
     }
 
+    @Transactional
     public RefreshToken createRefreshToken(Long userId) {
-        RefreshToken refreshToken = new RefreshToken();
+        User user = userRepository.findById(userId).get();
+        
+        // Delete existing tokens for this user
+        refreshTokenRepository.deleteByUser(user);
 
-        refreshToken.setUser(userRepository.findById(userId).get());
+        RefreshToken refreshToken = new RefreshToken();
+        refreshToken.setUser(user);
         refreshToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
         refreshToken.setToken(UUID.randomUUID().toString());
 

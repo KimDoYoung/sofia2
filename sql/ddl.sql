@@ -28,6 +28,8 @@ CREATE TABLE IF NOT EXISTS image_files (
     gps_latitude DOUBLE PRECISION, -- 위도
     gps_longitude DOUBLE PRECISION, -- 경도
     image_orientation TEXT, -- 가로, 세로 등의 방향
+    note text,
+    file_size BIGINT NOT NULL,
     CONSTRAINT fk_folder
         FOREIGN KEY (folder_id) 
         REFERENCES image_folders(id)

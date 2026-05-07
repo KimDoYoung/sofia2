@@ -63,4 +63,9 @@ public class ImageFile {
     private Double gpsLongitude;
 
     private String imageOrientation;
+
+    private String note;
+
+    @Column(nullable = false)
+    private Long fileSize;
 }

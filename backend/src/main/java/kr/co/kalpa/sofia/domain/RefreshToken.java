@@ -6,21 +6,28 @@ import lombok.Setter;
 
 import java.time.Instant;
 
-@Entity(name = "refresh_token")
+@Entity
+@Table(name = "refresh_tokens", schema = "sofia")
 @Getter
 @Setter
 public class RefreshToken {
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
-    private long id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @OneToOne
-    @JoinColumn(name = "user_id", referencedColumnName = "id")
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
     private User user;
 
-    @Column(nullable = false, unique = true)
+    @Column(name = "token_value", nullable = false, unique = true, length = 512)
     private String token;
 
-    @Column(nullable = false)
+    @Column(name = "issued_at", nullable = false, updatable = false)
+    private Instant issuedAt = Instant.now();
+
+    @Column(name = "expires_at", nullable = false)
     private Instant expiryDate;
+
+    @Column(nullable = false)
+    private boolean revoked = false;
 }

@@ -99,6 +99,7 @@ public class FolderService {
                             .imageWidth(img.getWidth())
                             .imageHeight(img.getHeight())
                             .imageMode("RGB")
+                            .fileSize(file.length())
                             .build();
 
                     metadataService.extractMetadata(file, imageFile);
