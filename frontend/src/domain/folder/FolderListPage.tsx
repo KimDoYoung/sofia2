@@ -1,10 +1,11 @@
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
-import type { ColDef } from 'ag-grid-community';
+import type { ColDef, CellValueChangedEvent } from 'ag-grid-community';
+import { useToast } from '@/shared/components/ui/use-toast';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -18,6 +19,8 @@ interface ImageFolder {
 
 const FolderListPage = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const { toast } = useToast();
 
   const { data: folders, isLoading } = useQuery<ImageFolder[]>({
     queryKey: ['folders'],
@@ -26,6 +29,47 @@ const FolderListPage = () => {
       return res.data;
     },
   });
+
+  const updateNoteMutation = useMutation({
+    mutationFn: async ({ id, note }: { id: number; note: string }) => {
+      await apiClient.put(`/folders/${id}/note`, { note });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      toast({ title: '성공', description: '비고가 수정되었습니다.' });
+    },
+    onError: () => {
+      toast({ title: '오류', description: '비고 수정 중 오류가 발생했습니다.', variant: 'destructive' });
+    }
+  });
+
+  const deleteFolderMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.delete(`/folders/${id}`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['folders'] });
+      toast({ title: '성공', description: '폴더 정보가 삭제되었습니다.' });
+    },
+    onError: () => {
+      toast({ title: '오류', description: '폴더 삭제 중 오류가 발생했습니다.', variant: 'destructive' });
+    }
+  });
+
+  const onCellValueChanged = (event: CellValueChangedEvent) => {
+    if (event.column.getColId() === 'note') {
+      updateNoteMutation.mutate({
+        id: event.data.id,
+        note: event.newValue
+      });
+    }
+  };
+
+  const handleDelete = (id: number, folderName: string) => {
+    if (window.confirm(`'${folderName}' 폴더 정보를 삭제하시겠습니까?\n(실제 폴더는 삭제되지 않으며 썸네일만 삭제됩니다.)`)) {
+      deleteFolderMutation.mutate(id);
+    }
+  };
 
   const columnDefs: ColDef[] = [
     { field: 'id', headerName: 'ID', width: 80 },
@@ -48,14 +92,20 @@ const FolderListPage = () => {
       width: 220,
       valueFormatter: (params: any) => formatDate(params.value)
     },
-    { field: 'note', headerName: '비고', flex: 1 },
+    { 
+      field: 'note', 
+      headerName: '비고', 
+      flex: 1,
+      editable: true,
+      cellEditor: 'agTextCellEditor'
+    },
     {
       headerName: '삭제',
       width: 100,
       cellRenderer: (params: any) => (
         <button
-          className="bg-red-500 text-white px-2 py-1 rounded"
-          onClick={() => console.log(`Deleting folder with ID: ${params.data.id}`)}
+          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+          onClick={() => handleDelete(params.data.id, params.data.folderName)}
         >
           삭제
         </button>
@@ -83,6 +133,9 @@ const FolderListPage = () => {
           }}
           pagination={true}
           paginationPageSize={20}
+          onCellValueChanged={onCellValueChanged}
+          enterMovesDownAfterEdit={true}
+          singleClickEdit={false}
         />
       </div>
     </div>

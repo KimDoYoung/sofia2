@@ -24,6 +24,8 @@ const ProtectedLayout = () => {
   );
 };
 
+import { Toaster } from '@/shared/components/ui/toaster';
+
 function App() {
   return (
     <Router>
@@ -37,6 +39,7 @@ function App() {
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Toaster />
     </Router>
   );
 }

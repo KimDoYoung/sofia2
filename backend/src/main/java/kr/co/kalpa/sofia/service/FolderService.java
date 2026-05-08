@@ -10,6 +10,7 @@ import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.util.FileSystemUtils;
 
 import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
@@ -121,6 +122,29 @@ public class FolderService {
 
         folder.setImageFiles(imageFiles);
         return folder;
+    }
+
+    @Transactional
+    public ImageFolder updateFolderNote(Long id, String note) {
+        ImageFolder folder = folderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Folder not found with id: " + id));
+        folder.setNote(note);
+        return folderRepository.save(folder);
+    }
+
+    @Transactional
+    public void deleteFolder(Long id) throws IOException {
+        ImageFolder folder = folderRepository.findById(id)
+                .orElseThrow(() -> new IllegalArgumentException("Folder not found with id: " + id));
+
+        // Delete from database (cascades to image files)
+        folderRepository.delete(folder);
+
+        // Delete thumbnails folder
+        Path thumbBaseDir = Paths.get(baseFolder, "thumbnails", id.toString());
+        if (Files.exists(thumbBaseDir)) {
+            FileSystemUtils.deleteRecursively(thumbBaseDir);
+        }
     }
 
     private boolean isImageFile(Path path) {
