@@ -2,9 +2,12 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { LayoutGrid, List as ListIcon, ChevronLeft } from 'lucide-react';
+import { useState } from 'react';
 
 import { useUIStore } from '@/store/uiStore';
 import { formatDateTime, formatFileSize } from '@/lib/utils';
+import { ImageThumbCard1 } from '@/shared/components/ImageThumbCard1';
+import { Button } from '@/shared/components/ui/button';
 
 interface ImageFile {
   id: number;
@@ -14,13 +17,14 @@ interface ImageFile {
   imageHeight: number;
   captureDateTime: string;
   fileSize: number;
-  note?: string; // Add this line
+  note?: string;
 }
 
 const ImageListPage = () => {
   const { folderId } = useParams();
   const navigate = useNavigate();
   const { imageListViewMode: viewMode, setImageListViewMode: setViewMode } = useUIStore();
+  const [selectedIds, setSelectedIds] = useState<number[]>([]);
 
   const { data: images, isLoading } = useQuery<ImageFile[]>({
     queryKey: ['folder-images', folderId],
@@ -30,62 +34,91 @@ const ImageListPage = () => {
     },
   });
 
+  const handleSelect = (id: number) => {
+    setSelectedIds(prev =>
+      prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]
+    );
+  };
+
+  const handleRename = (id: number) => {
+    console.log('Rename', id);
+    // TODO: Implement rename logic
+  };
+
+  const handleAddNote = (id: number) => {
+    console.log('Add Note', id);
+    // TODO: Implement add note logic
+  };
+
+  const handleDelete = (id: number) => {
+    console.log('Delete', id);
+    // TODO: Implement delete logic
+  };
+
+  const handleRotate = (id: number) => {
+    console.log('Rotate', id);
+    // TODO: Implement rotate logic
+  };
+
   if (isLoading) return <div className="p-8 text-center">Loading images...</div>;
 
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <button
+          <Button
+            variant="ghost"
+            size="icon"
             onClick={() => navigate('/')}
-            className="p-2 hover:bg-gray-200 rounded-full transition-colors"
+            className="rounded-full"
           >
             <ChevronLeft size={24} />
-          </button>
+          </Button>
           <h2 className="text-2xl font-bold text-gray-800">이미지 목록</h2>
         </div>
 
-        <div className="flex bg-gray-200 p-1 rounded-lg">
-          <button
+        <div className="flex bg-gray-100 p-1 rounded-lg border">
+          <Button
+            variant={viewMode === 'smallThumb' ? 'secondary' : 'ghost'}
+            size="icon"
             onClick={() => setViewMode('smallThumb')}
-            className={`p-2 rounded-md transition-all ${viewMode === 'smallThumb' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
+            className={viewMode === 'smallThumb' ? 'bg-white shadow-sm' : ''}
           >
             <LayoutGrid size={12} />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={viewMode === 'thumb' ? 'secondary' : 'ghost'}
+            size="icon"
             onClick={() => setViewMode('thumb')}
-            className={`p-2 rounded-md transition-all ${viewMode === 'thumb' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
+            className={viewMode === 'thumb' ? 'bg-white shadow-sm' : ''}
           >
             <LayoutGrid size={20} />
-          </button>
-          <button
+          </Button>
+          <Button
+            variant={viewMode === 'list' ? 'secondary' : 'ghost'}
+            size="icon"
             onClick={() => setViewMode('list')}
-            className={`p-2 rounded-md transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-800'}`}
+            className={viewMode === 'list' ? 'bg-white shadow-sm' : ''}
           >
             <ListIcon size={20} />
-          </button>
+          </Button>
         </div>
       </div>
 
       {viewMode === 'thumb' ? (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-4">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6">
           {images?.map((img) => (
-            <div
+            <ImageThumbCard1
               key={img.id}
-              className="group relative bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-all cursor-pointer"
-              onClick={() => navigate(`/image/${img.id}`)}
-            >
-              <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
-                <img
-                  src={`/sofia/api/images/${img.id}/thumb`}
-                  alt={img.orgName}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-              <div className="p-2">
-                <p className="text-xs text-gray-600 truncate font-medium">{img.orgName}</p>
-              </div>
-            </div>
+              image={img}
+              isSelected={selectedIds.includes(img.id)}
+              onImageClick={(id) => navigate(`/image/${id}`)}
+              onSelect={handleSelect}
+              onRename={handleRename}
+              onAddNote={handleAddNote}
+              onDelete={handleDelete}
+              onRotate={handleRotate}
+            />
           ))}
         </div>
       ) : viewMode === 'smallThumb' ? (
@@ -93,7 +126,7 @@ const ImageListPage = () => {
           {images?.map((img) => (
             <div
               key={img.id}
-              className="group relative bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-all cursor-pointer"
+              className={`group relative bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-all cursor-pointer ${selectedIds.includes(img.id) ? 'ring-2 ring-blue-500' : ''}`}
               onClick={() => navigate(`/image/${img.id}`)}
             >
               <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
