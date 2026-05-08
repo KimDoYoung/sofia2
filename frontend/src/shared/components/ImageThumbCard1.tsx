@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pencil, FileText, Trash2, RotateCw, CheckCircle2, MessageSquare } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -47,12 +46,12 @@ export function ImageThumbCard1({
                 />
 
                 {/* 선택 체크박스 (좌측 상단) */}
-                <div 
-                  className={cn(
-                    "absolute top-2 left-2 z-10 transition-opacity",
-                    isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
-                  )}
-                  onClick={(e) => { e.stopPropagation(); onSelect(image.id); }}
+                <div
+                    className={cn(
+                        "absolute top-2 left-2 z-10 transition-opacity",
+                        isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
+                    )}
+                    onClick={(e) => { e.stopPropagation(); onSelect(image.id); }}
                 >
                     {isSelected ? (
                         <CheckCircle2 size={20} className="text-blue-600 fill-white" />
@@ -72,7 +71,7 @@ export function ImageThumbCard1({
             </div>
 
             {/* 2. 하단 정보 및 기능 영역 */}
-            <div className="p-2 space-y-2">
+            <div className="p-1 space-y-1">
                 <div className="flex items-center gap-1.5 min-w-0">
                     {image.note && (
                         <MessageSquare size={12} className="text-blue-500 shrink-0" />
@@ -86,21 +85,21 @@ export function ImageThumbCard1({
                 <div className="flex items-center justify-between pt-1 border-t border-gray-100">
                     <div className="flex gap-0.5">
                         <Button
-                            variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600"
+                            variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
                             onClick={(e) => { e.stopPropagation(); onRotate(image.id); }}
                             title="회전"
                         >
                             <RotateCw size={13} />
                         </Button>
                         <Button
-                            variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600"
+                            variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
                             onClick={(e) => { e.stopPropagation(); onRename(image.id); }}
                             title="이름 바꾸기"
                         >
                             <Pencil size={13} />
                         </Button>
                         <Button
-                            variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-blue-600"
+                            variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
                             onClick={(e) => { e.stopPropagation(); onAddNote(image.id); }}
                             title="노트 기록"
                         >
@@ -109,7 +108,7 @@ export function ImageThumbCard1({
                     </div>
 
                     <Button
-                        variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-red-500 hover:bg-red-50"
+                        variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-500 hover:bg-red-50"
                         onClick={(e) => { e.stopPropagation(); onDelete(image.id); }}
                         title="삭제"
                     >

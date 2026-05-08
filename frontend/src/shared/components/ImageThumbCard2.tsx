@@ -1,4 +1,3 @@
-import React from 'react';
 import { Pencil, FileText, Trash2, RotateCw, CheckCircle2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -36,7 +35,7 @@ export function ImageThumbCard2({
             )}
         >
             {/* 메인 이미지 영역 */}
-            <div 
+            <div
                 className="relative aspect-square cursor-pointer overflow-hidden"
                 onClick={() => onImageClick(image.id)}
             >
@@ -45,16 +44,16 @@ export function ImageThumbCard2({
                     alt={image.orgName}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
-                
+
                 {/* 그라데이션 오버레이 */}
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
                 {/* 선택 체크박스 */}
-                <div 
+                <div
                     className={cn(
                         "absolute top-3 left-3 z-10 w-6 h-6 rounded-full flex items-center justify-center transition-all duration-300",
-                        isSelected 
-                            ? "bg-blue-600 scale-110 shadow-lg" 
+                        isSelected
+                            ? "bg-blue-600 scale-110 shadow-lg"
                             : "bg-white/80 border-2 border-white/50 opacity-0 group-hover:opacity-100"
                     )}
                     onClick={(e) => { e.stopPropagation(); onSelect(image.id); }}

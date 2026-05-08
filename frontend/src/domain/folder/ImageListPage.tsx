@@ -124,22 +124,17 @@ const ImageListPage = () => {
       ) : viewMode === 'smallThumb' ? (
         <div className="grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2">
           {images?.map((img) => (
-            <div
+            <ImageThumbCard1
               key={img.id}
-              className={`group relative bg-white rounded-lg shadow-sm border overflow-hidden hover:shadow-md transition-all cursor-pointer ${selectedIds.includes(img.id) ? 'ring-2 ring-blue-500' : ''}`}
-              onClick={() => navigate(`/image/${img.id}`)}
-            >
-              <div className="aspect-square bg-gray-100 flex items-center justify-center overflow-hidden">
-                <img
-                  src={`/sofia/api/images/${img.id}/smallThumb`}
-                  alt={img.orgName}
-                  className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                />
-              </div>
-              <div className="p-1">
-                <p className="text-[10px] text-gray-500 truncate">{img.orgName}</p>
-              </div>
-            </div>
+              image={img}
+              isSelected={selectedIds.includes(img.id)}
+              onImageClick={(id) => navigate(`/image/${id}`)}
+              onSelect={handleSelect}
+              onRename={handleRename}
+              onAddNote={handleAddNote}
+              onDelete={handleDelete}
+              onRotate={handleRotate}
+            />
           ))}
         </div>
       ) : (
