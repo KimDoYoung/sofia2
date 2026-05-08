@@ -30,8 +30,9 @@ function LoginPage() {
       })
       setAuth(res.data.username, res.data.name)
       navigate('/')
-    } catch (err: any) {
-      setLoginError(err.response?.data?.error || '아이디 또는 비밀번호가 올바르지 않습니다.')
+    } catch (err: unknown) {
+      const error = err as { response?: { data?: { error?: string } } };
+      setLoginError(error.response?.data?.error || '아이디 또는 비밀번호가 올바르지 않습니다.')
       setPassword('')
     } finally {
       setIsLoading(false)

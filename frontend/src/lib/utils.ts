@@ -34,7 +34,7 @@ export const formatDateTime = (dateStr?: string) => {
   if (!dateStr) return '-';
   try {
     return format(parseISO(dateStr), 'yyyy-MM-dd HH:mm:ss (EEE)', { locale: ko });
-  } catch (e) {
+  } catch {
     return dateStr;
   }
 };

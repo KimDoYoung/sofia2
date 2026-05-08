@@ -92,16 +92,16 @@ const FolderListPage = () => {
       ),
       filter: true // Enable filter for folderName column
     },
-    { 
-      field: 'lastLoadTime', 
-      headerName: '마지막 로드 시간', 
+    {
+      field: 'lastLoadTime',
+      headerName: '마지막 로드 시간',
       width: 220,
       valueFormatter: (params: CellRendererParams) => formatDate(params.value),
       filter: false // Disable filter for lastLoadTime column
     },
-    { 
-      field: 'note', 
-      headerName: '비고', 
+    {
+      field: 'note',
+      headerName: '비고',
       flex: 1,
       editable: true,
       cellEditor: 'agTextCellEditor',

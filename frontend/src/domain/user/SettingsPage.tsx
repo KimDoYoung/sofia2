@@ -43,7 +43,8 @@ const SettingsPage = () => {
       setErrorMessage('');
       reset();
     },
-    onError: (error: any) => {
+    onError: (err: unknown) => {
+      const error = err as { response?: { data?: string } };
       setErrorMessage(error.response?.data || '비밀번호 변경 중 오류가 발생했습니다.');
       setSuccessMessage('');
     },
