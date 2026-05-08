@@ -6,6 +6,7 @@ import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 import type { ColDef, CellValueChangedEvent } from 'ag-grid-community';
 import { useToast } from '@/shared/components/ui/use-toast';
+import { Trash2 } from 'lucide-react';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -15,6 +16,10 @@ interface ImageFolder {
   folderName: string;
   lastLoadTime: string;
   note: string;
+}
+
+interface CellRendererParams {
+  data: ImageFolder;
 }
 
 const FolderListPage = () => {
@@ -77,39 +82,67 @@ const FolderListPage = () => {
       field: 'folderName',
       headerName: '폴더명',
       flex: 1,
-      cellRenderer: (params: any) => (
+      cellRenderer: (params: CellRendererParams) => (
         <button
           className="text-blue-600 hover:underline font-medium"
           onClick={() => navigate(`/folder/${params.data.id}`)}
         >
           {params.value}
         </button>
-      )
+      ),
+      filter: true // Enable filter for folderName column
     },
     { 
       field: 'lastLoadTime', 
       headerName: '마지막 로드 시간', 
       width: 220,
-      valueFormatter: (params: any) => formatDate(params.value)
+      valueFormatter: (params: CellRendererParams) => formatDate(params.value),
+      filter: false // Disable filter for lastLoadTime column
     },
     { 
       field: 'note', 
       headerName: '비고', 
       flex: 1,
       editable: true,
-      cellEditor: 'agTextCellEditor'
+      cellEditor: 'agTextCellEditor',
+      filter: true // Enable filter for note column
     },
     {
       headerName: '삭제',
-      width: 100,
-      cellRenderer: (params: any) => (
+      width: 70,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      cellRenderer: (params: CellRendererParams) => (
         <button
-          className="bg-red-500 text-white px-2 py-1 rounded hover:bg-red-600"
+          title="폴더 삭제"
           onClick={() => handleDelete(params.data.id, params.data.folderName)}
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            width: 32,
+            height: 32,
+            borderRadius: 8,
+            border: '1px solid #fca5a5',
+            background: 'transparent',
+            color: '#ef4444',
+            cursor: 'pointer',
+            transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = '#ef4444';
+            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(239,68,68,0.35)';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            (e.currentTarget as HTMLButtonElement).style.color = '#ef4444';
+            (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
+          }}
         >
-          삭제
+          <Trash2 size={16} strokeWidth={2} />
         </button>
-      )
+      ),
+      filter: false // Disable filter for delete column
     },
   ];
 
@@ -128,7 +161,7 @@ const FolderListPage = () => {
           columnDefs={columnDefs}
           defaultColDef={{
             sortable: true,
-            filter: true,
+            filter: false, // Disable filter by default
             resizable: true,
           }}
           pagination={true}
