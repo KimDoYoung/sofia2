@@ -2,8 +2,8 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 
 interface UIState {
-  imageListViewMode: 'thumb' | 'list';
-  setImageListViewMode: (mode: 'thumb' | 'list') => void;
+  imageListViewMode: 'thumb' | 'list' | 'smallThumb';
+  setImageListViewMode: (mode: 'thumb' | 'list' | 'smallThumb') => void;
 }
 
 export const useUIStore = create<UIState>()(

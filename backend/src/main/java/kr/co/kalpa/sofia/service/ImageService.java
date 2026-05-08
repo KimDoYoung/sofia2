@@ -28,6 +28,12 @@ public class ImageService {
     private final ImageFolderRepository imageFolderRepository;
     private final MetadataService metadataService;
 
+    @org.springframework.beans.factory.annotation.Value("${sofia.base.folder:./data}")
+    private String baseFolder;
+
+    @org.springframework.beans.factory.annotation.Value("${sofia.base.image.folder:./data/images}")
+    private String baseImageFolder;
+
     public List<ImageFile> getImagesByFolder(Long folderId) {
         return imageFileRepository.findByFolderIdOrderBySeqAsc(folderId);
     }
@@ -66,6 +72,26 @@ public class ImageService {
         metadataService.extractMetadata(savedFile, imageFile);
 
         return imageFileRepository.save(imageFile);
+    }
+
+    public Path getThumbnailPath(ImageFile file, String type) throws IOException {
+        String subFolder = type.equals("smallThumb") ? "smallThumbnails" : "thumbnails";
+        int size = type.equals("smallThumb") ? 80 : 300;
+        
+        Path thumbPath = Paths.get(baseFolder, subFolder, file.getFolder().getId().toString(), file.getId() + ".jpg");
+        
+        if (!Files.exists(thumbPath)) {
+            Files.createDirectories(thumbPath.getParent());
+            Path rawPath = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
+            if (Files.exists(rawPath)) {
+                createThumbnail(rawPath.toFile(), thumbPath.toFile(), size, size);
+            } else {
+                // If raw file doesn't exist, we can't create thumbnail
+                throw new IOException("Original image not found: " + rawPath);
+            }
+        }
+        
+        return thumbPath;
     }
 
     public void createThumbnail(File source, File target, int width, int height) throws IOException {

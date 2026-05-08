@@ -2,8 +2,12 @@ package kr.co.kalpa.sofia.controller;
 
 import kr.co.kalpa.sofia.domain.ImageFile;
 import kr.co.kalpa.sofia.service.ImageService;
+import kr.co.kalpa.sofia.repository.ImageFileRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
@@ -20,10 +24,7 @@ import java.util.List;
 public class ImageController {
 
     private final ImageService imageService;
-    private final kr.co.kalpa.sofia.repository.ImageFileRepository fileRepository;
-
-    @Value("${sofia.base.folder:./data}")
-    private String baseFolder;
+    private final ImageFileRepository fileRepository;
 
     @Value("${sofia.base.image.folder:./data/images}")
     private String baseImageFolder;
@@ -35,29 +36,28 @@ public class ImageController {
 
     @GetMapping("/{id}")
     public ResponseEntity<ImageFile> getImageById(@PathVariable Long id) {
-        return ResponseEntity.ok(fileRepository.findById(id).orElseThrow());
+        return ResponseEntity.ok(findImageOrThrow(id));
     }
 
     @GetMapping("/{id}/thumb")
-    public ResponseEntity<org.springframework.core.io.Resource> getThumbnail(@PathVariable Long id) throws IOException {
-        ImageFile file = fileRepository.findById(id).orElseThrow();
-        Path path = Paths.get(baseFolder, "thumbnails", file.getFolder().getId().toString(), id + ".jpg");
-        org.springframework.core.io.Resource resource = new org.springframework.core.io.FileSystemResource(path);
-        return ResponseEntity.ok()
-                .contentType(org.springframework.http.MediaType.IMAGE_JPEG)
-                .body(resource);
+    public ResponseEntity<Resource> getThumbnail(@PathVariable Long id) throws IOException {
+        return serveThumbnail(id, "thumb");
+    }
+
+    @GetMapping("/{id}/smallThumb")
+    public ResponseEntity<Resource> getSmallThumbnail(@PathVariable Long id) throws IOException {
+        return serveThumbnail(id, "smallThumb");
     }
 
     @GetMapping("/{id}/raw")
-    public ResponseEntity<org.springframework.core.io.Resource> getRawImage(@PathVariable Long id) throws IOException {
-        ImageFile file = fileRepository.findById(id).orElseThrow();
+    public ResponseEntity<Resource> getRawImage(@PathVariable Long id) throws IOException {
+        ImageFile file = findImageOrThrow(id);
         Path path = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
-        org.springframework.core.io.Resource resource = new org.springframework.core.io.FileSystemResource(path);
         
         String mimeType = Files.probeContentType(path);
-        return ResponseEntity.ok()
-                .contentType(org.springframework.http.MediaType.parseMediaType(mimeType != null ? mimeType : "image/jpeg"))
-                .body(resource);
+        MediaType contentType = MediaType.parseMediaType(mimeType != null ? mimeType : "image/jpeg");
+        
+        return serveResource(path, contentType);
     }
 
     @PostMapping("/upload")
@@ -66,5 +66,22 @@ public class ImageController {
             @RequestParam("folderId") Long folderId) throws IOException {
         ImageFile savedImage = imageService.saveImage(file, folderId);
         return ResponseEntity.ok(savedImage);
+    }
+
+    private ImageFile findImageOrThrow(Long id) {
+        return fileRepository.findById(id).orElseThrow(() -> new RuntimeException("Image not found: " + id));
+    }
+
+    private ResponseEntity<Resource> serveThumbnail(Long id, String type) throws IOException {
+        ImageFile file = findImageOrThrow(id);
+        Path path = imageService.getThumbnailPath(file, type);
+        return serveResource(path, MediaType.IMAGE_JPEG);
+    }
+
+    private ResponseEntity<Resource> serveResource(Path path, MediaType contentType) {
+        Resource resource = new FileSystemResource(path);
+        return ResponseEntity.ok()
+                .contentType(contentType)
+                .body(resource);
     }
 }
