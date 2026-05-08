@@ -130,7 +130,7 @@ function dispatch(action: Action) {
   })
 }
 
-function toast({ ...props }: ToastProps) {
+function toast({ ...props }: Omit<ToasterToast, "id">) {
   const id = genId()
 
   const update = (props: ToasterToast) =>

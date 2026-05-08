@@ -18,10 +18,6 @@ interface ImageFolder {
   note: string;
 }
 
-interface CellRendererParams {
-  data: ImageFolder;
-}
-
 const FolderListPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
@@ -76,13 +72,13 @@ const FolderListPage = () => {
     }
   };
 
-  const columnDefs: ColDef[] = [
+  const columnDefs: ColDef<ImageFolder>[] = [
     { field: 'id', headerName: 'ID', width: 80 },
     {
       field: 'folderName',
       headerName: '폴더명',
       flex: 1,
-      cellRenderer: (params: CellRendererParams) => (
+      cellRenderer: (params: any) => (
         <button
           className="text-blue-600 hover:underline font-medium"
           onClick={() => navigate(`/folder/${params.data.id}`)}
@@ -90,14 +86,14 @@ const FolderListPage = () => {
           {params.value}
         </button>
       ),
-      filter: true // Enable filter for folderName column
+      filter: true
     },
     {
       field: 'lastLoadTime',
       headerName: '마지막 로드 시간',
       width: 220,
-      valueFormatter: (params: CellRendererParams) => formatDate(params.value),
-      filter: false // Disable filter for lastLoadTime column
+      valueFormatter: (params: any) => formatDate(params.value),
+      filter: false
     },
     {
       field: 'note',
@@ -105,13 +101,13 @@ const FolderListPage = () => {
       flex: 1,
       editable: true,
       cellEditor: 'agTextCellEditor',
-      filter: true // Enable filter for note column
+      filter: true
     },
     {
       headerName: '삭제',
       width: 70,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-      cellRenderer: (params: CellRendererParams) => (
+      cellRenderer: (params: any) => (
         <button
           title="폴더 삭제"
           onClick={() => handleDelete(params.data.id, params.data.folderName)}
@@ -142,7 +138,7 @@ const FolderListPage = () => {
           <Trash2 size={16} strokeWidth={2} />
         </button>
       ),
-      filter: false // Disable filter for delete column
+      filter: false
     },
   ];
 
@@ -161,13 +157,12 @@ const FolderListPage = () => {
           columnDefs={columnDefs}
           defaultColDef={{
             sortable: true,
-            filter: false, // Disable filter by default
+            filter: false,
             resizable: true,
           }}
           pagination={true}
           paginationPageSize={20}
           onCellValueChanged={onCellValueChanged}
-          enterMovesDownAfterEdit={true}
           singleClickEdit={false}
         />
       </div>

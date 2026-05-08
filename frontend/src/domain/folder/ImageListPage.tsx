@@ -1,8 +1,8 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { LayoutGrid, List as ListIcon, ChevronLeft, RotateCw, RotateCcw, Trash2 } from 'lucide-react';
-import { useState, useMemo } from 'react';
+import { LayoutGrid, List as ListIcon, ChevronLeft, RotateCw, RotateCcw, Trash2, Check, X } from 'lucide-react';
+import { useState, useMemo, useRef } from 'react';
 
 import { useUIStore } from '@/store/uiStore';
 import { formatDateTime, formatFileSize } from '@/lib/utils';
@@ -10,7 +10,7 @@ import { ImageThumbCard1 } from '@/shared/components/ImageThumbCard1';
 import { Button } from '@/shared/components/ui/button';
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
-import type { ColDef, CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
+import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, ValueSetterParams } from 'ag-grid-community';
 import { useToast } from '@/shared/components/ui/use-toast';
 
 // Register AG Grid modules
@@ -35,6 +35,7 @@ const ImageListPage = () => {
   const { imageListViewMode: viewMode, setImageListViewMode: setViewMode } = useUIStore();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [refreshKey, setRefreshKey] = useState(Date.now());
+  const gridRef = useRef<AgGridReact>(null);
 
   const { data: images, isLoading } = useQuery<ImageFile[]>({
     queryKey: ['folder-images', folderId],
@@ -45,15 +46,15 @@ const ImageListPage = () => {
   });
 
   const updateImageMutation = useMutation({
-    mutationFn: async ({ id, note }: { id: number; note: string }) => {
-      await apiClient.patch(`/images/${id}`, { note });
+    mutationFn: async ({ id, note, orgName }: { id: number; note?: string; orgName?: string }) => {
+      await apiClient.patch(`/images/${id}`, { note, orgName });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['folder-images', folderId] });
-      toast({ title: '성공', description: '노트가 수정되었습니다.' });
+      toast({ title: '성공', description: '이미지 정보가 수정되었습니다.' });
     },
     onError: () => {
-      toast({ title: '오류', description: '노트 수정 중 오류가 발생했습니다.', variant: 'destructive' });
+      toast({ title: '오류', description: '수정 중 오류가 발생했습니다.', variant: 'destructive' });
     }
   });
 
@@ -86,10 +87,11 @@ const ImageListPage = () => {
   });
 
   const onCellValueChanged = (event: CellValueChangedEvent) => {
-    if (event.column.getColId() === 'note') {
+    const field = event.column.getColId();
+    if (field === 'note' || field === 'orgName') {
       updateImageMutation.mutate({
         id: event.data.id,
-        note: event.newValue
+        [field]: event.newValue
       });
     }
   };
@@ -106,6 +108,22 @@ const ImageListPage = () => {
     );
   };
 
+  const handleSelectAll = () => {
+    if (viewMode === 'list' && gridRef.current?.api) {
+      gridRef.current.api.selectAll();
+    } else {
+      setSelectedIds(images?.map(img => img.id) || []);
+    }
+  };
+
+  const handleDeselectAll = () => {
+    if (viewMode === 'list' && gridRef.current?.api) {
+      gridRef.current.api.deselectAll();
+    } else {
+      setSelectedIds([]);
+    }
+  };
+
   const handleBulkDelete = () => {
     if (selectedIds.length === 0) return;
     if (window.confirm(`선택한 ${selectedIds.length}개의 이미지를 삭제하시겠습니까?\n(원본 파일과 썸네일이 모두 삭제됩니다.)`)) {
@@ -116,6 +134,24 @@ const ImageListPage = () => {
   const handleBulkRotate = (angle: number) => {
     if (selectedIds.length === 0) return;
     rotateMutation.mutate({ ids: selectedIds, angle });
+  };
+
+  const handleRename = (id: number, currentName: string) => {
+    const dotIndex = currentName.lastIndexOf('.');
+    const nameWithoutExt = dotIndex !== -1 ? currentName.substring(0, dotIndex) : currentName;
+    const ext = dotIndex !== -1 ? currentName.substring(dotIndex) : '';
+    
+    const newNameWithoutExt = window.prompt('새 파일명을 입력하세요 (확장자 제외):', nameWithoutExt);
+    if (newNameWithoutExt !== null && newNameWithoutExt.trim() !== '') {
+      updateImageMutation.mutate({ id, orgName: newNameWithoutExt.trim() + ext });
+    }
+  };
+
+  const handleAddNote = (id: number, currentNote?: string) => {
+    const newNote = window.prompt('노트를 입력하세요:', currentNote || '');
+    if (newNote !== null) {
+      updateImageMutation.mutate({ id, note: newNote.trim() });
+    }
   };
 
   const columnDefs = useMemo<ColDef[]>(() => [
@@ -145,13 +181,34 @@ const ImageListPage = () => {
       headerName: '파일명',
       flex: 1,
       sortable: true,
+      editable: true,
+      cellEditor: 'agTextCellEditor',
+      valueSetter: (params: ValueSetterParams) => {
+        const newValue = params.newValue;
+        if (!newValue || newValue.trim() === '') return false;
+        
+        const currentName = params.data.orgName;
+        const dotIndex = currentName.lastIndexOf('.');
+        const ext = dotIndex !== -1 ? currentName.substring(dotIndex) : '';
+        
+        // Ensure extension is preserved if missing in newValue
+        let finalValue = newValue.trim();
+        if (ext && !finalValue.toLowerCase().endsWith(ext.toLowerCase())) {
+          finalValue += ext;
+        }
+        
+        params.data.orgName = finalValue;
+        return true;
+      },
       cellRenderer: (params: any) => (
-        <button
-          className="text-blue-600 hover:underline font-medium"
-          onClick={() => navigate(`/image/${params.data.id}`)}
-        >
-          {params.value}
-        </button>
+        <div className="flex items-center w-full justify-between group/cell">
+          <button
+            className="text-blue-600 hover:underline font-medium truncate"
+            onClick={() => navigate(`/image/${params.data.id}`)}
+          >
+            {params.value}
+          </button>
+        </div>
       )
     },
     { field: 'imageFormat', headerName: '포맷', width: 100, sortable: false, filter: false, valueFormatter: (p: any) => p.value?.toUpperCase() },
@@ -204,6 +261,29 @@ const ImageListPage = () => {
         </div>
 
         <div className="flex items-center gap-6">
+          {/* 전체 선택 및 전체 해제 버튼 */}
+          <div className="flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleSelectAll}
+              className="h-9 px-3 gap-2 text-green-600 hover:text-green-700 hover:bg-green-50"
+              title="전체 선택"
+            >
+              <Check size={16} />
+              <span className="hidden sm:inline">전체 선택</span>
+            </Button>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleDeselectAll}
+              className="h-9 px-3 gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+              title="전체 해제"
+            >
+              <X size={16} />
+              <span className="hidden sm:inline">전체 해제</span>
+            </Button>
+          </div>
           {/* Control Box */}
           <div className="flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
             <Button
@@ -258,7 +338,7 @@ const ImageListPage = () => {
               onClick={() => { setViewMode('thumb'); setSelectedIds([]); }}
               className={viewMode === 'thumb' ? 'bg-white shadow-sm' : ''}
             >
-              <LayoutGrid size={20} /> {/* Ensure size is passed as an attribute */}
+              <LayoutGrid size={20} />
             </Button>
             <Button
               variant={viewMode === 'list' ? 'secondary' : 'ghost'}
@@ -266,7 +346,7 @@ const ImageListPage = () => {
               onClick={() => { setViewMode('list'); setSelectedIds([]); }}
               className={viewMode === 'list' ? 'bg-white shadow-sm' : ''}
             >
-              <ListIcon size={20} /> {/* Ensure size is passed as an attribute */}
+              <ListIcon size={20} />
             </Button>
           </div>
         </div>
@@ -282,8 +362,8 @@ const ImageListPage = () => {
               refreshKey={refreshKey}
               onImageClick={(id) => navigate(`/image/${id}`)}
               onSelect={handleSelect}
-              onRename={() => console.log('Rename', img.id)}
-              onAddNote={() => console.log('Add Note', img.id)}
+              onRename={() => handleRename(img.id, img.orgName)}
+              onAddNote={() => handleAddNote(img.id, img.note)}
               onDelete={() => {
                 if (window.confirm('삭제하시겠습니까?')) bulkDeleteMutation.mutate([img.id]);
               }}
@@ -301,8 +381,8 @@ const ImageListPage = () => {
               refreshKey={refreshKey}
               onImageClick={(id) => navigate(`/image/${id}`)}
               onSelect={handleSelect}
-              onRename={() => console.log('Rename', img.id)}
-              onAddNote={() => console.log('Add Note', img.id)}
+              onRename={() => handleRename(img.id, img.orgName)}
+              onAddNote={() => handleAddNote(img.id, img.note)}
               onDelete={() => {
                 if (window.confirm('삭제하시겠습니까?')) bulkDeleteMutation.mutate([img.id]);
               }}
@@ -313,6 +393,7 @@ const ImageListPage = () => {
       ) : (
         <div className="w-full h-[650px] shadow-sm rounded-lg overflow-hidden border">
           <AgGridReact
+            ref={gridRef}
             theme={themeQuartz}
             rowData={images}
             columnDefs={columnDefs}
@@ -329,7 +410,6 @@ const ImageListPage = () => {
             paginationPageSize={10}
             paginationPageSizeSelector={[7, 10, 15, 20, 30]}
             onCellValueChanged={onCellValueChanged}
-            enterMovesDownAfterEdit={true}
             singleClickEdit={false}
             rowHeight={80}
           />

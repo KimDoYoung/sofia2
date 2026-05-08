@@ -62,10 +62,10 @@ export function ImageThumbCard1({
                     )}
                 </div>
 
-                {/* 이미지 위 호버 시 노트 노출 */}
+                {/* 이미지 위 호버 시 노트 노출 (하단 배치) */}
                 {image.note && (
-                    <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center p-4">
-                        <p className="text-white text-xs text-center line-clamp-4 leading-relaxed">
+                    <div className="absolute bottom-0 left-0 right-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity p-2">
+                        <p className="text-white text-[10px] line-clamp-2 leading-tight">
                             {image.note}
                         </p>
                     </div>

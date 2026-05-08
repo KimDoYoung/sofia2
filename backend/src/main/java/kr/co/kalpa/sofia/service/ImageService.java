@@ -80,9 +80,25 @@ public class ImageService {
     @Transactional
     public ImageFile updateImage(Long id, ImageUpdateRequest request) {
         ImageFile image = findImageOrThrow(id);
-        if (request.getOrgName() != null) {
-            image.setOrgName(request.getOrgName());
+        
+        if (request.getOrgName() != null && !request.getOrgName().equals(image.getOrgName())) {
+            Path oldPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
+            Path newPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), request.getOrgName());
+            
+            try {
+                if (Files.exists(oldPath)) {
+                    if (Files.exists(newPath)) {
+                        throw new RuntimeException("A file with the new name already exists: " + request.getOrgName());
+                    }
+                    Files.move(oldPath, newPath);
+                }
+                image.setOrgName(request.getOrgName());
+            } catch (IOException e) {
+                log.error("Failed to rename physical file from {} to {}: {}", oldPath, newPath, e.getMessage());
+                throw new RuntimeException("Failed to rename file on disk: " + e.getMessage());
+            }
         }
+        
         if (request.getNote() != null) {
             image.setNote(request.getNote());
         }
