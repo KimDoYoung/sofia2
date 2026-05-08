@@ -2,6 +2,7 @@ package kr.co.kalpa.sofia.service;
 
 import kr.co.kalpa.sofia.domain.ImageFile;
 import kr.co.kalpa.sofia.domain.ImageFolder;
+import kr.co.kalpa.sofia.dto.ImageUpdateRequest;
 import kr.co.kalpa.sofia.repository.ImageFileRepository;
 import kr.co.kalpa.sofia.repository.ImageFolderRepository;
 import lombok.RequiredArgsConstructor;

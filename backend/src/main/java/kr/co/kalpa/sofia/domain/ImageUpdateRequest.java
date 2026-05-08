@@ -1,9 +1,0 @@
-package kr.co.kalpa.sofia.domain;
-
-import lombok.Data;
-
-@Data
-public class ImageUpdateRequest {
-    private String orgName;
-    private String note;
-}

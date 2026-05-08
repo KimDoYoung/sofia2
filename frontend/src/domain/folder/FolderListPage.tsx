@@ -11,7 +11,7 @@ ModuleRegistry.registerModules([AllCommunityModule]);
 
 interface ImageFolder {
   id: number;
-  folderName: String;
+  folderName: string;
   lastLoadTime: string;
   note: string;
 }
@@ -49,6 +49,18 @@ const FolderListPage = () => {
       valueFormatter: (params: any) => formatDate(params.value)
     },
     { field: 'note', headerName: '비고', flex: 1 },
+    {
+      headerName: '삭제',
+      width: 100,
+      cellRenderer: (params: any) => (
+        <button
+          className="bg-red-500 text-white px-2 py-1 rounded"
+          onClick={() => console.log(`Deleting folder with ID: ${params.data.id}`)}
+        >
+          삭제
+        </button>
+      )
+    },
   ];
 
   if (isLoading) return <div className="p-8 text-center">Loading folders...</div>;

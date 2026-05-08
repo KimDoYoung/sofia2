@@ -1,6 +1,7 @@
 package kr.co.kalpa.sofia.controller;
 
 import kr.co.kalpa.sofia.domain.ImageFile;
+import kr.co.kalpa.sofia.repository.ImageFileRepository;
 import kr.co.kalpa.sofia.service.ImageService;
 import kr.co.kalpa.sofia.dto.ImageUpdateRequest;
 import kr.co.kalpa.sofia.dto.ImageDeleteRequest;
