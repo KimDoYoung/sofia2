@@ -2,9 +2,9 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Maximize, Download } from 'lucide-react';
-import { format, parseISO } from 'date-fns';
-import { ko } from 'date-fns/locale';
+import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Maximize, Download, Home, List } from 'lucide-react';
+import { formatDateTime } from '@/lib/utils';
+import { Button } from '@/shared/components/ui/button';
 
 interface ImageFile {
   id: number;
@@ -42,20 +42,11 @@ const ImageViewPage = () => {
   if (isLoading) return <div className="p-8 text-center">Loading image...</div>;
   if (!image) return <div className="p-8 text-center">Image not found</div>;
 
-  const formatDateTime = (dateStr?: string) => {
-    if (!dateStr) return '-';
-    try {
-      return format(parseISO(dateStr), 'yyyy-MM-dd HH:mm:ss (EEE)', { locale: ko });
-    } catch {
-      return dateStr;
-    }
-  };
-
   return (
     <div className="space-y-4">
       <div className="flex justify-between items-center">
         <div className="flex items-center gap-4">
-          <button 
+          <button
             onClick={() => navigate(`/folder/${image.folder.id}`)}
             className="p-2 hover:bg-gray-200 rounded-full transition-colors"
           >
@@ -66,7 +57,7 @@ const ImageViewPage = () => {
             <p className="text-xs text-gray-500">{image.folder.folderName}</p>
           </div>
         </div>
-        
+
         <div className="flex gap-2">
           <div className="flex bg-gray-100 p-1 rounded-lg">
             <button onClick={() => setZoom(prev => Math.max(0.1, prev - 0.2))} className="p-2 hover:bg-white rounded shadow-sm text-gray-600"><ZoomOut size={18} /></button>
@@ -74,27 +65,34 @@ const ImageViewPage = () => {
             <button onClick={() => setRotation(prev => (prev + 90) % 360)} className="p-2 hover:bg-white rounded shadow-sm text-gray-600"><RotateCw size={18} /></button>
             <button onClick={() => { setZoom(1); setRotation(0); }} className="p-2 hover:bg-white rounded shadow-sm text-gray-600"><Maximize size={18} /></button>
           </div>
-          <a 
-            href={`/sofia/api/images/${image.id}/raw`} 
+          <a
+            href={`/sofia/api/images/${image.id}/raw`}
             download={image.orgName}
             className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
           >
             <Download size={18} />
             Download
           </a>
+          <button
+            onClick={() => navigate(`/folder/${image.folder.id}`)}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            <List size={18} />
+            리스트로 돌아가기
+          </button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
         <div className="lg:col-span-3 bg-black rounded-xl overflow-hidden shadow-inner flex items-center justify-center min-h-[600px] relative">
-          <div 
+          <div
             className="transition-transform duration-300 ease-out"
-            style={{ 
+            style={{
               transform: `scale(${zoom}) rotate(${rotation}deg)`,
             }}
           >
-            <img 
-              src={`/sofia/api/images/${image.id}/raw`} 
+            <img
+              src={`/sofia/api/images/${image.id}/raw`}
               alt={image.orgName}
               className="max-w-full max-h-[80vh] shadow-2xl"
             />
@@ -127,7 +125,7 @@ const ImageViewPage = () => {
               <div className="grid grid-cols-2 gap-3">
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">셔터 스피드</p>
-                  <p className="text-sm text-gray-800 font-semibold">{image.shutterSpeed ? `1/${Math.round(1/image.shutterSpeed)}` : '-'}</p>
+                  <p className="text-sm text-gray-800 font-semibold">{image.shutterSpeed ? `1/${Math.round(1 / image.shutterSpeed)}` : '-'}</p>
                 </div>
                 <div className="p-3 bg-gray-50 rounded-lg">
                   <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">조리개</p>
