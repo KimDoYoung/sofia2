@@ -24,6 +24,7 @@ import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class ImageService {
 
     private final ImageFileRepository imageFileRepository;
@@ -95,12 +96,11 @@ public class ImageService {
             Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
             try {
                 Files.deleteIfExists(rawPath);
-                Path thumbPath = getThumbnailPath(image, "thumb");
-                Files.deleteIfExists(thumbPath);
-                Path smallThumbPath = getThumbnailPath(image, "smallThumb");
-                Files.deleteIfExists(smallThumbPath);
+                Files.deleteIfExists(getThumbnailPath(image, "thumb", false));
+                Files.deleteIfExists(getThumbnailPath(image, "smallThumb", false));
             } catch (IOException e) {
-                throw new RuntimeException("Failed to delete image files", e);
+                log.error("Failed to delete physical files for image id {}: {}", id, e.getMessage());
+                // Continue with database deletion even if physical file deletion fails
             }
             imageFileRepository.deleteById(id);
         }
@@ -129,10 +129,12 @@ public class ImageService {
                 }
 
                 // Recreate thumbnails
-                Path thumbPath = getThumbnailPath(image, "thumb");
+                Path thumbPath = getThumbnailPath(image, "thumb", false);
+                Files.createDirectories(thumbPath.getParent());
                 createThumbnail(sourceFile, thumbPath.toFile(), 300, 300);
 
-                Path smallThumbPath = getThumbnailPath(image, "smallThumb");
+                Path smallThumbPath = getThumbnailPath(image, "smallThumb", false);
+                Files.createDirectories(smallThumbPath.getParent());
                 createThumbnail(sourceFile, smallThumbPath.toFile(), 80, 80);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to rotate image: " + id, e);
@@ -145,12 +147,16 @@ public class ImageService {
     }
 
     public Path getThumbnailPath(ImageFile file, String type) throws IOException {
+        return getThumbnailPath(file, type, true);
+    }
+
+    public Path getThumbnailPath(ImageFile file, String type, boolean createIfMissing) throws IOException {
         String subFolder = type.equals("smallThumb") ? "smallThumbnails" : "thumbnails";
         int size = type.equals("smallThumb") ? 80 : 300;
         
         Path thumbPath = Paths.get(baseFolder, subFolder, file.getFolder().getId().toString(), file.getId() + ".jpg");
         
-        if (!Files.exists(thumbPath)) {
+        if (createIfMissing && !Files.exists(thumbPath)) {
             Files.createDirectories(thumbPath.getParent());
             Path rawPath = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
             if (Files.exists(rawPath)) {

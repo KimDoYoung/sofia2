@@ -17,7 +17,7 @@ const ProtectedLayout = () => {
   return (
     <div className="min-h-screen bg-gray-50">
       <TopBar />
-      <main className="p-6">
+      <main className="px-6 py-2">
         <Outlet />
       </main>
     </div>

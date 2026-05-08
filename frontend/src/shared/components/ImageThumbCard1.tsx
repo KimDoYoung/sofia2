@@ -9,17 +9,19 @@ interface ImageThumbCard1Props {
         note?: string;
     };
     isSelected: boolean;
+    refreshKey?: number;
     onImageClick: (id: number) => void;
     onSelect: (id: number) => void;
     onRename: (id: number) => void;
     onAddNote: (id: number) => void;
     onDelete: (id: number) => void;
-    onRotate: (id: number) => void;
+    onRotate: (id: number, angle: number) => void;
 }
 
 export function ImageThumbCard1({
     image,
     isSelected,
+    refreshKey = 0,
     onImageClick,
     onSelect,
     onRename,
@@ -40,7 +42,7 @@ export function ImageThumbCard1({
                 onClick={() => onImageClick(image.id)}
             >
                 <img
-                    src={`/sofia/api/images/${image.id}/thumb`}
+                    src={`/sofia/api/images/${image.id}/thumb?t=${refreshKey}`}
                     alt={image.orgName}
                     className="w-full h-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
@@ -86,7 +88,7 @@ export function ImageThumbCard1({
                     <div className="flex gap-0.5">
                         <Button
                             variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
-                            onClick={(e) => { e.stopPropagation(); onRotate(image.id); }}
+                            onClick={(e) => { e.stopPropagation(); onRotate(image.id, 90); }}
                             title="회전"
                         >
                             <RotateCw size={13} />
