@@ -1,8 +1,10 @@
-package kr.co.kalpa.sofia.domain;
+package kr.co.kalpa.sofia.dto;
 
-import lombok.Data;
+import lombok.Getter;
+import lombok.Setter;
 
-@Data
+@Getter
+@Setter
 public class ImageUpdateRequest {
     private String orgName;
     private String note;

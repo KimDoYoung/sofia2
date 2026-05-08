@@ -76,7 +76,7 @@ const ImageListPage = () => {
           </Button>
           <h2 className="text-2xl font-bold text-gray-800">이미지 목록</h2>
         </div>
-
+        {/* 리스트 표현 형식 */}
         <div className="flex bg-gray-100 p-1 rounded-lg border">
           <Button
             variant={viewMode === 'smallThumb' ? 'secondary' : 'ghost'}

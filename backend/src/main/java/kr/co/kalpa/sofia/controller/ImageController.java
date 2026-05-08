@@ -2,7 +2,9 @@ package kr.co.kalpa.sofia.controller;
 
 import kr.co.kalpa.sofia.domain.ImageFile;
 import kr.co.kalpa.sofia.service.ImageService;
-import kr.co.kalpa.sofia.repository.ImageFileRepository;
+import kr.co.kalpa.sofia.dto.ImageUpdateRequest;
+import kr.co.kalpa.sofia.dto.ImageDeleteRequest;
+import kr.co.kalpa.sofia.dto.ImageRotateRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
@@ -44,11 +46,6 @@ public class ImageController {
         return serveThumbnail(id, "thumb");
     }
 
-    @GetMapping("/{id}/smallThumb")
-    public ResponseEntity<Resource> getSmallThumbnail(@PathVariable Long id) throws IOException {
-        return serveThumbnail(id, "smallThumb");
-    }
-
     @GetMapping("/{id}/raw")
     public ResponseEntity<Resource> getRawImage(@PathVariable Long id) throws IOException {
         ImageFile file = findImageOrThrow(id);
@@ -66,6 +63,24 @@ public class ImageController {
             @RequestParam("folderId") Long folderId) throws IOException {
         ImageFile savedImage = imageService.saveImage(file, folderId);
         return ResponseEntity.ok(savedImage);
+    }
+
+    @PatchMapping("/{id}")
+    public ResponseEntity<ImageFile> updateImage(@PathVariable Long id, @RequestBody ImageUpdateRequest request) {
+        ImageFile updatedImage = imageService.updateImage(id, request);
+        return ResponseEntity.ok(updatedImage);
+    }
+
+    @DeleteMapping
+    public ResponseEntity<Void> deleteImages(@RequestBody ImageDeleteRequest request) {
+        imageService.deleteImages(request.getIds());
+        return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/rotate")
+    public ResponseEntity<Void> rotateImages(@RequestBody ImageRotateRequest request) {
+        imageService.rotateImages(request.getIds(), request.getAngle());
+        return ResponseEntity.noContent().build();
     }
 
     private ImageFile findImageOrThrow(Long id) {

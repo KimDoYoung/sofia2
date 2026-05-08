@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -72,6 +73,74 @@ public class ImageService {
         metadataService.extractMetadata(savedFile, imageFile);
 
         return imageFileRepository.save(imageFile);
+    }
+
+    @Transactional
+    public ImageFile updateImage(Long id, ImageUpdateRequest request) {
+        ImageFile image = findImageOrThrow(id);
+        if (request.getOrgName() != null) {
+            image.setOrgName(request.getOrgName());
+        }
+        if (request.getNote() != null) {
+            image.setNote(request.getNote());
+        }
+        return imageFileRepository.save(image);
+    }
+
+    @Transactional
+    public void deleteImages(List<Long> ids) {
+        for (Long id : ids) {
+            ImageFile image = findImageOrThrow(id);
+            Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
+            try {
+                Files.deleteIfExists(rawPath);
+                Path thumbPath = getThumbnailPath(image, "thumb");
+                Files.deleteIfExists(thumbPath);
+                Path smallThumbPath = getThumbnailPath(image, "smallThumb");
+                Files.deleteIfExists(smallThumbPath);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to delete image files", e);
+            }
+            imageFileRepository.deleteById(id);
+        }
+    }
+
+    @Transactional
+    public void rotateImages(List<Long> ids, int angle) {
+        for (Long id : ids) {
+            ImageFile image = findImageOrThrow(id);
+            Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
+            try {
+                File sourceFile = rawPath.toFile();
+                
+                // Use Thumbnailator for rotation
+                Thumbnails.of(sourceFile)
+                        .scale(1.0)
+                        .rotate(angle)
+                        .toFile(sourceFile);
+
+                // Update resolution in DB if 90 or 270 degrees
+                if (angle == 90 || angle == 270 || angle == -90 || angle == -270) {
+                    int oldWidth = image.getImageWidth();
+                    image.setImageWidth(image.getImageHeight());
+                    image.setImageHeight(oldWidth);
+                    imageFileRepository.save(image);
+                }
+
+                // Recreate thumbnails
+                Path thumbPath = getThumbnailPath(image, "thumb");
+                createThumbnail(sourceFile, thumbPath.toFile(), 300, 300);
+
+                Path smallThumbPath = getThumbnailPath(image, "smallThumb");
+                createThumbnail(sourceFile, smallThumbPath.toFile(), 80, 80);
+            } catch (IOException e) {
+                throw new RuntimeException("Failed to rotate image: " + id, e);
+            }
+        }
+    }
+
+    private ImageFile findImageOrThrow(Long id) {
+        return imageFileRepository.findById(id).orElseThrow(() -> new RuntimeException("Image not found: " + id));
     }
 
     public Path getThumbnailPath(ImageFile file, String type) throws IOException {
