@@ -64,7 +64,7 @@ const FolderTree = ({
         <Folder size={18} className={isSelected ? 'text-blue-600' : 'text-gray-400'} />
         <span className="text-sm font-medium flex-1">{node.name}</span>
         {node.isAlreadyAdded && (
-          <CheckCircle2 size={14} className="text-green-500" title="이미 추가됨" />
+          <CheckCircle2 size={14} className="text-green-500" />
         )}
       </div>
       
