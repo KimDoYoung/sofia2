@@ -4,7 +4,7 @@ import { formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
-import type { ColDef, CellValueChangedEvent } from 'ag-grid-community';
+import type { ColDef, CellValueChangedEvent, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
 import { useToast } from '@/shared/components/ui/use-toast';
 import { Trash2 } from 'lucide-react';
 
@@ -78,10 +78,10 @@ const FolderListPage = () => {
       field: 'folderName',
       headerName: '폴더명',
       flex: 1,
-      cellRenderer: (params: any) => (
+      cellRenderer: (params: ICellRendererParams<ImageFolder>) => (
         <button
           className="text-blue-600 hover:underline font-medium"
-          onClick={() => navigate(`/folder/${params.data.id}`)}
+          onClick={() => navigate(`/folder/${params.data?.id}`)}
         >
           {params.value}
         </button>
@@ -92,7 +92,7 @@ const FolderListPage = () => {
       field: 'lastLoadTime',
       headerName: '마지막 로드 시간',
       width: 220,
-      valueFormatter: (params: any) => formatDate(params.value),
+      valueFormatter: (params: ValueFormatterParams<ImageFolder>) => params.value ? formatDate(params.value) : '',
       filter: false
     },
     {
@@ -107,10 +107,14 @@ const FolderListPage = () => {
       headerName: '삭제',
       width: 70,
       cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-      cellRenderer: (params: any) => (
+      cellRenderer: (params: ICellRendererParams<ImageFolder>) => (
         <button
           title="폴더 삭제"
-          onClick={() => handleDelete(params.data.id, params.data.folderName)}
+          onClick={() => {
+            if (params.data) {
+              handleDelete(params.data.id, params.data.folderName);
+            }
+          }}
           style={{
             display: 'flex',
             alignItems: 'center',

@@ -2,7 +2,7 @@ import { useMemo } from 'react';
 import type { RefObject } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { themeQuartz } from 'ag-grid-community';
-import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, ValueSetterParams } from 'ag-grid-community';
+import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, ValueSetterParams, ICellRendererParams } from 'ag-grid-community';
 import { Button } from '@/shared/components/ui/button';
 import { Link } from 'lucide-react';
 import { formatDateTime, formatFileSize } from '@/lib/utils';
@@ -27,7 +27,7 @@ export const ImageListView = ({
   onImageClick,
   onCopyLink,
 }: ImageListViewProps) => {
-  const columnDefs = useMemo<ColDef[]>(() => [
+  const columnDefs = useMemo<ColDef<ImageFile>[]>(() => [
     {
       field: 'id',
       headerName: 'ID',
@@ -42,9 +42,9 @@ export const ImageListView = ({
       width: 120,
       sortable: false,
       filter: false,
-      cellRenderer: (params: any) => (
+      cellRenderer: (params: ICellRendererParams<ImageFile>) => (
         <img
-          src={`/sofia/api/images/${params.data.id}/thumb?t=${refreshKey}`}
+          src={`/sofia/api/images/${params.data?.id}/thumb?t=${refreshKey}`}
           className="w-16 h-16 object-cover rounded shadow-sm"
         />
       )
@@ -56,7 +56,7 @@ export const ImageListView = ({
       sortable: true,
       editable: true,
       cellEditor: 'agTextCellEditor',
-      valueSetter: (params: ValueSetterParams) => {
+      valueSetter: (params: ValueSetterParams<ImageFile>) => {
         const newValue = params.newValue;
         if (!newValue || newValue.trim() === '') return false;
 
@@ -72,11 +72,11 @@ export const ImageListView = ({
         params.data.orgName = finalValue;
         return true;
       },
-      cellRenderer: (params: any) => (
+      cellRenderer: (params: ICellRendererParams<ImageFile>) => (
         <div className="flex items-center w-full justify-between group/cell">
           <button
             className="text-blue-600 hover:underline font-medium truncate"
-            onClick={() => onImageClick(params.data.id)}
+            onClick={() => onImageClick(params.data!.id)}
           >
             {params.value}
           </button>
@@ -89,21 +89,21 @@ export const ImageListView = ({
       width: 100, 
       sortable: false, 
       filter: false, 
-      valueFormatter: (p: any) => p.value?.toUpperCase() 
+      valueFormatter: (p) => p.value?.toUpperCase() || ''
     },
     {
       headerName: '해상도',
       width: 140,
       sortable: false,
       filter: false,
-      valueGetter: (p: any) => `${p.data.imageWidth} x ${p.data.imageHeight}`
+      valueGetter: (p) => p.data ? `${p.data.imageWidth} x ${p.data.imageHeight}` : ''
     },
     {
       field: 'fileSize',
       headerName: '파일용량',
       width: 120,
       sortable: true,
-      valueFormatter: (p: any) => formatFileSize(p.value),
+      valueFormatter: (p) => p.value ? formatFileSize(p.value) : '',
       type: 'rightAligned'
     },
     {
@@ -111,7 +111,7 @@ export const ImageListView = ({
       headerName: '촬영일시',
       width: 220,
       sortable: true,
-      valueFormatter: (p: any) => formatDateTime(p.value)
+      valueFormatter: (p) => p.value ? formatDateTime(p.value) : ''
     },
     {
       field: 'note',
@@ -125,12 +125,12 @@ export const ImageListView = ({
       width: 70,
       sortable: false,
       filter: false,
-      cellRenderer: (params: any) => (
+      cellRenderer: (params: ICellRendererParams<ImageFile>) => (
         <Button
           variant="ghost"
           size="icon"
           className="h-8 w-8 text-gray-400 hover:text-blue-600"
-          onClick={() => onCopyLink(params.data.id)}
+          onClick={() => onCopyLink(params.data!.id)}
           title="이미지 링크 복사"
         >
           <Link size={14} />
