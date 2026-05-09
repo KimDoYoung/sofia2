@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react';
+import { useMemo, useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
@@ -75,23 +75,23 @@ const ImageViewPage = () => {
     }));
   }, [folderImages, imageId, imageTimestamp]);
 
-  const handleIndexChange = (index: number) => {
+  const handleIndexChange = useCallback((index: number) => {
     if (folderImages && folderImages[index]) {
       navigate(`/image/${folderImages[index].id}`, { replace: true });
     }
-  };
+  }, [folderImages, navigate]);
 
-  const handlePrev = () => {
+  const handlePrev = useCallback(() => {
     if (hasPrev && folderImages) {
       handleIndexChange(currentIndex - 1);
     }
-  };
+  }, [hasPrev, folderImages, handleIndexChange, currentIndex]);
 
-  const handleNext = () => {
+  const handleNext = useCallback(() => {
     if (hasNext && folderImages) {
       handleIndexChange(currentIndex + 1);
     }
-  };
+  }, [hasNext, folderImages, handleIndexChange, currentIndex]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -102,7 +102,7 @@ const ImageViewPage = () => {
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [hasPrev, hasNext, folderImages, currentIndex, isSliderVisible]);
+  }, [isSliderVisible, handlePrev, handleNext]);
 
 
   if (isImageLoading || (folderId && isFolderLoading)) {

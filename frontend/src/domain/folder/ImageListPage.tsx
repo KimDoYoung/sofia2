@@ -178,7 +178,7 @@ const ImageListPage = () => {
       link.remove();
       window.URL.revokeObjectURL(url);
       toast({ title: '성공', description: 'PDF 파일이 생성되었습니다.' });
-    } catch (error) {
+    } catch {
       toast({ title: '오류', description: 'PDF 생성 중 오류가 발생했습니다.', variant: 'destructive' });
     } finally {
       setIsExporting(false);
