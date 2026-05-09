@@ -85,7 +85,7 @@ function LoginPage() {
             </div>
 
             <div className="grid grid-cols-3 gap-3 mt-4">
-              {[1,2,3,4,5,6,7,8,9].map((n) => (
+              {[1, 2, 3, 4, 5, 6, 7, 8, 9].map((n) => (
                 <button
                   key={n}
                   type="button"
@@ -128,17 +128,16 @@ function LoginPage() {
               type="button"
               onClick={handleLogin}
               disabled={!isReady}
-              className={`w-full h-12 rounded-xl text-white font-semibold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                isReady
+              className={`w-full h-12 rounded-xl text-white font-semibold text-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed ${isReady
                   ? 'bg-gradient-to-r from-green-500 to-emerald-400 shadow-lg shadow-green-200'
                   : 'bg-blue-500'
-              }`}
+                }`}
             >
               {isLoading ? '⏳ 로그인 중...' : '🔑 로그인'}
             </button>
           </div>
         </div>
-        <p className="text-center text-gray-400 text-sm mt-4">© 2026 SOFIA Project.</p>
+        <p className="text-center text-gray-400 text-sm mt-4">© 2026 SOFIA - Image viewer by KimDoYoung</p>
       </div>
     </div>
   )

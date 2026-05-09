@@ -49,7 +49,7 @@ public class ImageController {
     @GetMapping("/{id}/thumb")
     public ResponseEntity<Resource> getThumbnail(@PathVariable Long id) throws IOException {
         ImageFile file = findImageOrThrow(id);
-        Path path = imageService.getThumbnailPath(file, "thumb");
+        Path path = imageService.getThumbnailPath(file);
         
         if (!Files.exists(path)) {
             return ResponseEntity.notFound().build();

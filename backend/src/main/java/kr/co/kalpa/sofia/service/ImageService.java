@@ -127,8 +127,7 @@ public class ImageService {
             Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
             try {
                 Files.deleteIfExists(rawPath);
-                Files.deleteIfExists(getThumbnailPath(image, "thumb", false));
-                Files.deleteIfExists(getThumbnailPath(image, "smallThumb", false));
+                Files.deleteIfExists(getThumbnailPath(image, false));
             } catch (IOException e) {
                 log.error("Failed to delete physical files for image id {}: {}", id, e.getMessage());
                 // Continue with database deletion even if physical file deletion fails
@@ -160,13 +159,9 @@ public class ImageService {
                 }
 
                 // Recreate thumbnails
-                Path thumbPath = getThumbnailPath(image, "thumb", false);
+                Path thumbPath = getThumbnailPath(image, false);
                 Files.createDirectories(thumbPath.getParent());
                 createThumbnail(sourceFile, thumbPath.toFile(), 300, 300);
-
-                Path smallThumbPath = getThumbnailPath(image, "smallThumb", false);
-                Files.createDirectories(smallThumbPath.getParent());
-                createThumbnail(sourceFile, smallThumbPath.toFile(), 80, 80);
             } catch (IOException e) {
                 throw new RuntimeException("Failed to rotate image: " + id, e);
             }
@@ -177,15 +172,14 @@ public class ImageService {
         return imageFileRepository.findById(id).orElseThrow(() -> new RuntimeException("Image not found: " + id));
     }
 
-    public Path getThumbnailPath(ImageFile file, String type) throws IOException {
-        return getThumbnailPath(file, type, true);
+    public Path getThumbnailPath(ImageFile file) throws IOException {
+        return getThumbnailPath(file, true);
     }
 
-    public Path getThumbnailPath(ImageFile file, String type, boolean createIfMissing) throws IOException {
-        String subFolder = type.equals("smallThumb") ? "smallThumbnails" : "thumbnails";
-        int size = type.equals("smallThumb") ? 80 : 300;
+    public Path getThumbnailPath(ImageFile file, boolean createIfMissing) throws IOException {
+        int size = 300;
         
-        Path thumbPath = Paths.get(baseFolder, subFolder, file.getFolder().getId().toString(), file.getId() + ".jpg");
+        Path thumbPath = Paths.get(baseFolder, "thumbnails", file.getFolder().getId().toString(), file.getId() + ".jpg");
         
         if (createIfMissing && !Files.exists(thumbPath)) {
             Files.createDirectories(thumbPath.getParent());
