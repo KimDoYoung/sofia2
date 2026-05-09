@@ -3,28 +3,11 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Maximize, Download, List, Link } from 'lucide-react';
-import { formatDateTime } from '@/lib/utils';
 import { useToast } from '@/shared/components/ui/use-toast';
 import { Button } from '@/shared/components/ui/button';
+import type { ImageViewFile } from './types';
+import ImageInfo from './components/ImageInfo';
 
-interface ImageFile {
-  id: number;
-  orgName: string;
-  imageFormat: string;
-  imageWidth: number;
-  imageHeight: number;
-  folder: {
-    id: number;
-    folderName: string;
-  };
-  cameraManufacturer?: string;
-  cameraModel?: string;
-  captureDateTime?: string;
-  shutterSpeed?: number;
-  apertureValue?: number;
-  isoSpeed?: number;
-  focalLength?: number;
-}
 
 const ImageViewPage = () => {
   const { imageId } = useParams();
@@ -33,7 +16,7 @@ const ImageViewPage = () => {
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
 
-  const { data: image, isLoading } = useQuery<ImageFile>({
+  const { data: image, isLoading } = useQuery<ImageViewFile>({
     queryKey: ['image-detail', imageId],
     queryFn: async () => {
       const res = await apiClient.get(`/images/${imageId}`);
@@ -121,47 +104,7 @@ const ImageViewPage = () => {
           </div>
         </div>
 
-        <div className="bg-white rounded-xl shadow-sm border p-6 space-y-6">
-          <div>
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">파일 정보</h3>
-            <div className="grid grid-cols-2 gap-y-3 text-sm">
-              <span className="text-gray-500">포맷</span>
-              <span className="text-gray-800 font-medium uppercase">{image.imageFormat}</span>
-              <span className="text-gray-500">해상도</span>
-              <span className="text-gray-800 font-medium">{image.imageWidth} x {image.imageHeight}</span>
-              <span className="text-gray-500">촬영일시</span>
-              <span className="text-gray-800 font-medium">{formatDateTime(image.captureDateTime)}</span>
-            </div>
-          </div>
-
-          <div>
-            <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-3">EXIF 데이터</h3>
-            <div className="space-y-4">
-              <div className="p-3 bg-gray-50 rounded-lg">
-                <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">카메라</p>
-                <p className="text-sm text-gray-800 font-semibold">{image.cameraManufacturer} {image.cameraModel || '정보 없음'}</p>
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">셔터 스피드</p>
-                  <p className="text-sm text-gray-800 font-semibold">{image.shutterSpeed ? `1/${Math.round(1 / image.shutterSpeed)}` : '-'}</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">조리개</p>
-                  <p className="text-sm text-gray-800 font-semibold">{image.apertureValue ? `f/${image.apertureValue.toFixed(1)}` : '-'}</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">ISO</p>
-                  <p className="text-sm text-gray-800 font-semibold">{image.isoSpeed || '-'}</p>
-                </div>
-                <div className="p-3 bg-gray-50 rounded-lg">
-                  <p className="text-[10px] text-gray-400 font-bold uppercase mb-1">초점 거리</p>
-                  <p className="text-sm text-gray-800 font-semibold">{image.focalLength ? `${image.focalLength}mm` : '-'}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <ImageInfo image={image} />
       </div>
     </div>
   );
