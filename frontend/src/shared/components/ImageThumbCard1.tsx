@@ -1,6 +1,7 @@
-import { Pencil, FileText, Trash2, RotateCw, CheckCircle2, MessageSquare } from 'lucide-react';
+import { Pencil, FileText, Trash2, RotateCw, CheckCircle2, MessageSquare, Link } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/shared/components/ui/use-toast';
 
 interface ImageThumbCard1Props {
     image: {
@@ -29,6 +30,18 @@ export function ImageThumbCard1({
     onDelete,
     onRotate,
 }: ImageThumbCard1Props) {
+    const { toast } = useToast();
+
+    const handleCopyLink = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const url = `${window.location.origin}/sofia/api/images/${image.id}/raw`;
+        navigator.clipboard.writeText(url).then(() => {
+            toast({ title: '성공', description: '이미지 링크가 복사되었습니다.' });
+        }).catch(() => {
+            toast({ title: '오류', description: '링크 복사에 실패했습니다.', variant: 'destructive' });
+        });
+    };
+
     return (
         <div
             className={cn(
@@ -60,6 +73,17 @@ export function ImageThumbCard1({
                     ) : (
                         <div className="w-5 h-5 rounded-full border-2 border-white bg-black/20" />
                     )}
+                </div>
+
+                {/* 우측 상단 링크 복사 버튼 */}
+                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <Button
+                        size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white"
+                        onClick={handleCopyLink}
+                        title="링크 복사"
+                    >
+                        <Link size={12} className="text-gray-700" />
+                    </Button>
                 </div>
 
                 {/* 이미지 위 호버 시 노트 노출 (하단 배치) */}

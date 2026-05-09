@@ -16,14 +16,18 @@ import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.List;
 
 @RestController
 @RequestMapping("/api/images")
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class ImageController {
 
     private final ImageService imageService;
@@ -44,13 +48,30 @@ public class ImageController {
 
     @GetMapping("/{id}/thumb")
     public ResponseEntity<Resource> getThumbnail(@PathVariable Long id) throws IOException {
-        return serveThumbnail(id, "thumb");
+        ImageFile file = findImageOrThrow(id);
+        Path path = imageService.getThumbnailPath(file, "thumb");
+        
+        if (!Files.exists(path)) {
+            return ResponseEntity.notFound().build();
+        }
+        
+        return serveResource(path, MediaType.IMAGE_JPEG);
     }
 
     @GetMapping("/{id}/raw")
     public ResponseEntity<Resource> getRawImage(@PathVariable Long id) throws IOException {
         ImageFile file = findImageOrThrow(id);
+        
+        if (file.getFolder() == null) {
+            throw new RuntimeException("Image file has no associated folder: " + id);
+        }
+        
         Path path = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
+        
+        if (!Files.exists(path)) {
+            log.error("Raw image file not found on disk: {}", path);
+            return ResponseEntity.notFound().build();
+        }
         
         String mimeType = Files.probeContentType(path);
         MediaType contentType = MediaType.parseMediaType(mimeType != null ? mimeType : "image/jpeg");
@@ -84,14 +105,36 @@ public class ImageController {
         return ResponseEntity.noContent().build();
     }
 
-    private ImageFile findImageOrThrow(Long id) {
-        return fileRepository.findById(id).orElseThrow(() -> new RuntimeException("Image not found: " + id));
+    @PostMapping("/export/pdf")
+    public ResponseEntity<Resource> exportToPdf(@RequestBody ImageDeleteRequest request) throws IOException {
+        Path pdfPath = imageService.exportAsPdf(request.getIds());
+        
+        String filename = "sofia_images_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".pdf";
+        
+        Resource resource = new FileSystemResource(pdfPath) {
+            @Override
+            public InputStream getInputStream() throws IOException {
+                return new java.io.FileInputStream(pdfPath.toFile()) {
+                    @Override
+                    public void close() throws IOException {
+                        try {
+                            super.close();
+                        } finally {
+                            Files.deleteIfExists(pdfPath);
+                        }
+                    }
+                };
+            }
+        };
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.APPLICATION_PDF)
+                .body(resource);
     }
 
-    private ResponseEntity<Resource> serveThumbnail(Long id, String type) throws IOException {
-        ImageFile file = findImageOrThrow(id);
-        Path path = imageService.getThumbnailPath(file, type);
-        return serveResource(path, MediaType.IMAGE_JPEG);
+    private ImageFile findImageOrThrow(Long id) {
+        return fileRepository.findById(id).orElseThrow(() -> new RuntimeException("Image not found: " + id));
     }
 
     private ResponseEntity<Resource> serveResource(Path path, MediaType contentType) {

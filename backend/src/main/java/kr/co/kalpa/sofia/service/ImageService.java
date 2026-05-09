@@ -7,6 +7,12 @@ import kr.co.kalpa.sofia.repository.ImageFileRepository;
 import kr.co.kalpa.sofia.repository.ImageFolderRepository;
 import lombok.RequiredArgsConstructor;
 import net.coobird.thumbnailator.Thumbnails;
+import org.apache.pdfbox.pdmodel.PDDocument;
+import org.apache.pdfbox.pdmodel.PDPage;
+import org.apache.pdfbox.pdmodel.PDPageContentStream;
+import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
+import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -82,16 +88,24 @@ public class ImageService {
         ImageFile image = findImageOrThrow(id);
         
         if (request.getOrgName() != null && !request.getOrgName().equals(image.getOrgName())) {
+            if (image.getFolder() == null) {
+                throw new RuntimeException("Cannot rename image: No associated folder found for image ID " + id);
+            }
+            
             Path oldPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
             Path newPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), request.getOrgName());
             
             try {
-                if (Files.exists(oldPath)) {
-                    if (Files.exists(newPath)) {
-                        throw new RuntimeException("A file with the new name already exists: " + request.getOrgName());
-                    }
-                    Files.move(oldPath, newPath);
+                if (!Files.exists(oldPath)) {
+                    log.error("Original file missing on disk, cannot rename: {}", oldPath);
+                    throw new RuntimeException("Original file missing on disk, cannot perform rename.");
                 }
+                
+                if (Files.exists(newPath)) {
+                    throw new RuntimeException("A file with the new name already exists: " + request.getOrgName());
+                }
+                
+                Files.move(oldPath, newPath);
                 image.setOrgName(request.getOrgName());
             } catch (IOException e) {
                 log.error("Failed to rename physical file from {} to {}: {}", oldPath, newPath, e.getMessage());
@@ -190,5 +204,56 @@ public class ImageService {
         Thumbnails.of(source)
                 .size(width, height)
                 .toFile(target);
+    }
+
+    public Path exportAsPdf(List<Long> ids) {
+        Path tempFile;
+        try {
+            tempFile = Files.createTempFile("sofia_export_", ".pdf");
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create temporary file for PDF export", e);
+        }
+
+        try (PDDocument document = new PDDocument()) {
+            for (Long id : ids) {
+                ImageFile imageFile = findImageOrThrow(id);
+                if (imageFile.getFolder() == null) continue;
+                
+                Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(), imageFile.getOrgName());
+                
+                if (!Files.exists(imagePath)) {
+                    log.warn("Image file not found for PDF export: {}", imagePath);
+                    continue;
+                }
+                
+                try {
+                    BufferedImage bim = ImageIO.read(imagePath.toFile());
+                    if (bim == null) {
+                        log.warn("Could not read image for PDF export: {}", imagePath);
+                        continue;
+                    }
+                    
+                    PDImageXObject pdImage = LosslessFactory.createFromImage(document, bim);
+                    PDPage page = new PDPage(new PDRectangle(pdImage.getWidth(), pdImage.getHeight()));
+                    document.addPage(page);
+                    
+                    try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                        contentStream.drawImage(pdImage, 0, 0);
+                    }
+                } catch (Exception e) {
+                    log.error("Error adding image {} to PDF: {}", imagePath, e.getMessage());
+                }
+            }
+            document.save(tempFile.toFile());
+            return tempFile;
+        } catch (IOException e) {
+            log.error("Failed to generate PDF: {}", e.getMessage());
+            try {
+                Files.deleteIfExists(tempFile);
+            } catch (IOException ex) {
+                // Ignore
+            }
+            throw new RuntimeException("Failed to generate PDF export", e);
+        }
     }
 }

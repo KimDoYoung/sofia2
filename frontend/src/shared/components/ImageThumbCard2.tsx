@@ -1,6 +1,7 @@
-import { Pencil, FileText, Trash2, RotateCw, CheckCircle2 } from 'lucide-react';
+import { Pencil, FileText, Trash2, RotateCw, CheckCircle2, Link } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/lib/utils';
+import { useToast } from '@/shared/components/ui/use-toast';
 
 interface ImageThumbCard2Props {
     image: {
@@ -27,6 +28,18 @@ export function ImageThumbCard2({
     onDelete,
     onRotate,
 }: ImageThumbCard2Props) {
+    const { toast } = useToast();
+
+    const handleCopyLink = (e: React.MouseEvent) => {
+        e.stopPropagation();
+        const url = `${window.location.origin}/sofia/api/images/${image.id}/raw`;
+        navigator.clipboard.writeText(url).then(() => {
+            toast({ title: '성공', description: '이미지 링크가 복사되었습니다.' });
+        }).catch(() => {
+            toast({ title: '오류', description: '링크 복사에 실패했습니다.', variant: 'destructive' });
+        });
+    };
+
     return (
         <div
             className={cn(
@@ -61,13 +74,21 @@ export function ImageThumbCard2({
                     {isSelected && <CheckCircle2 size={16} className="text-white" />}
                 </div>
 
-                {/* 우측 상단 회전 버튼 */}
-                <div className="absolute top-3 right-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                {/* 우측 상단 기능 버튼들 */}
+                <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                         size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white"
                         onClick={(e) => { e.stopPropagation(); onRotate(image.id); }}
+                        title="회전"
                     >
                         <RotateCw size={14} className="text-gray-700" />
+                    </Button>
+                    <Button
+                        size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white"
+                        onClick={handleCopyLink}
+                        title="링크 복사"
+                    >
+                        <Link size={14} className="text-gray-700" />
                     </Button>
                 </div>
 

@@ -2,8 +2,9 @@ import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Maximize, Download, Home, List } from 'lucide-react';
+import { ChevronLeft, ZoomIn, ZoomOut, RotateCw, Maximize, Download, List, Link } from 'lucide-react';
 import { formatDateTime } from '@/lib/utils';
+import { useToast } from '@/shared/components/ui/use-toast';
 import { Button } from '@/shared/components/ui/button';
 
 interface ImageFile {
@@ -28,6 +29,7 @@ interface ImageFile {
 const ImageViewPage = () => {
   const { imageId } = useParams();
   const navigate = useNavigate();
+  const { toast } = useToast();
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
 
@@ -41,6 +43,15 @@ const ImageViewPage = () => {
 
   if (isLoading) return <div className="p-8 text-center">Loading image...</div>;
   if (!image) return <div className="p-8 text-center">Image not found</div>;
+
+  const handleCopyLink = () => {
+    const url = `${window.location.origin}/sofia/api/images/${image.id}/raw`;
+    navigator.clipboard.writeText(url).then(() => {
+      toast({ title: '성공', description: '이미지 링크가 복사되었습니다.' });
+    }).catch(() => {
+      toast({ title: '오류', description: '링크 복사에 실패했습니다.', variant: 'destructive' });
+    });
+  };
 
   return (
     <div className="space-y-4">
@@ -65,6 +76,14 @@ const ImageViewPage = () => {
             <button onClick={() => setRotation(prev => (prev + 90) % 360)} className="p-2 hover:bg-white rounded shadow-sm text-gray-600"><RotateCw size={18} /></button>
             <button onClick={() => { setZoom(1); setRotation(0); }} className="p-2 hover:bg-white rounded shadow-sm text-gray-600"><Maximize size={18} /></button>
           </div>
+          <Button
+            onClick={handleCopyLink}
+            variant="outline"
+            className="flex items-center gap-2 h-10"
+          >
+            <Link size={18} />
+            링크 복사
+          </Button>
           <a
             href={`/sofia/api/images/${image.id}/raw`}
             download={image.orgName}

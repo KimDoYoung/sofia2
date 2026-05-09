@@ -38,6 +38,9 @@ dependencies {
     implementation 'com.twelvemonkeys.imageio:imageio-webp:3.12.0'
     implementation 'com.twelvemonkeys.imageio:imageio-tiff:3.12.0'
     implementation 'com.drewnoakes:metadata-extractor:2.19.0'
+    
+    // PDF
+    implementation 'org.apache.pdfbox:pdfbox:3.0.3'
 
     compileOnly 'org.projectlombok:lombok'
     runtimeOnly 'org.postgresql:postgresql'
