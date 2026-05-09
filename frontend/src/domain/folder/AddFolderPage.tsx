@@ -114,7 +114,7 @@ const AddFolderPage = () => {
   });
 
   useEffect(() => {
-    let interval: NodeJS.Timeout;
+    let interval: ReturnType<typeof setInterval>;
 
     if (taskId) {
       interval = setInterval(async () => {
