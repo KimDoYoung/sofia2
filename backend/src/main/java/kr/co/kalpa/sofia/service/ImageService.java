@@ -19,7 +19,6 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
-import java.awt.Graphics2D;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -87,25 +86,25 @@ public class ImageService {
     @Transactional
     public ImageFile updateImage(Long id, ImageUpdateRequest request) {
         ImageFile image = findImageOrThrow(id);
-        
+
         if (request.getOrgName() != null && !request.getOrgName().equals(image.getOrgName())) {
             if (image.getFolder() == null) {
                 throw new RuntimeException("Cannot rename image: No associated folder found for image ID " + id);
             }
-            
+
             Path oldPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
             Path newPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), request.getOrgName());
-            
+
             try {
                 if (!Files.exists(oldPath)) {
                     log.error("Original file missing on disk, cannot rename: {}", oldPath);
                     throw new RuntimeException("Original file missing on disk, cannot perform rename.");
                 }
-                
+
                 if (Files.exists(newPath)) {
                     throw new RuntimeException("A file with the new name already exists: " + request.getOrgName());
                 }
-                
+
                 Files.move(oldPath, newPath);
                 image.setOrgName(request.getOrgName());
             } catch (IOException e) {
@@ -113,7 +112,7 @@ public class ImageService {
                 throw new RuntimeException("Failed to rename file on disk: " + e.getMessage());
             }
         }
-        
+
         if (request.getNote() != null) {
             image.setNote(request.getNote());
         }
@@ -143,7 +142,7 @@ public class ImageService {
             Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
             try {
                 File sourceFile = rawPath.toFile();
-                
+
                 // Use Thumbnailator for rotation
                 Thumbnails.of(sourceFile)
                         .scale(1.0)
@@ -178,9 +177,10 @@ public class ImageService {
 
     public Path getThumbnailPath(ImageFile file, boolean createIfMissing) throws IOException {
         int size = 300;
-        
-        Path thumbPath = Paths.get(baseFolder, "thumbnails", file.getFolder().getId().toString(), file.getId() + ".jpg");
-        
+
+        Path thumbPath = Paths.get(baseFolder, "thumbnails", file.getFolder().getId().toString(),
+                file.getId() + ".jpg");
+
         if (createIfMissing && !Files.exists(thumbPath)) {
             Files.createDirectories(thumbPath.getParent());
             Path rawPath = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
@@ -191,7 +191,7 @@ public class ImageService {
                 throw new IOException("Original image not found: " + rawPath);
             }
         }
-        
+
         return thumbPath;
     }
 
@@ -212,15 +212,17 @@ public class ImageService {
         try (PDDocument document = new PDDocument()) {
             for (Long id : ids) {
                 ImageFile imageFile = findImageOrThrow(id);
-                if (imageFile.getFolder() == null) continue;
-                
-                Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(), imageFile.getOrgName());
-                
+                if (imageFile.getFolder() == null)
+                    continue;
+
+                Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(),
+                        imageFile.getOrgName());
+
                 if (!Files.exists(imagePath)) {
                     log.warn("Image file not found for PDF export: {}", imagePath);
                     continue;
                 }
-                
+
                 try {
                     PDImageXObject pdImage;
                     String ext = imageFile.getImageFormat().toLowerCase();
@@ -234,29 +236,29 @@ public class ImageService {
                         }
                         pdImage = LosslessFactory.createFromImage(document, bim);
                     }
-                    
+
                     // Scale to fit A4
                     PDRectangle mediaBox = PDRectangle.A4;
                     // Handle landscape images by rotating page if width > height
                     if (pdImage.getWidth() > pdImage.getHeight()) {
                         mediaBox = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
                     }
-                    
+
                     PDPage page = new PDPage(mediaBox);
                     document.addPage(page);
-                    
+
                     try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
                         float pageWidth = mediaBox.getWidth();
                         float pageHeight = mediaBox.getHeight();
                         float imgWidth = pdImage.getWidth();
                         float imgHeight = pdImage.getHeight();
-                        
+
                         float scale = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
                         float dw = imgWidth * scale;
                         float dh = imgHeight * scale;
                         float x = (pageWidth - dw) / 2;
                         float y = (pageHeight - dh) / 2;
-                        
+
                         contentStream.drawImage(pdImage, x, y, dw, dh);
                     }
                 } catch (Exception e) {
