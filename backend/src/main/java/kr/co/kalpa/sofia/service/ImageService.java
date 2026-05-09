@@ -11,6 +11,7 @@ import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
+import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
@@ -227,18 +228,42 @@ public class ImageService {
                 }
                 
                 try {
-                    BufferedImage bim = ImageIO.read(imagePath.toFile());
-                    if (bim == null) {
-                        log.warn("Could not read image for PDF export: {}", imagePath);
-                        continue;
+                    PDImageXObject pdImage;
+                    String ext = imageFile.getImageFormat().toLowerCase();
+                    if (ext.equals("jpg") || ext.equals("jpeg")) {
+                        pdImage = JPEGFactory.createFromStream(document, Files.newInputStream(imagePath));
+                    } else {
+                        BufferedImage bim = ImageIO.read(imagePath.toFile());
+                        if (bim == null) {
+                            log.warn("Could not read image for PDF export: {}", imagePath);
+                            continue;
+                        }
+                        pdImage = LosslessFactory.createFromImage(document, bim);
                     }
                     
-                    PDImageXObject pdImage = LosslessFactory.createFromImage(document, bim);
-                    PDPage page = new PDPage(new PDRectangle(pdImage.getWidth(), pdImage.getHeight()));
+                    // Scale to fit A4
+                    PDRectangle mediaBox = PDRectangle.A4;
+                    // Handle landscape images by rotating page if width > height
+                    if (pdImage.getWidth() > pdImage.getHeight()) {
+                        mediaBox = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
+                    }
+                    
+                    PDPage page = new PDPage(mediaBox);
                     document.addPage(page);
                     
                     try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                        contentStream.drawImage(pdImage, 0, 0);
+                        float pageWidth = mediaBox.getWidth();
+                        float pageHeight = mediaBox.getHeight();
+                        float imgWidth = pdImage.getWidth();
+                        float imgHeight = pdImage.getHeight();
+                        
+                        float scale = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
+                        float dw = imgWidth * scale;
+                        float dh = imgHeight * scale;
+                        float x = (pageWidth - dw) / 2;
+                        float y = (pageHeight - dh) / 2;
+                        
+                        contentStream.drawImage(pdImage, x, y, dw, dh);
                     }
                 } catch (Exception e) {
                     log.error("Error adding image {} to PDF: {}", imagePath, e.getMessage());
