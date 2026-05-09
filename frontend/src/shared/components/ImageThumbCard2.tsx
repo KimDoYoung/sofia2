@@ -1,7 +1,7 @@
 import { Pencil, FileText, Trash2, RotateCw, CheckCircle2, Link } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/lib/utils';
-import { useToast } from '@/shared/components/ui/use-toast';
+import { useImageActions } from '@/shared/hooks/useImageActions';
 
 interface ImageThumbCard2Props {
     image: {
@@ -10,17 +10,19 @@ interface ImageThumbCard2Props {
         note?: string;
     };
     isSelected: boolean;
+    refreshKey?: number;
     onImageClick: (id: number) => void;
     onSelect: (id: number) => void;
     onRename: (id: number) => void;
     onAddNote: (id: number) => void;
     onDelete: (id: number) => void;
-    onRotate: (id: number) => void;
+    onRotate: (id: number, angle: number) => void;
 }
 
 export function ImageThumbCard2({
     image,
     isSelected,
+    refreshKey = 0,
     onImageClick,
     onSelect,
     onRename,
@@ -28,17 +30,7 @@ export function ImageThumbCard2({
     onDelete,
     onRotate,
 }: ImageThumbCard2Props) {
-    const { toast } = useToast();
-
-    const handleCopyLink = (e: React.MouseEvent) => {
-        e.stopPropagation();
-        const url = `${window.location.origin}/sofia/api/images/${image.id}/raw`;
-        navigator.clipboard.writeText(url).then(() => {
-            toast({ title: '성공', description: '이미지 링크가 복사되었습니다.' });
-        }).catch(() => {
-            toast({ title: '오류', description: '링크 복사에 실패했습니다.', variant: 'destructive' });
-        });
-    };
+    const { copyLink } = useImageActions();
 
     return (
         <div
@@ -53,7 +45,7 @@ export function ImageThumbCard2({
                 onClick={() => onImageClick(image.id)}
             >
                 <img
-                    src={`/sofia/api/images/${image.id}/thumb`}
+                    src={`/sofia/api/images/${image.id}/thumb?t=${refreshKey}`}
                     alt={image.orgName}
                     className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                 />
@@ -78,14 +70,14 @@ export function ImageThumbCard2({
                 <div className="absolute top-3 right-3 flex flex-col gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <Button
                         size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white"
-                        onClick={(e) => { e.stopPropagation(); onRotate(image.id); }}
+                        onClick={(e) => { e.stopPropagation(); onRotate(image.id, 90); }}
                         title="회전"
                     >
                         <RotateCw size={14} className="text-gray-700" />
                     </Button>
                     <Button
                         size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white"
-                        onClick={handleCopyLink}
+                        onClick={(e) => { e.stopPropagation(); copyLink(image.id); }}
                         title="링크 복사"
                     >
                         <Link size={14} className="text-gray-700" />

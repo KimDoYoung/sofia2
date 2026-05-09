@@ -19,6 +19,7 @@ interface ListToolbarProps {
   onBulkRotate: (angle: number) => void;
   onBulkDelete: () => void;
   onExportPdf: () => void;
+  isExporting: boolean;
   viewMode: 'thumb' | 'smallThumb' | 'list';
   onViewModeChange: (mode: 'thumb' | 'smallThumb' | 'list') => void;
 }
@@ -31,6 +32,7 @@ export const ListToolbar = ({
   onBulkRotate,
   onBulkDelete,
   onExportPdf,
+  isExporting,
   viewMode,
   onViewModeChange,
 }: ListToolbarProps) => {
@@ -111,13 +113,17 @@ export const ListToolbar = ({
           <Button
             variant="ghost"
             size="sm"
-            disabled={selectedCount === 0}
+            disabled={selectedCount === 0 || isExporting}
             onClick={onExportPdf}
             className="h-9 px-3 gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
             title="PDF로 다운로드"
           >
-            <FileText size={16} />
-            <span className="hidden sm:inline">PDF</span>
+            {isExporting ? (
+              <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <FileText size={16} />
+            )}
+            <span className="hidden sm:inline">{isExporting ? '생성 중...' : 'PDF'}</span>
           </Button>
         </div>
 

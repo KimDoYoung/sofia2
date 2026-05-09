@@ -1,5 +1,6 @@
 import type { ImageFile } from '../types';
 import { ImageThumbCard1 } from '@/shared/components/ImageThumbCard1';
+import { ImageThumbCard2 } from '@/shared/components/ImageThumbCard2';
 
 interface ImageGridViewProps {
   images: ImageFile[];
@@ -33,18 +34,33 @@ export const ImageGridView = ({
   return (
     <div className={containerClass}>
       {images.map((img) => (
-        <ImageThumbCard1
-          key={img.id}
-          image={img}
-          isSelected={selectedIds.includes(img.id)}
-          refreshKey={refreshKey}
-          onImageClick={onImageClick}
-          onSelect={onSelect}
-          onRename={() => onRename(img.id, img.orgName)}
-          onAddNote={() => onAddNote(img.id, img.note)}
-          onDelete={() => onDelete(img.id)}
-          onRotate={onRotate}
-        />
+        viewMode === 'thumb' ? (
+          <ImageThumbCard2
+            key={img.id}
+            image={img}
+            isSelected={selectedIds.includes(img.id)}
+            refreshKey={refreshKey}
+            onImageClick={onImageClick}
+            onSelect={onSelect}
+            onRename={() => onRename(img.id, img.orgName)}
+            onAddNote={() => onAddNote(img.id, img.note)}
+            onDelete={() => onDelete(img.id)}
+            onRotate={onRotate}
+          />
+        ) : (
+          <ImageThumbCard1
+            key={img.id}
+            image={img}
+            isSelected={selectedIds.includes(img.id)}
+            refreshKey={refreshKey}
+            onImageClick={onImageClick}
+            onSelect={onSelect}
+            onRename={() => onRename(img.id, img.orgName)}
+            onAddNote={() => onAddNote(img.id, img.note)}
+            onDelete={() => onDelete(img.id)}
+            onRotate={onRotate}
+          />
+        )
       ))}
     </div>
   );

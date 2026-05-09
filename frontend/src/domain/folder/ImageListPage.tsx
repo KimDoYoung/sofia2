@@ -8,6 +8,7 @@ import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import type { CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
 import { useToast } from '@/shared/components/ui/use-toast';
+import { useImageActions } from '@/shared/hooks/useImageActions';
 
 import type { ImageFile } from './types';
 import { ListToolbar } from './components/ListToolbar';
@@ -22,8 +23,10 @@ const ImageListPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  const { copyLink } = useImageActions();
   const { imageListViewMode: viewMode, setImageListViewMode: setViewMode } = useUIStore();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
+  const [isExporting, setIsExporting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const gridRef = useRef<AgGridReact>(null);
 
@@ -144,28 +147,22 @@ const ImageListPage = () => {
     }
   };
 
-  const handleCopyLink = (id: number) => {
-    const url = `${window.location.origin}/sofia/api/images/${id}/raw`;
-    navigator.clipboard.writeText(url).then(() => {
-      toast({ title: '성공', description: '이미지 링크가 복사되었습니다.' });
-    }).catch(() => {
-      toast({ title: '오류', description: '링크 복사에 실패했습니다.', variant: 'destructive' });
-    });
-  };
 
   const handleExportPdf = async () => {
     if (selectedIds.length === 0) return;
     const selected_image_count = selectedIds.length;
     if (!confirm(`선택한 ${selected_image_count}개의 이미지를 PDF로 다운로드하시겠습니까?`)) return;
+    
+    setIsExporting(true);
     try {
       const response = await apiClient.post('/images/export/pdf', { ids: selectedIds }, {
         responseType: 'blob'
       });
-
+      
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-
+      
       const contentDisposition = response.headers['content-disposition'];
       let filename = `sofia_images_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.pdf`;
       if (contentDisposition) {
@@ -174,7 +171,7 @@ const ImageListPage = () => {
           filename = filenameMatch[1];
         }
       }
-
+      
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
@@ -183,6 +180,8 @@ const ImageListPage = () => {
       toast({ title: '성공', description: 'PDF 파일이 생성되었습니다.' });
     } catch (error) {
       toast({ title: '오류', description: 'PDF 생성 중 오류가 발생했습니다.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
     }
   };
 
@@ -198,6 +197,7 @@ const ImageListPage = () => {
         onBulkRotate={handleBulkRotate}
         onBulkDelete={handleBulkDelete}
         onExportPdf={handleExportPdf}
+        isExporting={isExporting}
         viewMode={viewMode}
         onViewModeChange={(mode) => {
           setViewMode(mode);
@@ -213,7 +213,7 @@ const ImageListPage = () => {
           onSelectionChanged={onSelectionChanged}
           onCellValueChanged={onCellValueChanged}
           onImageClick={(id) => navigate(`/image/${id}`)}
-          onCopyLink={handleCopyLink}
+          onCopyLink={copyLink}
         />
       ) : (
         <ImageGridView 

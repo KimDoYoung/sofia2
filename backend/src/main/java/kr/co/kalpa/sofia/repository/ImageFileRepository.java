@@ -6,4 +6,5 @@ import java.util.List;
 
 public interface ImageFileRepository extends JpaRepository<ImageFile, Long> {
     List<ImageFile> findByFolderIdOrderBySeqAsc(Long folderId);
+    long countByFolderId(Long folderId);
 }

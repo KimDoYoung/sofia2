@@ -1,12 +1,15 @@
 package kr.co.kalpa.sofia.controller;
 
 import kr.co.kalpa.sofia.domain.ImageFolder;
+import kr.co.kalpa.sofia.dto.FolderTreeDto;
+import kr.co.kalpa.sofia.dto.TaskProgressDto;
 import kr.co.kalpa.sofia.service.FolderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.io.IOException;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 
@@ -23,6 +26,11 @@ public class FolderController {
         return ResponseEntity.ok(folderService.getAllFolders());
     }
 
+    @GetMapping("/tree")
+    public ResponseEntity<List<FolderTreeDto>> getFolderTree() throws IOException {
+        return ResponseEntity.ok(folderService.getFolderTree());
+    }
+
     // 사용 가능한 하위 폴더 목록을 조회하여 반환한다
     @GetMapping("/subfolders")
     public ResponseEntity<List<String>> getAvailableSubfolders() throws IOException {
@@ -34,6 +42,18 @@ public class FolderController {
     public ResponseEntity<ImageFolder> addFolder(@RequestBody Map<String, String> request) throws IOException {
         String folderName = request.get("folderName");
         return ResponseEntity.ok(folderService.addFolder(folderName));
+    }
+
+    @PostMapping("/async")
+    public ResponseEntity<Map<String, String>> addFolderAsync(@RequestBody Map<String, String> request) {
+        String folderName = request.get("folderName");
+        String taskId = folderService.addFolderAsync(folderName);
+        return ResponseEntity.ok(Collections.singletonMap("taskId", taskId));
+    }
+
+    @GetMapping("/progress/{taskId}")
+    public ResponseEntity<TaskProgressDto> getTaskProgress(@PathVariable String taskId) {
+        return ResponseEntity.ok(folderService.getTaskProgress(taskId));
     }
 
     @PutMapping("/{id}/note")

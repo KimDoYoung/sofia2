@@ -5,6 +5,7 @@ import { useAuthStore } from '@/store/authStore';
 import FolderListPage from '@/domain/folder/FolderListPage';
 import ImageListPage from '@/domain/folder/ImageListPage';
 import ImageViewPage from '@/domain/folder/ImageViewPage';
+import AddFolderPage from '@/domain/folder/AddFolderPage';
 import SettingsPage from '@/domain/user/SettingsPage';
 
 const ProtectedLayout = () => {
@@ -33,6 +34,7 @@ function App() {
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<FolderListPage />} />
+          <Route path="/folder/add" element={<AddFolderPage />} />
           <Route path="/folder/:folderId" element={<ImageListPage />} />
           <Route path="/image/:imageId" element={<ImageViewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
