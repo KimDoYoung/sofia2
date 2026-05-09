@@ -23,7 +23,10 @@ if [ -f "$APP_PROPS" ]; then
 fi
 
 if [ -f "$ENV_FILE" ]; then
-    DB_USERID=$(grep "^DB_USERID=" "$ENV_FILE" | cut -d'=' -f2 | xargs)
+    DB_USERID=$(grep "^DB_USERNAME=" "$ENV_FILE" | cut -d'=' -f2 | xargs)
+    if [ -z "$DB_USERID" ]; then
+        DB_USERID=$(grep "^DB_USERID=" "$ENV_FILE" | cut -d'=' -f2 | xargs)
+    fi
     DB_PASSWORD=$(grep "^DB_PASSWORD=" "$ENV_FILE" | cut -d'=' -f2 | xargs)
 fi
 

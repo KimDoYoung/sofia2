@@ -12,7 +12,15 @@ public class SofiaApplication extends SpringBootServletInitializer {
 
     @Override
     protected SpringApplicationBuilder configure(SpringApplicationBuilder application) {
-        return application.sources(SofiaApplication.class);
+        String mode = System.getenv("SOFIA_MODE");
+        if (mode == null || mode.isEmpty()) {
+            mode = System.getenv("SPRING_PROFILES_ACTIVE");
+        }
+        if (mode == null || mode.isEmpty()) {
+            mode = "jskn"; 
+        }
+        return application.sources(SofiaApplication.class)
+                .profiles(mode);
     }
 
     public static void main(String[] args) {
