@@ -31,8 +31,8 @@ public class RefreshTokenService {
     public RefreshToken createRefreshToken(Long userId) {
         User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
         
-        // Delete existing tokens for this user (to keep it clean for now, or we could allow multiple)
-        refreshTokenRepository.deleteByUser(user);
+        // Removed: refreshTokenRepository.deleteByUser(user);
+        // This allows multiple sessions/devices.
 
         RefreshToken refreshToken = new RefreshToken();
         refreshToken.setUser(user);
@@ -50,7 +50,8 @@ public class RefreshTokenService {
         newToken.setExpiryDate(Instant.now().plusMillis(refreshTokenDurationMs));
         newToken.setToken(UUID.randomUUID().toString());
 
-        refreshTokenRepository.delete(oldToken);
+        oldToken.setRevoked(true);
+        refreshTokenRepository.save(oldToken);
         return refreshTokenRepository.save(newToken);
     }
 

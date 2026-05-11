@@ -47,23 +47,29 @@ public class JwtUtils {
 
     public ResponseCookie generateJwtCookie(UserDetails userPrincipal) {
         String jwt = generateJwtTokenFromUsername(userPrincipal.getUsername());
-        return generateCookie(jwtCookie, jwt, "/sofia");
+        return generateCookie(jwtCookie, jwt, "/sofia", 24 * 60 * 60);
     }
 
     public ResponseCookie generateRefreshJwtCookie(String refreshToken) {
-        return generateCookie(jwtRefreshCookie, refreshToken, "/sofia/api/auth/refreshtoken");
+        return generateCookie(jwtRefreshCookie, refreshToken, "/sofia/api/auth/refreshtoken", 7 * 24 * 60 * 60);
     }
 
     public ResponseCookie getCleanJwtCookie() {
-        return ResponseCookie.from(jwtCookie, null).path("/sofia").build();
+        return ResponseCookie.from(jwtCookie, null).path("/sofia").maxAge(0).build();
     }
 
     public ResponseCookie getCleanRefreshJwtCookie() {
-        return ResponseCookie.from(jwtRefreshCookie, null).path("/sofia/api/auth/refreshtoken").build();
+        return ResponseCookie.from(jwtRefreshCookie, null).path("/sofia/api/auth/refreshtoken").maxAge(0).build();
     }
 
-    private ResponseCookie generateCookie(String name, String value, String path) {
-        return ResponseCookie.from(name, value).path(path).maxAge(24 * 60 * 60).httpOnly(true).build();
+    private ResponseCookie generateCookie(String name, String value, String path, long maxAge) {
+        return ResponseCookie.from(name, value)
+                .path(path)
+                .maxAge(maxAge)
+                .httpOnly(true)
+                .secure(false)
+                .sameSite("Lax")
+                .build();
     }
 
     private String getCookieValueByName(HttpServletRequest request, String name) {

@@ -45,8 +45,7 @@ public class AuthController {
         ResponseCookie jwtRefreshCookie = jwtUtils.generateRefreshJwtCookie(refreshToken.getToken());
         
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString(), jwtRefreshCookie.toString())
                 .body(new HashMap<String, String>() {{
                     put("username", userPrincipal.getUsername());
                     put("name", userPrincipal.getName());
@@ -59,6 +58,12 @@ public class AuthController {
 
         if ((refreshToken != null) && (refreshToken.length() > 0)) {
             return refreshTokenService.findByToken(refreshToken)
+                    .map(token -> {
+                        if (token.isRevoked()) {
+                            throw new TokenRefreshException(refreshToken, "Refresh token is already revoked!");
+                        }
+                        return token;
+                    })
                     .map(refreshTokenService::verifyExpiration)
                     .map(token -> {
                         RefreshToken rotatedToken = refreshTokenService.rotateRefreshToken(token);
@@ -68,8 +73,7 @@ public class AuthController {
                         ResponseCookie jwtRefreshCookie = jwtUtils.generateRefreshJwtCookie(rotatedToken.getToken());
 
                         return ResponseEntity.ok()
-                                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString(), jwtRefreshCookie.toString())
                                 .body("Token is refreshed successfully!");
                     })
                     .orElseThrow(() -> new TokenRefreshException(refreshToken, "Refresh token is not in database!"));
@@ -90,8 +94,7 @@ public class AuthController {
         ResponseCookie jwtRefreshCookie = jwtUtils.getCleanRefreshJwtCookie();
 
         return ResponseEntity.ok()
-                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
-                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
+                .header(HttpHeaders.SET_COOKIE, jwtCookie.toString(), jwtRefreshCookie.toString())
                 .body("You've been signed out!");
     }
 }
