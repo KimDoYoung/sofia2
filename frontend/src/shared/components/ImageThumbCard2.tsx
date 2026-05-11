@@ -75,13 +75,6 @@ export function ImageThumbCard2({
                     >
                         <RotateCw size={14} className="text-gray-700" />
                     </Button>
-                    <Button
-                        size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white"
-                        onClick={(e) => { e.stopPropagation(); copyLink(image.id); }}
-                        title="링크 복사"
-                    >
-                        <Link size={14} className="text-gray-700" />
-                    </Button>
                 </div>
 
                 {/* 하단 텍스트 정보 오버레이 */}
@@ -101,21 +94,28 @@ export function ImageThumbCard2({
                     variant="ghost" size="sm" className="flex-1 rounded-none h-full hover:bg-blue-50 hover:text-blue-600"
                     onClick={(e) => { e.stopPropagation(); onRename(image.id); }}
                 >
-                    <Pencil size={14} className="mr-2" /> <span className="text-[11px]">이름</span>
+                    <Pencil size={14} className="mr-2" />
                 </Button>
                 <div className="w-[1px] h-4 bg-gray-200" />
                 <Button
                     variant="ghost" size="sm" className="flex-1 rounded-none h-full hover:bg-blue-50 hover:text-blue-600"
                     onClick={(e) => { e.stopPropagation(); onAddNote(image.id); }}
                 >
-                    <FileText size={14} className="mr-2" /> <span className="text-[11px]">노트</span>
+                    <FileText size={14} className="mr-2" />
+                </Button>
+                <div className="w-[1px] h-4 bg-gray-200" />
+                <Button
+                    variant="ghost" size="sm" className="flex-1 rounded-none h-full hover:bg-blue-50 hover:text-blue-600"
+                    onClick={(e) => { e.stopPropagation(); copyLink(image.id); }}
+                >
+                    <Link size={14} className="mr-2" />
                 </Button>
                 <div className="w-[1px] h-4 bg-gray-200" />
                 <Button
                     variant="ghost" size="sm" className="flex-1 rounded-none h-full hover:bg-red-50 hover:text-red-600"
                     onClick={(e) => { e.stopPropagation(); onDelete(image.id); }}
                 >
-                    <Trash2 size={14} className="mr-2" /> <span className="text-[11px]">삭제</span>
+                    <Trash2 size={14} className="mr-2" />
                 </Button>
             </div>
         </div>

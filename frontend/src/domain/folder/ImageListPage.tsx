@@ -38,6 +38,17 @@ const ImageListPage = () => {
     },
   });
 
+  const { data: folders } = useQuery<{ id: number; folderName: string }[]>({
+    queryKey: ['folders'],
+    queryFn: async () => {
+      const res = await apiClient.get('/folders');
+      return res.data;
+    },
+  });
+
+  const currentFolder = folders?.find(f => f.id === Number(folderId));
+  const folderName = currentFolder?.folderName;
+
   const updateImageMutation = useMutation({
     mutationFn: async ({ id, note, orgName }: { id: number; note?: string; orgName?: string }) => {
       await apiClient.patch(`/images/${id}`, { note, orgName });
@@ -191,6 +202,8 @@ const ImageListPage = () => {
     <div className="space-y-2">
       <ListToolbar 
         onBack={() => navigate('/')}
+        folderName={folderName}
+        totalCount={images?.length ?? 0}
         selectedCount={selectedIds.length}
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}

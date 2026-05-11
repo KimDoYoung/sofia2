@@ -24,6 +24,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.ZonedDateTime;
 import java.util.*;
+import org.springframework.data.domain.Sort;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -55,7 +56,7 @@ public class FolderService {
     private final Map<String, TaskProgressDto> taskProgressMap = new ConcurrentHashMap<>();
 
     public List<ImageFolder> getAllFolders() {
-        return folderRepository.findAll();
+        return folderRepository.findAll(Sort.by(Sort.Direction.DESC, "id"));
     }
 
     public List<FolderTreeDto> getFolderTree() throws IOException {
@@ -71,7 +72,8 @@ public class FolderService {
         return buildTree(basePath, "", addedFolders);
     }
 
-    private List<FolderTreeDto> buildTree(Path currentPath, String relativePath, Set<String> addedFolders) throws IOException {
+    private List<FolderTreeDto> buildTree(Path currentPath, String relativePath, Set<String> addedFolders)
+            throws IOException {
         List<FolderTreeDto> tree = new ArrayList<>();
         try (Stream<Path> stream = Files.list(currentPath)) {
             List<Path> directories = stream.filter(Files::isDirectory)
@@ -82,9 +84,9 @@ public class FolderService {
             for (Path dir : directories) {
                 String dirName = dir.getFileName().toString();
                 String fullRelativePath = relativePath.isEmpty() ? dirName : relativePath + "/" + dirName;
-                
+
                 List<FolderTreeDto> children = buildTree(dir, fullRelativePath, addedFolders);
-                
+
                 tree.add(FolderTreeDto.builder()
                         .name(dirName)
                         .path(fullRelativePath)
@@ -104,10 +106,10 @@ public class FolderService {
                 .current(0)
                 .total(0)
                 .build());
-        
+
         // Start async processing
         self.processFolderInternal(taskId, folderName);
-        
+
         return taskId;
     }
 
@@ -175,7 +177,8 @@ public class FolderService {
 
         File file = filePath.toFile();
         BufferedImage img = ImageIO.read(file);
-        if (img == null) return;
+        if (img == null)
+            return;
 
         ImageFolder folder = folderRepository.getReferenceById(folderId);
 
@@ -266,7 +269,8 @@ public class FolderService {
 
                     File file = filePath.toFile();
                     BufferedImage img = ImageIO.read(file);
-                    if (img == null) continue;
+                    if (img == null)
+                        continue;
 
                     ImageFile imageFile = ImageFile.builder()
                             .folder(folder)
@@ -326,7 +330,8 @@ public class FolderService {
 
     private boolean isImageFile(Path path) {
         String name = path.getFileName().toString().toLowerCase();
-        return Files.isRegularFile(path) && 
-               (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp") || name.endsWith(".tiff"));
+        return Files.isRegularFile(path) &&
+                (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp")
+                        || name.endsWith(".tiff"));
     }
 }

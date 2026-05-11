@@ -1,8 +1,8 @@
-import { useMemo } from 'react';
+import { useMemo, useEffect, useCallback, useRef } from 'react';
 import type { RefObject } from 'react';
 import { AgGridReact } from 'ag-grid-react';
 import { themeQuartz } from 'ag-grid-community';
-import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, ValueSetterParams, ICellRendererParams } from 'ag-grid-community';
+import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, ValueSetterParams, ICellRendererParams, GridReadyEvent } from 'ag-grid-community';
 import { Button } from '@/shared/components/ui/button';
 import { Link } from 'lucide-react';
 import { formatDateTime, formatFileSize } from '@/lib/utils';
@@ -27,8 +27,42 @@ export const ImageListView = ({
   onImageClick,
   onCopyLink,
 }: ImageListViewProps) => {
+  const apiRef = useRef<GridReadyEvent['api'] | null>(null);
+
+  // 화면 크기별 컬럼 표시/숨김
+  // 모바일(<640)  : id, 미리보기, 촬영일시
+  // 태블릿(<1024) : id, 미리보기, 파일용량, 촬영일시
+  // 데스크톱      : 전체
+  const TABLET_ONLY  = ['fileSize'];
+  const DESKTOP_ONLY = ['orgName', 'imageFormat', 'resolution', 'note', 'link'];
+
+  const applyColumnVisibility = useCallback(() => {
+    const api = apiRef.current;
+    if (!api) return;
+    const w = window.innerWidth;
+    if (w < 640) {
+      // 모바일: tablet + desktop 컬럼 숨김
+      api.setColumnsVisible([...TABLET_ONLY, ...DESKTOP_ONLY], false);
+    } else if (w < 1024) {
+      // 태블릿: desktop 컬럼 숨김, tablet 컬럼 표시
+      api.setColumnsVisible(DESKTOP_ONLY, false);
+      api.setColumnsVisible(TABLET_ONLY, true);
+    } else {
+      // 데스크톱: 전체 표시
+      api.setColumnsVisible([...TABLET_ONLY, ...DESKTOP_ONLY], true);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    const handler = () => applyColumnVisibility();
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, [applyColumnVisibility]);
+
   const columnDefs = useMemo<ColDef<ImageFile>[]>(() => [
     {
+      colId: 'id',
       field: 'id',
       headerName: 'ID',
       width: 100,
@@ -38,6 +72,7 @@ export const ImageListView = ({
       headerCheckboxSelection: true,
     },
     {
+      colId: 'preview',
       headerName: '미리보기',
       width: 120,
       sortable: false,
@@ -50,6 +85,7 @@ export const ImageListView = ({
       )
     },
     {
+      colId: 'orgName',
       field: 'orgName',
       headerName: '파일명',
       flex: 1,
@@ -83,15 +119,17 @@ export const ImageListView = ({
         </div>
       )
     },
-    { 
-      field: 'imageFormat', 
-      headerName: '포맷', 
-      width: 100, 
-      sortable: false, 
-      filter: false, 
+    {
+      colId: 'imageFormat',
+      field: 'imageFormat',
+      headerName: '포맷',
+      width: 100,
+      sortable: false,
+      filter: false,
       valueFormatter: (p) => p.value?.toUpperCase() || ''
     },
     {
+      colId: 'resolution',
       headerName: '해상도',
       width: 140,
       sortable: false,
@@ -99,6 +137,7 @@ export const ImageListView = ({
       valueGetter: (p) => p.data ? `${p.data.imageWidth} x ${p.data.imageHeight}` : ''
     },
     {
+      colId: 'fileSize',
       field: 'fileSize',
       headerName: '파일용량',
       width: 120,
@@ -107,6 +146,7 @@ export const ImageListView = ({
       type: 'rightAligned'
     },
     {
+      colId: 'captureDateTime',
       field: 'captureDateTime',
       headerName: '촬영일시',
       width: 220,
@@ -114,6 +154,7 @@ export const ImageListView = ({
       valueFormatter: (p) => p.value ? formatDateTime(p.value) : ''
     },
     {
+      colId: 'note',
       field: 'note',
       headerName: '노트',
       flex: 1,
@@ -121,6 +162,7 @@ export const ImageListView = ({
       cellEditor: 'agTextCellEditor'
     },
     {
+      colId: 'link',
       headerName: '링크',
       width: 70,
       sortable: false,
@@ -161,6 +203,10 @@ export const ImageListView = ({
         onCellValueChanged={onCellValueChanged}
         singleClickEdit={false}
         rowHeight={80}
+        onGridReady={(e) => {
+          apiRef.current = e.api;
+          applyColumnVisibility();
+        }}
       />
     </div>
   );

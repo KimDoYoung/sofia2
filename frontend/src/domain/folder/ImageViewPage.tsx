@@ -1,8 +1,8 @@
-import { useMemo, useState, useEffect, useCallback } from 'react';
+import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, List, Link } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, List, Link, Menu } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { PhotoSlider } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -21,6 +21,8 @@ const ImageViewPage = () => {
   const { copyLink } = useImageActions();
   const [isSliderVisible, setIsSliderVisible] = useState(false);
   const [imageTimestamp, setImageTimestamp] = useState(Date.now());
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   // Fetch current image detail
   const { data: image, isLoading: isImageLoading } = useQuery<ImageViewFile>({
@@ -82,15 +84,11 @@ const ImageViewPage = () => {
   }, [folderImages, navigate]);
 
   const handlePrev = useCallback(() => {
-    if (hasPrev && folderImages) {
-      handleIndexChange(currentIndex - 1);
-    }
+    if (hasPrev && folderImages) handleIndexChange(currentIndex - 1);
   }, [hasPrev, folderImages, handleIndexChange, currentIndex]);
 
   const handleNext = useCallback(() => {
-    if (hasNext && folderImages) {
-      handleIndexChange(currentIndex + 1);
-    }
+    if (hasNext && folderImages) handleIndexChange(currentIndex + 1);
   }, [hasNext, folderImages, handleIndexChange, currentIndex]);
 
   // Keyboard navigation
@@ -104,6 +102,18 @@ const ImageViewPage = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [isSliderVisible, handlePrev, handleNext]);
 
+  // 외부 클릭 시 햄버거 메뉴 닫기
+  useEffect(() => {
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, []);
+
+  const closeMenu = () => setMenuOpen(false);
 
   if (isImageLoading || (folderId && isFolderLoading)) {
     return <div className="p-8 text-center">Loading image...</div>;
@@ -113,7 +123,9 @@ const ImageViewPage = () => {
 
   return (
     <div className="space-y-4">
+      {/* ── 상단 툴바 ── */}
       <div className="flex justify-between items-center bg-white p-2 rounded-xl border shadow-sm">
+        {/* 좌측: 뒤로가기 + 파일명 */}
         <div className="flex items-center gap-4">
           <button
             onClick={() => navigate(`/folder/${image.folder.id}`)}
@@ -122,44 +134,22 @@ const ImageViewPage = () => {
           >
             <ChevronLeft size={24} />
           </button>
-          
+
           <div className="h-8 w-px bg-gray-200 mx-1" />
 
           <div>
-            <h2 className="text-lg font-bold text-gray-800 truncate max-w-[200px] md:max-w-md" title={image.orgName}>
+            <h2 className="text-lg font-bold text-gray-800 truncate max-w-[160px] sm:max-w-[260px] md:max-w-md" title={image.orgName}>
               {image.orgName}
             </h2>
             <p className="text-[10px] text-gray-500 font-medium uppercase tracking-tight">{image.folder.folderName}</p>
           </div>
         </div>
 
-        <div className="flex items-center gap-4">
-          {/* 회전 버튼 그룹 */}
-          <div className="flex items-center gap-1">
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 text-gray-600"
-              onClick={() => rotateMutation.mutate(90)}
-              disabled={rotateMutation.isPending}
-              title="90도 회전"
-            >
-              <RotateCw size={16} />
-            </Button>
-            <Button
-              variant="outline"
-              size="icon"
-              className="h-8 w-8 text-gray-600"
-              onClick={() => rotateMutation.mutate(180)}
-              disabled={rotateMutation.isPending}
-              title="180도 회전"
-            >
-              <RotateCcw size={16} />
-            </Button>
-          </div>
+        {/* 우측 */}
+        <div className="flex items-center gap-2">
 
-          {/* 네비게이터 그룹 */}
-          <div className="flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200">
+          {/* ── 네비게이터: sm 이상에서만 상단에 표시 ── */}
+          <div className="hidden sm:flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200">
             <Button
               variant="ghost"
               size="icon"
@@ -170,15 +160,11 @@ const ImageViewPage = () => {
             >
               <ChevronLeft size={18} />
             </Button>
-            
+
             <div className="px-3 min-w-[70px] text-center">
-              <span className="text-xs font-bold text-gray-700">
-                {currentIndex + 1}
-              </span>
+              <span className="text-xs font-bold text-gray-700">{currentIndex + 1}</span>
               <span className="text-[10px] text-gray-400 mx-1">/</span>
-              <span className="text-[10px] font-medium text-gray-500">
-                {folderImages?.length}
-              </span>
+              <span className="text-[10px] font-medium text-gray-500">{folderImages?.length}</span>
             </div>
 
             <Button
@@ -193,44 +179,134 @@ const ImageViewPage = () => {
             </Button>
           </div>
 
-          <div className="h-8 w-px bg-gray-200 mx-1" />
+          {/* ── Desktop: 액션 버튼들 (md 이상) ── */}
+          <>
+            <div className="hidden md:flex items-center gap-1">
+              <div className="h-8 w-px bg-gray-200 mx-1" />
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-gray-200"
+                onClick={() => rotateMutation.mutate(90)}
+                disabled={rotateMutation.isPending}
+                title="90도 회전"
+              >
+                <RotateCw size={16} />
+                <span className="hidden lg:inline">90도 회전</span>
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-gray-200"
+                onClick={() => rotateMutation.mutate(180)}
+                disabled={rotateMutation.isPending}
+                title="180도 회전"
+              >
+                <RotateCcw size={16} />
+                <span className="hidden lg:inline">180도 회전</span>
+              </Button>
+            </div>
 
-          {/* 액션 버튼 그룹 */}
-          <div className="flex items-center gap-2">
-            <Button
-              onClick={() => copyLink(image.id)}
-              variant="outline"
-              size="sm"
-              className="h-9 gap-2 border-gray-200"
-            >
-              <Link size={16} />
-              <span className="hidden sm:inline">링크 복사</span>
-            </Button>
-            
-            <a
-              href={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`}
-              download={image.orgName}
-              className="flex items-center gap-2 h-9 px-4 bg-blue-600 hover:bg-blue-700 text-white rounded-md transition-colors text-xs font-bold shadow-sm"
-            >
-              <Download size={16} />
-              <span className="hidden sm:inline">다운로드</span>
-            </a>
+            <div className="hidden md:flex items-center gap-2">
+              <Button
+                onClick={() => copyLink(image.id)}
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-gray-200"
+              >
+                <Link size={16} />
+                <span className="hidden lg:inline">링크 복사</span>
+              </Button>
 
+              <Button variant="outline" size="sm" className="h-9 gap-2 border-gray-200" asChild>
+                <a href={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`} download={image.orgName}>
+                  <Download size={16} />
+                  <span className="hidden lg:inline">다운로드</span>
+                </a>
+              </Button>
+
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => navigate(`/folder/${image.folder.id}`)}
+                className="h-9 gap-2 text-gray-600 hover:bg-gray-100"
+              >
+                <List size={16} />
+                <span className="hidden lg:inline">목록</span>
+              </Button>
+            </div>
+          </>
+
+          {/* ── Tablet/Mobile: 햄버거 드롭다운 (md 미만) ── */}
+          <div className="relative md:hidden" ref={menuRef}>
             <Button
               variant="ghost"
-              size="sm"
-              onClick={() => navigate(`/folder/${image.folder.id}`)}
-              className="h-9 gap-2 text-gray-600 hover:bg-gray-100"
+              size="icon"
+              onClick={() => setMenuOpen(prev => !prev)}
+              className="rounded-lg border bg-gray-50 shadow-sm"
+              title="메뉴"
             >
-              <List size={16} />
-              <span className="hidden lg:inline">목록</span>
+              <Menu size={20} />
             </Button>
+
+            {menuOpen && (
+              <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border rounded-xl shadow-lg py-1">
+                {/* 회전 90° */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={rotateMutation.isPending}
+                  onClick={() => { rotateMutation.mutate(90); closeMenu(); }}
+                >
+                  <RotateCw size={16} /> 90° 회전
+                </button>
+
+                {/* 회전 180° */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={rotateMutation.isPending}
+                  onClick={() => { rotateMutation.mutate(180); closeMenu(); }}
+                >
+                  <RotateCcw size={16} /> 180° 회전
+                </button>
+
+                <div className="h-px bg-gray-100 mx-3 my-1" />
+
+                {/* 링크 복사 */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  onClick={() => { copyLink(image.id); closeMenu(); }}
+                >
+                  <Link size={16} /> 링크 복사
+                </button>
+
+                {/* 다운로드 */}
+                <a
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  href={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`}
+                  download={image.orgName}
+                  onClick={closeMenu}
+                >
+                  <Download size={16} /> 다운로드
+                </a>
+
+                <div className="h-px bg-gray-100 mx-3 my-1" />
+
+                {/* 목록 */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+                  onClick={() => { navigate(`/folder/${image.folder.id}`); closeMenu(); }}
+                >
+                  <List size={16} /> 목록으로
+                </button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
+      {/* ── 이미지 + 정보 영역 ── */}
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        <div className="lg:col-span-3 bg-gray-900 rounded-xl overflow-hidden shadow-inner flex items-center justify-center min-h-[700px] relative group">
+        <div className="lg:col-span-3 bg-gray-900 rounded-xl overflow-hidden shadow-inner flex items-center justify-center min-h-[500px] sm:min-h-[700px] relative group">
 
           <div
             className="cursor-zoom-in relative max-w-full max-h-[85vh]"
@@ -242,6 +318,26 @@ const ImageViewPage = () => {
               className="max-w-full max-h-[85vh] shadow-2xl transition-all duration-300"
             />
           </div>
+
+          {/* ── 모바일 전용 이미지 좌우 네비게이션 버튼 (sm 미만) ── */}
+          {hasPrev && (
+            <button
+              className="sm:hidden absolute left-2 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full p-2 transition-colors"
+              onClick={(e) => { e.stopPropagation(); handlePrev(); }}
+              title="이전 이미지"
+            >
+              <ChevronLeft size={24} />
+            </button>
+          )}
+          {hasNext && (
+            <button
+              className="sm:hidden absolute right-2 top-1/2 -translate-y-1/2 z-10 bg-black/40 hover:bg-black/60 backdrop-blur-sm text-white rounded-full p-2 transition-colors"
+              onClick={(e) => { e.stopPropagation(); handleNext(); }}
+              title="다음 이미지"
+            >
+              <ChevronRight size={24} />
+            </button>
+          )}
 
           <PhotoSlider
             images={sliderImages}

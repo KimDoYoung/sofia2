@@ -1,18 +1,22 @@
 import { Button } from '@/shared/components/ui/button';
-import { 
-  ChevronLeft, 
-  RotateCw, 
-  RotateCcw, 
-  Trash2, 
-  CheckSquare, 
-  Square, 
-  FileText, 
-  LayoutGrid, 
-  List as ListIcon 
+import {
+  ChevronLeft,
+  RotateCw,
+  RotateCcw,
+  Trash2,
+  CheckSquare,
+  Square,
+  FileText,
+  LayoutGrid,
+  List as ListIcon,
+  Menu,
 } from 'lucide-react';
+import { useState, useRef, useEffect } from 'react';
 
 interface ListToolbarProps {
   onBack: () => void;
+  folderName?: string;
+  totalCount: number;
   selectedCount: number;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -26,6 +30,8 @@ interface ListToolbarProps {
 
 export const ListToolbar = ({
   onBack,
+  folderName,
+  totalCount,
   selectedCount,
   onSelectAll,
   onDeselectAll,
@@ -36,6 +42,23 @@ export const ListToolbar = ({
   viewMode,
   onViewModeChange,
 }: ListToolbarProps) => {
+  const allSelected = totalCount > 0 && selectedCount === totalCount;
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  // 외부 클릭 시 메뉴 닫기
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const closeMenu = () => setMenuOpen(false);
+
   return (
     <div className="flex justify-between items-center">
       <div className="flex items-center gap-4">
@@ -47,34 +70,28 @@ export const ListToolbar = ({
         >
           <ChevronLeft size={24} />
         </Button>
-        <h2 className="text-2xl font-bold text-gray-800">이미지 목록</h2>
+        <h2 className="text-2xl font-bold text-gray-800">{folderName ?? '이미지 목록'}</h2>
       </div>
 
-      <div className="flex items-center gap-6">
-        {/* 전체 선택 및 전체 해제 버튼 */}
-        <div className="flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onSelectAll}
-            className="h-9 px-3 gap-2 text-green-600 hover:text-green-700 hover:bg-green-50"
-            title="전체 선택"
-          >
-            <CheckSquare size={16} />
-          </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onDeselectAll}
-            className="h-9 px-3 gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
-            title="전체 해제"
-          >
-            <Square size={16} />
-          </Button>
-        </div>
+      <div className="flex items-center gap-3">
 
-        {/* Control Box */}
-        <div className="flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
+        {/* ── Desktop: Control Box (md 이상에서만 표시) ── */}
+        <div className="hidden md:flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
+          {/* 전체 선택 / 해제 토글 */}
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={allSelected ? onDeselectAll : onSelectAll}
+            className={`h-9 px-3 gap-2 ${allSelected
+              ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+              }`}
+            title={allSelected ? '전체 해제' : '전체 선택'}
+          >
+            {allSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+          </Button>
+          <div className="w-px h-4 bg-gray-300 mx-1" />
+
           <Button
             variant="ghost"
             size="sm"
@@ -84,7 +101,7 @@ export const ListToolbar = ({
             title="90도 시계방향 회전"
           >
             <RotateCw size={16} />
-            <span className="hidden sm:inline">90°</span>
+            <span className="hidden lg:inline">90°</span>
           </Button>
           <Button
             variant="ghost"
@@ -95,7 +112,7 @@ export const ListToolbar = ({
             title="180도 회전"
           >
             <RotateCcw size={16} />
-            <span className="hidden sm:inline">180°</span>
+            <span className="hidden lg:inline">180°</span>
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
           <Button
@@ -107,7 +124,6 @@ export const ListToolbar = ({
             title="삭제"
           >
             <Trash2 size={16} />
-            <span className="hidden sm:inline">삭제</span>
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
           <Button
@@ -123,11 +139,89 @@ export const ListToolbar = ({
             ) : (
               <FileText size={16} />
             )}
-            <span className="hidden sm:inline">{isExporting ? '생성 중...' : 'PDF'}</span>
+            <span className="hidden lg:inline">{isExporting ? '생성 중...' : 'PDF'}</span>
           </Button>
         </div>
 
-        {/* 리스트 표현 형식 */}
+        {/* ── Tablet/Mobile: 햄버거 드롭다운 (md 미만에서만 표시) ── */}
+        <div className="relative md:hidden" ref={menuRef}>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => setMenuOpen(prev => !prev)}
+            className="rounded-lg border bg-gray-50 shadow-sm"
+            title="메뉴"
+          >
+            <Menu size={20} />
+          </Button>
+
+          {menuOpen && (
+            <div className="absolute right-0 top-full mt-1 z-50 w-52 bg-white border rounded-xl shadow-lg py-1 animate-in fade-in slide-in-from-top-2">
+              {/* 전체 선택 / 해제 */}
+              <button
+                className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
+                  allSelected ? 'text-green-600' : 'text-gray-600'
+                }`}
+                onClick={() => { allSelected ? onDeselectAll() : onSelectAll(); closeMenu(); }}
+              >
+                {allSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                {allSelected ? '전체 해제' : '전체 선택'}
+              </button>
+
+              <div className="h-px bg-gray-100 mx-3 my-1" />
+
+              {/* 회전 90° */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={viewMode === 'list' || selectedCount === 0}
+                onClick={() => { onBulkRotate(90); closeMenu(); }}
+              >
+                <RotateCw size={16} />
+                90° 회전
+              </button>
+
+              {/* 회전 180° */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={viewMode === 'list' || selectedCount === 0}
+                onClick={() => { onBulkRotate(180); closeMenu(); }}
+              >
+                <RotateCcw size={16} />
+                180° 회전
+              </button>
+
+              <div className="h-px bg-gray-100 mx-3 my-1" />
+
+              {/* 삭제 */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedCount === 0}
+                onClick={() => { onBulkDelete(); closeMenu(); }}
+              >
+                <Trash2 size={16} />
+                삭제
+              </button>
+
+              <div className="h-px bg-gray-100 mx-3 my-1" />
+
+              {/* PDF */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-blue-600 hover:bg-blue-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedCount === 0 || isExporting}
+                onClick={() => { onExportPdf(); closeMenu(); }}
+              >
+                {isExporting ? (
+                  <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <FileText size={16} />
+                )}
+                {isExporting ? '생성 중...' : 'PDF 다운로드'}
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* ── 뷰 모드 (항상 표시) ── */}
         <div className="flex bg-gray-100 p-1 rounded-lg border shadow-sm">
           <Button
             variant={viewMode === 'smallThumb' ? 'secondary' : 'ghost'}
