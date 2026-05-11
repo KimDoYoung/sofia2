@@ -29,7 +29,7 @@ import { Toaster } from '@/shared/components/ui/toaster';
 
 function App() {
   return (
-    <Router>
+    <Router basename="/sofia">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
         <Route element={<ProtectedLayout />}>
