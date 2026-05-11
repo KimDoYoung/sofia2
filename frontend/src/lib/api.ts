@@ -54,7 +54,7 @@ apiClient.interceptors.response.use(
             processQueue(refreshError);
             // Redirect to login if refresh fails
             if (window.location.pathname !== '/login') {
-                window.location.href = '/login';
+              window.location.href = import.meta.env.BASE_URL + 'login';
             }
             reject(refreshError);
           })
