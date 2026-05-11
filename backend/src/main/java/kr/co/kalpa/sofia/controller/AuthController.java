@@ -4,6 +4,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import kr.co.kalpa.sofia.domain.RefreshToken;
 import kr.co.kalpa.sofia.dto.LoginRequest;
 import kr.co.kalpa.sofia.security.JwtUtils;
+import kr.co.kalpa.sofia.security.TokenRefreshException;
 import kr.co.kalpa.sofia.security.UserDetailsImpl;
 import kr.co.kalpa.sofia.security.UserDetailsServiceImpl;
 import kr.co.kalpa.sofia.service.RefreshTokenService;
@@ -59,16 +60,19 @@ public class AuthController {
         if ((refreshToken != null) && (refreshToken.length() > 0)) {
             return refreshTokenService.findByToken(refreshToken)
                     .map(refreshTokenService::verifyExpiration)
-                    .map(RefreshToken::getUser)
-                    .map(user -> {
-                        UserDetailsImpl userDetails = UserDetailsImpl.build(user);
+                    .map(token -> {
+                        RefreshToken rotatedToken = refreshTokenService.rotateRefreshToken(token);
+                        UserDetailsImpl userDetails = UserDetailsImpl.build(rotatedToken.getUser());
+                        
                         ResponseCookie jwtCookie = jwtUtils.generateJwtCookie(userDetails);
+                        ResponseCookie jwtRefreshCookie = jwtUtils.generateRefreshJwtCookie(rotatedToken.getToken());
 
                         return ResponseEntity.ok()
                                 .header(HttpHeaders.SET_COOKIE, jwtCookie.toString())
+                                .header(HttpHeaders.SET_COOKIE, jwtRefreshCookie.toString())
                                 .body("Token is refreshed successfully!");
                     })
-                    .orElseThrow(() -> new RuntimeException("Refresh token is not in database!"));
+                    .orElseThrow(() -> new TokenRefreshException(refreshToken, "Refresh token is not in database!"));
         }
 
         return ResponseEntity.badRequest().body("Refresh Token is empty!");

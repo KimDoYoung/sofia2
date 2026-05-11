@@ -8,21 +8,60 @@ const apiClient = axios.create({
   },
 });
 
+let isRefreshing = false;
+let failedQueue: any[] = [];
+
+const processQueue = (error: any) => {
+  failedQueue.forEach((prom) => {
+    if (error) {
+      prom.reject(error);
+    } else {
+      prom.resolve();
+    }
+  });
+  failedQueue = [];
+};
+
 // Interceptor for handling token refresh or unauthorized errors
 apiClient.interceptors.response.use(
   (response) => response,
   async (error) => {
     const originalRequest = error.config;
     if (error.response?.status === 401 && !originalRequest._retry) {
-      originalRequest._retry = true;
-      try {
-        await axios.post('/sofia/api/auth/refreshtoken', {}, { withCredentials: true });
-        return apiClient(originalRequest);
-      } catch (refreshError) {
-        // Redirect to login if refresh fails
-        window.location.href = '/login';
-        return Promise.reject(refreshError);
+      if (isRefreshing) {
+        return new Promise(function (resolve, reject) {
+          failedQueue.push({ resolve, reject });
+        })
+          .then(() => {
+            return apiClient(originalRequest);
+          })
+          .catch((err) => {
+            return Promise.reject(err);
+          });
       }
+
+      originalRequest._retry = true;
+      isRefreshing = true;
+
+      return new Promise(function (resolve, reject) {
+        axios
+          .post('/sofia/api/auth/refreshtoken', {}, { withCredentials: true })
+          .then(() => {
+            processQueue(null);
+            resolve(apiClient(originalRequest));
+          })
+          .catch((refreshError) => {
+            processQueue(refreshError);
+            // Redirect to login if refresh fails
+            if (window.location.pathname !== '/login') {
+                window.location.href = '/login';
+            }
+            reject(refreshError);
+          })
+          .finally(() => {
+            isRefreshing = false;
+          });
+      });
     }
     return Promise.reject(error);
   }
