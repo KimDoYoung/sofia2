@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, List, Link, Menu, Pencil, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, Link, Menu, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { PhotoSlider } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';

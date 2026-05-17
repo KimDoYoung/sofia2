@@ -162,7 +162,7 @@ export const ListToolbar = ({
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
                   allSelected ? 'text-green-600' : 'text-gray-600'
                 }`}
-                onClick={() => { allSelected ? onDeselectAll() : onSelectAll(); closeMenu(); }}
+                onClick={() => { if (allSelected) { onDeselectAll(); } else { onSelectAll(); } closeMenu(); }}
               >
                 {allSelected ? <CheckSquare size={16} /> : <Square size={16} />}
                 {allSelected ? '전체 해제' : '전체 선택'}
