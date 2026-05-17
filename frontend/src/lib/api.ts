@@ -10,7 +10,7 @@ const apiClient = axios.create({
 
 let isRefreshing = false;
 interface QueueItem {
-  resolve: () => void;
+  resolve: (value?: unknown) => void;
   reject: (err: unknown) => void;
 }
 
