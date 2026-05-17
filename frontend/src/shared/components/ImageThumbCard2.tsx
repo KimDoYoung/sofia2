@@ -1,4 +1,4 @@
-import { Pencil, FileText, Trash2, RotateCw, CheckCircle2, Link } from 'lucide-react';
+import { Pencil, FileText, Trash2, RotateCw, RotateCcw, CheckCircle2, Link } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/lib/utils';
 import { useImageActions } from '@/shared/hooks/useImageActions';
@@ -71,9 +71,16 @@ export function ImageThumbCard2({
                     <Button
                         size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white"
                         onClick={(e) => { e.stopPropagation(); onRotate(image.id, 90); }}
-                        title="회전"
+                        title="90도 시계방향 회전"
                     >
                         <RotateCw size={14} className="text-gray-700" />
+                    </Button>
+                    <Button
+                        size="icon" variant="secondary" className="h-8 w-8 rounded-full bg-white/90 backdrop-blur-sm hover:bg-white"
+                        onClick={(e) => { e.stopPropagation(); onRotate(image.id, -90); }}
+                        title="90도 반시계방향 회전"
+                    >
+                        <RotateCcw size={14} className="text-gray-700" />
                     </Button>
                 </div>
 

@@ -107,12 +107,12 @@ export const ListToolbar = ({
             variant="ghost"
             size="sm"
             disabled={viewMode === 'list' || selectedCount === 0}
-            onClick={() => onBulkRotate(180)}
+            onClick={() => onBulkRotate(-90)}
             className="h-9 px-3 gap-2 text-gray-600"
-            title="180도 회전"
+            title="90도 반시계방향 회전"
           >
             <RotateCcw size={16} />
-            <span className="hidden lg:inline">180°</span>
+            <span className="hidden lg:inline">-90°</span>
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
           <Button
@@ -180,14 +180,14 @@ export const ListToolbar = ({
                 90° 회전
               </button>
 
-              {/* 회전 180° */}
+              {/* 회전 -90° */}
               <button
                 className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 disabled={viewMode === 'list' || selectedCount === 0}
-                onClick={() => { onBulkRotate(180); closeMenu(); }}
+                onClick={() => { onBulkRotate(-90); closeMenu(); }}
               >
                 <RotateCcw size={16} />
-                180° 회전
+                90° 반시계 회전
               </button>
 
               <div className="h-px bg-gray-100 mx-3 my-1" />
