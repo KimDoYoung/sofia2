@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, List, Link, Menu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, List, Link, Menu, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { PhotoSlider } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -60,6 +60,49 @@ const ImageViewPage = () => {
       toast({ title: '오류', description: '이미지 회전에 실패했습니다.', variant: 'destructive' });
     }
   });
+
+  const updateImageMutation = useMutation({
+    mutationFn: async ({ orgName }: { orgName: string }) => {
+      await apiClient.patch(`/images/${imageId}`, { orgName });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['image-detail', imageId] });
+      toast({ title: '성공', description: '파일명이 변경되었습니다.' });
+    },
+    onError: () => {
+      toast({ title: '오류', description: '파일명 변경에 실패했습니다.', variant: 'destructive' });
+    }
+  });
+
+  const deleteMutation = useMutation({
+    mutationFn: async () => {
+      await apiClient.delete('/images', { data: { ids: [Number(imageId)] } });
+    },
+    onSuccess: () => {
+      toast({ title: '성공', description: '이미지가 삭제되었습니다.' });
+      navigate(`/folder/${image?.folder.id}`);
+    },
+    onError: () => {
+      toast({ title: '오류', description: '이미지 삭제에 실패했습니다.', variant: 'destructive' });
+    }
+  });
+
+  const handleRename = () => {
+    if (!image) return;
+    const dotIndex = image.orgName.lastIndexOf('.');
+    const nameWithoutExt = dotIndex !== -1 ? image.orgName.substring(0, dotIndex) : image.orgName;
+    const ext = dotIndex !== -1 ? image.orgName.substring(dotIndex) : '';
+    const newName = window.prompt('새 파일명을 입력하세요 (확장자 제외):', nameWithoutExt);
+    if (newName !== null && newName.trim() !== '') {
+      updateImageMutation.mutate({ orgName: newName.trim() + ext });
+    }
+  };
+
+  const handleDelete = () => {
+    if (window.confirm('이미지를 삭제하시겠습니까?')) {
+      deleteMutation.mutate();
+    }
+  };
 
   const currentIndex = useMemo(() => {
     if (!folderImages || !imageId) return 0;
@@ -198,12 +241,12 @@ const ImageViewPage = () => {
                 variant="outline"
                 size="sm"
                 className="h-9 gap-2 border-gray-200"
-                onClick={() => rotateMutation.mutate(180)}
+                onClick={() => rotateMutation.mutate(-90)}
                 disabled={rotateMutation.isPending}
-                title="180도 회전"
+                title="90도 반시계방향 회전"
               >
                 <RotateCcw size={16} />
-                <span className="hidden lg:inline">180도 회전</span>
+                <span className="hidden lg:inline">-90도 회전</span>
               </Button>
             </div>
 
@@ -218,6 +261,30 @@ const ImageViewPage = () => {
                 <span className="hidden lg:inline">링크 복사</span>
               </Button>
 
+              <Button
+                onClick={handleRename}
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-gray-200"
+                disabled={updateImageMutation.isPending}
+                title="파일명 변경"
+              >
+                <Pencil size={16} />
+                <span className="hidden lg:inline">이름 바꾸기</span>
+              </Button>
+
+              <Button
+                onClick={handleDelete}
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-gray-200 text-red-600 hover:text-red-700 hover:bg-red-50"
+                disabled={deleteMutation.isPending}
+                title="삭제"
+              >
+                <Trash2 size={16} />
+                <span className="hidden lg:inline">삭제</span>
+              </Button>
+
               <Button variant="outline" size="sm" className="h-9 gap-2 border-gray-200" asChild>
                 <a href={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`} download={image.orgName}>
                   <Download size={16} />
@@ -225,15 +292,13 @@ const ImageViewPage = () => {
                 </a>
               </Button>
 
-              <Button
-                variant="ghost"
-                size="sm"
+              <button
                 onClick={() => navigate(`/folder/${image.folder.id}`)}
-                className="h-9 gap-2 text-gray-600 hover:bg-gray-100"
+                className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
+                title="목록으로"
               >
-                <List size={16} />
-                <span className="hidden lg:inline">목록</span>
-              </Button>
+                <ChevronLeft size={24} />
+              </button>
             </div>
           </>
 
@@ -260,13 +325,13 @@ const ImageViewPage = () => {
                   <RotateCw size={16} /> 90° 회전
                 </button>
 
-                {/* 회전 180° */}
+                {/* 회전 -90° */}
                 <button
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                   disabled={rotateMutation.isPending}
-                  onClick={() => { rotateMutation.mutate(180); closeMenu(); }}
+                  onClick={() => { rotateMutation.mutate(-90); closeMenu(); }}
                 >
-                  <RotateCcw size={16} /> 180° 회전
+                  <RotateCcw size={16} /> 90° 반시계 회전
                 </button>
 
                 <div className="h-px bg-gray-100 mx-3 my-1" />
@@ -277,6 +342,24 @@ const ImageViewPage = () => {
                   onClick={() => { copyLink(image.id); closeMenu(); }}
                 >
                   <Link size={16} /> 링크 복사
+                </button>
+
+                {/* 이름 바꾸기 */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={updateImageMutation.isPending}
+                  onClick={() => { handleRename(); closeMenu(); }}
+                >
+                  <Pencil size={16} /> 이름 바꾸기
+                </button>
+
+                {/* 삭제 */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={deleteMutation.isPending}
+                  onClick={() => { handleDelete(); closeMenu(); }}
+                >
+                  <Trash2 size={16} /> 삭제
                 </button>
 
                 {/* 다운로드 */}
@@ -293,10 +376,11 @@ const ImageViewPage = () => {
 
                 {/* 목록 */}
                 <button
-                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                  onClick={() => { navigate(`/folder/${image.folder.id}`); closeMenu(); }}
+                  onClick={() => navigate(`/folder/${image.folder.id}`)}
+                  className="p-2 hover:bg-gray-100 rounded-full transition-colors text-gray-600"
+                  title="목록으로"
                 >
-                  <List size={16} /> 목록으로
+                  <ChevronLeft size={24} />
                 </button>
               </div>
             )}

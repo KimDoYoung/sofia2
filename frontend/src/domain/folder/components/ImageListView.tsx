@@ -4,7 +4,7 @@ import { AgGridReact } from 'ag-grid-react';
 import { themeQuartz } from 'ag-grid-community';
 import type { ColDef, CellValueChangedEvent, SelectionChangedEvent, ValueSetterParams, ICellRendererParams, GridReadyEvent } from 'ag-grid-community';
 import { Button } from '@/shared/components/ui/button';
-import { Link } from 'lucide-react';
+import { Link, Trash2 } from 'lucide-react';
 import { formatDateTime, formatFileSize } from '@/lib/utils';
 import type { ImageFile } from '../types';
 
@@ -16,6 +16,7 @@ interface ImageListViewProps {
   onCellValueChanged: (event: CellValueChangedEvent) => void;
   onImageClick: (id: number) => void;
   onCopyLink: (id: number) => void;
+  onDelete: (id: number) => void;
 }
 
 export const ImageListView = ({
@@ -26,6 +27,7 @@ export const ImageListView = ({
   onCellValueChanged,
   onImageClick,
   onCopyLink,
+  onDelete,
 }: ImageListViewProps) => {
   const apiRef = useRef<GridReadyEvent['api'] | null>(null);
 
@@ -163,23 +165,34 @@ export const ImageListView = ({
     },
     {
       colId: 'link',
-      headerName: '링크',
-      width: 70,
+      headerName: '액션',
+      width: 110,
       sortable: false,
       filter: false,
       cellRenderer: (params: ICellRendererParams<ImageFile>) => (
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 text-gray-400 hover:text-blue-600"
-          onClick={() => onCopyLink(params.data!.id)}
-          title="이미지 링크 복사"
-        >
-          <Link size={14} />
-        </Button>
+        <div className="flex items-center gap-1">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-gray-400 hover:text-blue-600"
+            onClick={() => onCopyLink(params.data!.id)}
+            title="이미지 링크 복사"
+          >
+            <Link size={14} />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-8 w-8 text-gray-400 hover:text-red-500 hover:bg-red-50"
+            onClick={() => onDelete(params.data!.id)}
+            title="삭제"
+          >
+            <Trash2 size={14} />
+          </Button>
+        </div>
       )
     },
-  ], [onImageClick, onCopyLink, refreshKey]);
+  ], [onImageClick, onCopyLink, onDelete, refreshKey]);
 
   return (
     <div className="w-full h-[650px] shadow-sm rounded-lg overflow-hidden border">

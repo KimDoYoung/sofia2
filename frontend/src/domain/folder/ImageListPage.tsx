@@ -227,6 +227,9 @@ const ImageListPage = () => {
           onCellValueChanged={onCellValueChanged}
           onImageClick={(id) => navigate(`/image/${id}`)}
           onCopyLink={copyLink}
+          onDelete={(id) => {
+            if (window.confirm('삭제하시겠습니까?')) bulkDeleteMutation.mutate([id]);
+          }}
         />
       ) : (
         <ImageGridView 
