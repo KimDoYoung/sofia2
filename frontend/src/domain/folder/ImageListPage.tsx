@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useMemo } from 'react';
 
 import { useUIStore } from '@/store/uiStore';
 import { AgGridReact } from 'ag-grid-react';
@@ -9,7 +9,8 @@ import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import type { CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
 import { useToast } from '@/shared/components/ui/use-toast';
 import { useImageActions } from '@/shared/hooks/useImageActions';
-import { ArrowUp } from 'lucide-react';
+import { ArrowUp, Search } from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
 
 import type { ImageFile } from './types';
 import { ListToolbar } from './components/ListToolbar';
@@ -25,12 +26,17 @@ const ImageListPage = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { copyLink } = useImageActions();
-  const { imageListViewMode: viewMode, setImageListViewMode: setViewMode } = useUIStore();
+  const { imageListViewMode: viewMode, setImageListViewMode: setViewMode, searchQuery, setSearchQuery } = useUIStore();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const gridRef = useRef<AgGridReact>(null);
+
+  // Reset search when folder changes
+  useEffect(() => {
+    setSearchQuery('');
+  }, [folderId, setSearchQuery]);
 
   useEffect(() => {
     const handleScroll = () => {
@@ -52,6 +58,14 @@ const ImageListPage = () => {
       return res.data;
     },
   });
+
+  const filteredImages = useMemo(() => {
+    if (!images) return [];
+    if (!searchQuery) return images;
+    return images.filter(img => 
+      img.orgName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [images, searchQuery]);
 
   const { data: folders } = useQuery<{ id: number; folderName: string }[]>({
     queryKey: ['folders'],
@@ -131,7 +145,7 @@ const ImageListPage = () => {
     if (viewMode === 'list' && gridRef.current?.api) {
       gridRef.current.api.selectAll();
     } else {
-      setSelectedIds(images?.map(img => img.id) || []);
+      setSelectedIds(filteredImages.map(img => img.id));
     }
   };
 
@@ -218,7 +232,7 @@ const ImageListPage = () => {
       <ListToolbar 
         onBack={() => navigate('/')}
         folderName={folderName}
-        totalCount={images?.length ?? 0}
+        totalCount={filteredImages.length}
         selectedCount={selectedIds.length}
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}
@@ -233,9 +247,26 @@ const ImageListPage = () => {
         }}
       />
 
-      {viewMode === 'list' ? (
+      {filteredImages.length === 0 && searchQuery ? (
+        <div className="flex flex-col items-center justify-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
+          <div className="p-4 bg-gray-50 rounded-full mb-4">
+            <Search className="h-8 w-8 text-gray-400" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900">검색 결과가 없습니다</h3>
+          <p className="text-gray-500 mt-1">
+            "{searchQuery}"에 해당하는 파일을 찾을 수 없습니다.
+          </p>
+          <Button
+            variant="link"
+            onClick={() => setSearchQuery('')}
+            className="mt-2 text-blue-600"
+          >
+            필터 초기화
+          </Button>
+        </div>
+      ) : viewMode === 'list' ? (
         <ImageListView 
-          images={images || []}
+          images={filteredImages}
           gridRef={gridRef}
           refreshKey={refreshKey}
           onSelectionChanged={onSelectionChanged}
@@ -248,7 +279,7 @@ const ImageListPage = () => {
         />
       ) : (
         <ImageGridView 
-          images={images || []}
+          images={filteredImages}
           viewMode={viewMode}
           selectedIds={selectedIds}
           refreshKey={refreshKey}

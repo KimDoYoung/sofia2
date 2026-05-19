@@ -1,4 +1,5 @@
 import { Button } from '@/shared/components/ui/button';
+import { Input } from '@/shared/components/ui/input';
 import {
   ChevronLeft,
   RotateCw,
@@ -10,8 +11,11 @@ import {
   LayoutGrid,
   List as ListIcon,
   Menu,
+  Search,
+  X,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
+import { useUIStore } from '@/store/uiStore';
 
 interface ListToolbarProps {
   onBack: () => void;
@@ -42,9 +46,14 @@ export const ListToolbar = ({
   viewMode,
   onViewModeChange,
 }: ListToolbarProps) => {
-  const allSelected = totalCount > 0 && selectedCount === totalCount;
+  const { searchQuery, setSearchQuery } = useUIStore();
+  const anySelected = selectedCount > 0;
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+
+  const handleClearSearch = () => {
+    setSearchQuery('');
+  };
 
   // 외부 클릭 시 메뉴 닫기
   useEffect(() => {
@@ -74,6 +83,25 @@ export const ListToolbar = ({
       </div>
 
       <div className="flex items-center gap-3">
+        {/* ── 검색바 ── */}
+        <div className="relative hidden sm:flex items-center bg-gray-50 p-1 rounded-lg border shadow-sm">
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+          <Input
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder="파일명 검색..."
+            className="h-9 w-40 md:w-64 pl-9 pr-8 border-0 shadow-none bg-transparent focus-visible:ring-0 focus-visible:ring-offset-0"
+          />
+          {searchQuery && (
+            <button
+              onClick={handleClearSearch}
+              className="absolute right-1 top-1/2 -translate-y-1/2 p-1.5 hover:bg-gray-200 rounded-md text-gray-400 hover:text-gray-600 transition-colors"
+              title="지우기"
+            >
+              <X size={14} />
+            </button>
+          )}
+        </div>
 
         {/* ── Desktop: Control Box (md 이상에서만 표시) ── */}
         <div className="hidden md:flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
@@ -81,14 +109,14 @@ export const ListToolbar = ({
           <Button
             variant="ghost"
             size="sm"
-            onClick={allSelected ? onDeselectAll : onSelectAll}
-            className={`h-9 px-3 gap-2 ${allSelected
+            onClick={anySelected ? onDeselectAll : onSelectAll}
+            className={`h-9 px-3 gap-2 ${anySelected
               ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
               : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
               }`}
-            title={allSelected ? '전체 해제' : '전체 선택'}
+            title={anySelected ? '전체 해제' : '전체 선택'}
           >
-            {allSelected ? <CheckSquare size={16} /> : <Square size={16} />}
+            {anySelected ? <CheckSquare size={16} /> : <Square size={16} />}
           </Button>
           <div className="w-px h-4 bg-gray-300 mx-1" />
 
@@ -160,12 +188,12 @@ export const ListToolbar = ({
               {/* 전체 선택 / 해제 */}
               <button
                 className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm hover:bg-gray-50 transition-colors ${
-                  allSelected ? 'text-green-600' : 'text-gray-600'
+                  anySelected ? 'text-green-600' : 'text-gray-600'
                 }`}
-                onClick={() => { if (allSelected) { onDeselectAll(); } else { onSelectAll(); } closeMenu(); }}
+                onClick={() => { if (anySelected) { onDeselectAll(); } else { onSelectAll(); } closeMenu(); }}
               >
-                {allSelected ? <CheckSquare size={16} /> : <Square size={16} />}
-                {allSelected ? '전체 해제' : '전체 선택'}
+                {anySelected ? <CheckSquare size={16} /> : <Square size={16} />}
+                {anySelected ? '전체 해제' : '전체 선택'}
               </button>
 
               <div className="h-px bg-gray-100 mx-3 my-1" />
