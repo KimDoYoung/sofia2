@@ -1,7 +1,7 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 import { useUIStore } from '@/store/uiStore';
 import { AgGridReact } from 'ag-grid-react';
@@ -9,6 +9,7 @@ import { ModuleRegistry, AllCommunityModule } from 'ag-grid-community';
 import type { CellValueChangedEvent, SelectionChangedEvent } from 'ag-grid-community';
 import { useToast } from '@/shared/components/ui/use-toast';
 import { useImageActions } from '@/shared/hooks/useImageActions';
+import { ArrowUp } from 'lucide-react';
 
 import type { ImageFile } from './types';
 import { ListToolbar } from './components/ListToolbar';
@@ -28,7 +29,21 @@ const ImageListPage = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
+  const [showScrollTop, setShowScrollTop] = useState(false);
   const gridRef = useRef<AgGridReact>(null);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowScrollTop(window.scrollY > 400);
+    };
+
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToTop = () => {
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
 
   const { data: images, isLoading } = useQuery<ImageFile[]>({
     queryKey: ['folder-images', folderId],
@@ -246,6 +261,16 @@ const ImageListPage = () => {
           }}
           onRotate={(id, angle) => rotateMutation.mutate({ ids: [id], angle })}
         />
+      )}
+
+      {showScrollTop && viewMode !== 'list' && (
+        <button
+          onClick={scrollToTop}
+          className="fixed bottom-8 right-8 z-50 p-3 bg-blue-600 text-white rounded-full shadow-lg hover:bg-blue-700 transition-all animate-in fade-in zoom-in duration-300"
+          title="맨 위로"
+        >
+          <ArrowUp size={24} />
+        </button>
       )}
     </div>
   );

@@ -1,13 +1,18 @@
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { apiClient } from '@/lib/api';
 import { useQuery } from '@tanstack/react-query';
-import { Plus } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight } from 'lucide-react';
 import axios from 'axios';
 
 const TopBar = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { name, clearAuth } = useAuthStore();
+
+  // Extract folderId from pathname (e.g., /folder/12)
+  const folderMatch = location.pathname.match(/\/folder\/(\d+)/);
+  const currentFolderId = folderMatch ? parseInt(folderMatch[1], 10) : null;
 
   const { data: healthData } = useQuery({
     queryKey: ['health'],
@@ -17,6 +22,23 @@ const TopBar = () => {
     },
     staleTime: 5 * 60 * 1000,
   });
+
+  const { data: folders } = useQuery<{ id: number; folderName: string }[]>({
+    queryKey: ['folders'],
+    queryFn: async () => {
+      const res = await apiClient.get('/folders');
+      return res.data;
+    },
+    enabled: !!currentFolderId,
+  });
+
+  const currentFolderIndex = folders?.findIndex(f => f.id === currentFolderId);
+  const prevFolderId = currentFolderIndex !== undefined && currentFolderIndex > 0 
+    ? folders?.[currentFolderIndex - 1].id 
+    : null;
+  const nextFolderId = currentFolderIndex !== undefined && currentFolderIndex < (folders?.length || 0) - 1 
+    ? folders?.[currentFolderIndex + 1].id 
+    : null;
 
   const handleLogout = async () => {
     try {
@@ -43,6 +65,35 @@ const TopBar = () => {
         </h1>
       </div>
       <div className="flex items-center gap-4">
+        {currentFolderId && folders && (
+          <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border mr-2">
+            <button
+              onClick={() => prevFolderId && navigate(`/folder/${prevFolderId}`)}
+              disabled={!prevFolderId}
+              className={`p-1 rounded transition-colors ${
+                prevFolderId 
+                  ? 'text-gray-600 hover:bg-white hover:text-blue-600 shadow-sm border border-transparent hover:border-gray-200' 
+                  : 'text-gray-300 cursor-not-allowed'
+              }`}
+              title="이전 폴더"
+            >
+              <ChevronLeft size={20} />
+            </button>
+            <div className="h-4 w-px bg-gray-300 mx-1" />
+            <button
+              onClick={() => nextFolderId && navigate(`/folder/${nextFolderId}`)}
+              disabled={!nextFolderId}
+              className={`p-1 rounded transition-colors ${
+                nextFolderId 
+                  ? 'text-gray-600 hover:bg-white hover:text-blue-600 shadow-sm border border-transparent hover:border-gray-200' 
+                  : 'text-gray-300 cursor-not-allowed'
+              }`}
+              title="다음 폴더"
+            >
+              <ChevronRight size={20} />
+            </button>
+          </div>
+        )}
         <button
           onClick={() => navigate('/folder/add')}
           className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"

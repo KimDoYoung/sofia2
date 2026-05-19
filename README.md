@@ -7,14 +7,6 @@
 - prefix : sofia
 - 인증은 jwt로 사용
 
-## TODO
-
-1. export시 waiting...
-2. slide에서 리스트쪽으로 이동, 이때 list,thumb sml를 기록했다가 이동
-3. slide에 auto    버튼 slide 3초
-4. slide에 원본크기 버튼
-5. slide에 화면에 맞는 크기
-6. view에서 선택된 것들 export
 
 ### 기능
 
@@ -139,3 +131,9 @@
 
 - 주의) 위 url에  api를 앞에 붙인 것은 json형태로 같은 context를 리턴
 
+## 실행
+
+- bm.sh : backend 실행
+- fm.sh : frontend 실행
+- db.sh : db 관련 실행
+- deploy.sh : jskn서버에 deploy
