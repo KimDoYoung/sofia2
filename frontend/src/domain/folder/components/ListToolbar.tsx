@@ -20,7 +20,6 @@ import { useUIStore } from '@/store/uiStore';
 interface ListToolbarProps {
   onBack: () => void;
   folderName?: string;
-  totalCount: number;
   selectedCount: number;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -35,7 +34,6 @@ interface ListToolbarProps {
 export const ListToolbar = ({
   onBack,
   folderName,
-  totalCount,
   selectedCount,
   onSelectAll,
   onDeselectAll,

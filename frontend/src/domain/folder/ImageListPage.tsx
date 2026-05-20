@@ -232,7 +232,6 @@ const ImageListPage = () => {
       <ListToolbar 
         onBack={() => navigate('/')}
         folderName={folderName}
-        totalCount={filteredImages.length}
         selectedCount={selectedIds.length}
         onSelectAll={handleSelectAll}
         onDeselectAll={handleDeselectAll}

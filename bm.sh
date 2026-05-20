@@ -161,7 +161,7 @@ do_run() {
     if [[ -f "$GRADLEW" ]]; then
         chmod +x "$GRADLEW"
         info "서버 시작 중... (Ctrl+C 로 종료)"
-        info "Health check: curl http://localhost:8585/pcms/health"
+        info "Health check: curl http://localhost:9595/sofia/health"
         echo ""
         "$GRADLEW" -p "$BACKEND_DIR" bootRun --args="--spring.profiles.active=${SOFIA_MODE}"
     else

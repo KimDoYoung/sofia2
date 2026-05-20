@@ -188,7 +188,7 @@ public class ImageService {
                 createThumbnail(rawPath.toFile(), thumbPath.toFile(), size, size);
             } else {
                 // If raw file doesn't exist, we can't create thumbnail
-                throw new IOException("Original image not found: " + rawPath);
+                log.warn("Original image not found, cannot create thumbnail: {}", rawPath);
             }
         }
 
