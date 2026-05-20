@@ -8,6 +8,7 @@ import { PhotoSlider } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
 import { useImageActions } from '@/shared/hooks/useImageActions';
 import { useToast } from '@/shared/components/ui/use-toast';
+import { useUIStore } from '@/store/uiStore';
 
 import type { ImageViewFile, ImageFile } from './types';
 import ImageInfo from './components/ImageInfo';
@@ -19,6 +20,7 @@ const ImageViewPage = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const { copyLink } = useImageActions();
+  const { searchQuery } = useUIStore();
   const [isSliderVisible, setIsSliderVisible] = useState(false);
   const [imageTimestamp, setImageTimestamp] = useState(Date.now());
   const [menuOpen, setMenuOpen] = useState(false);
@@ -45,6 +47,14 @@ const ImageViewPage = () => {
     enabled: !!folderId,
     placeholderData: keepPreviousData,
   });
+
+  const filteredFolderImages = useMemo(() => {
+    if (!folderImages) return [];
+    if (!searchQuery) return folderImages;
+    return folderImages.filter(img => 
+      img.orgName.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  }, [folderImages, searchQuery]);
 
   const rotateMutation = useMutation({
     mutationFn: async (angle: number) => {
@@ -105,34 +115,34 @@ const ImageViewPage = () => {
   };
 
   const currentIndex = useMemo(() => {
-    if (!folderImages || !imageId) return 0;
-    const index = folderImages.findIndex(img => img.id === Number(imageId));
+    if (!filteredFolderImages || !imageId) return 0;
+    const index = filteredFolderImages.findIndex(img => img.id === Number(imageId));
     return index === -1 ? 0 : index;
-  }, [folderImages, imageId]);
+  }, [filteredFolderImages, imageId]);
 
   const hasPrev = currentIndex > 0;
-  const hasNext = folderImages ? currentIndex < folderImages.length - 1 : false;
+  const hasNext = filteredFolderImages ? currentIndex < filteredFolderImages.length - 1 : false;
 
   const sliderImages = useMemo(() => {
-    return (folderImages || []).map(img => ({
+    return (filteredFolderImages || []).map(img => ({
       src: `/sofia/api/images/${img.id}/raw?t=${img.id === Number(imageId) ? imageTimestamp : '0'}`,
       key: img.id,
     }));
-  }, [folderImages, imageId, imageTimestamp]);
+  }, [filteredFolderImages, imageId, imageTimestamp]);
 
   const handleIndexChange = useCallback((index: number) => {
-    if (folderImages && folderImages[index]) {
-      navigate(`/image/${folderImages[index].id}`, { replace: true });
+    if (filteredFolderImages && filteredFolderImages[index]) {
+      navigate(`/image/${filteredFolderImages[index].id}`, { replace: true });
     }
-  }, [folderImages, navigate]);
+  }, [filteredFolderImages, navigate]);
 
   const handlePrev = useCallback(() => {
-    if (hasPrev && folderImages) handleIndexChange(currentIndex - 1);
-  }, [hasPrev, folderImages, handleIndexChange, currentIndex]);
+    if (hasPrev && filteredFolderImages) handleIndexChange(currentIndex - 1);
+  }, [hasPrev, filteredFolderImages, handleIndexChange, currentIndex]);
 
   const handleNext = useCallback(() => {
-    if (hasNext && folderImages) handleIndexChange(currentIndex + 1);
-  }, [hasNext, folderImages, handleIndexChange, currentIndex]);
+    if (hasNext && filteredFolderImages) handleIndexChange(currentIndex + 1);
+  }, [hasNext, filteredFolderImages, handleIndexChange, currentIndex]);
 
   // Keyboard navigation
   useEffect(() => {
@@ -207,7 +217,7 @@ const ImageViewPage = () => {
             <div className="px-3 min-w-[70px] text-center">
               <span className="text-xs font-bold text-gray-700">{currentIndex + 1}</span>
               <span className="text-[10px] text-gray-400 mx-1">/</span>
-              <span className="text-[10px] font-medium text-gray-500">{folderImages?.length}</span>
+              <span className="text-[10px] font-medium text-gray-500">{filteredFolderImages?.length}</span>
             </div>
 
             <Button
@@ -457,9 +467,9 @@ const ImageViewPage = () => {
             )}
           />
 
-          {folderImages && (
+          {filteredFolderImages && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-medium flex gap-3">
-              <span>{currentIndex + 1} / {folderImages.length}</span>
+              <span>{currentIndex + 1} / {filteredFolderImages.length}</span>
               <span className="text-white/30">|</span>
               <span>{image.imageWidth} x {image.imageHeight}</span>
             </div>
