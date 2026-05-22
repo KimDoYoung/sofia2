@@ -44,7 +44,7 @@ public class ImageService {
     private String baseImageFolder;
 
     public List<ImageFile> getImagesByFolder(Long folderId) {
-        return imageFileRepository.findByFolderIdOrderBySeqAsc(folderId);
+        return imageFileRepository.findByFolderIdOrderByOrgNameAsc(folderId);
     }
 
     private final String uploadDir = "uploads/";
