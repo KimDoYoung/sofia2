@@ -137,3 +137,8 @@
 - fm.sh : frontend 실행
 - db.sh : db 관련 실행
 - deploy.sh : jskn서버에 deploy
+
+## 업그레이드
+
+- application.properties 에서 버젼 업
+- deploy.sh
