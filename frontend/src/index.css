@@ -4,6 +4,28 @@
   --font-sans: "Pretendard Variable", sans-serif;
 }
 
+@keyframes imgFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes imgSlideFromRight {
+  from { transform: translateX(48px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes imgSlideFromLeft {
+  from { transform: translateX(-48px); opacity: 0; }
+  to { transform: translateX(0); opacity: 1; }
+}
+@keyframes imgZoomIn {
+  from { transform: scale(0.88); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.img-anim-fade { animation: imgFadeIn 0.3s ease-out both; }
+.img-anim-slide-next { animation: imgSlideFromRight 0.3s ease-out both; }
+.img-anim-slide-prev { animation: imgSlideFromLeft 0.3s ease-out both; }
+.img-anim-zoom { animation: imgZoomIn 0.3s ease-out both; }
+
 @layer base {
   :root {
     --background: 0 0% 100%;
@@ -28,3 +50,5 @@
     --radius: 0.5rem;
   }
 }
+
+

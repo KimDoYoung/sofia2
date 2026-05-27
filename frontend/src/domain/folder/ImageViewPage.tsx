@@ -9,6 +9,7 @@ import 'react-photo-view/dist/react-photo-view.css';
 import { useImageActions } from '@/shared/hooks/useImageActions';
 import { useToast } from '@/shared/components/ui/use-toast';
 import { useUIStore } from '@/store/uiStore';
+import { useUserSettings } from '@/shared/hooks/useUserSettings';
 
 import type { ImageViewFile, ImageFile } from './types';
 import ImageInfo from './components/ImageInfo';
@@ -25,6 +26,17 @@ const ImageViewPage = () => {
   const [imageTimestamp, setImageTimestamp] = useState(Date.now());
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
+  const navDirectionRef = useRef<'prev' | 'next' | null>(null);
+  const { imageTransition } = useUserSettings();
+
+  const getImgAnimClass = () => {
+    const dir = navDirectionRef.current;
+    if (!dir || imageTransition === 'none') return '';
+    if (imageTransition === 'fade') return 'img-anim-fade';
+    if (imageTransition === 'slide') return dir === 'next' ? 'img-anim-slide-next' : 'img-anim-slide-prev';
+    if (imageTransition === 'zoom') return 'img-anim-zoom';
+    return '';
+  };
 
   // Fetch current image detail
   const { data: image, isLoading: isImageLoading } = useQuery<ImageViewFile>({
@@ -137,19 +149,25 @@ const ImageViewPage = () => {
   }, [filteredFolderImages, navigate]);
 
   const handlePrev = useCallback(() => {
-    if (hasPrev && filteredFolderImages) handleIndexChange(currentIndex - 1);
+    if (hasPrev && filteredFolderImages) {
+      navDirectionRef.current = 'prev';
+      handleIndexChange(currentIndex - 1);
+    }
   }, [hasPrev, filteredFolderImages, handleIndexChange, currentIndex]);
 
   const handleNext = useCallback(() => {
-    if (hasNext && filteredFolderImages) handleIndexChange(currentIndex + 1);
+    if (hasNext && filteredFolderImages) {
+      navDirectionRef.current = 'next';
+      handleIndexChange(currentIndex + 1);
+    }
   }, [hasNext, filteredFolderImages, handleIndexChange, currentIndex]);
 
   // Keyboard navigation
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (isSliderVisible) return;
       if (e.key === 'ArrowLeft') handlePrev();
       if (e.key === 'ArrowRight') handleNext();
+      if (isSliderVisible && e.key === 'Escape') setIsSliderVisible(false);
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
@@ -403,13 +421,14 @@ const ImageViewPage = () => {
         <div className="lg:col-span-3 bg-gray-900 rounded-xl overflow-hidden shadow-inner flex items-center justify-center min-h-[500px] sm:min-h-[700px] relative group">
 
           <div
-            className="cursor-zoom-in relative max-w-full max-h-[85vh]"
+            key={imageId}
+            className={`cursor-zoom-in relative max-w-full max-h-[85vh] ${getImgAnimClass()}`}
             onClick={() => setIsSliderVisible(true)}
           >
             <img
-              src={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`}
+              src={`/sofia/api/images/${imageId}/raw?t=${imageTimestamp}`}
               alt={image.orgName}
-              className="max-w-full max-h-[85vh] shadow-2xl transition-all duration-300"
+              className="max-w-full max-h-[85vh] shadow-2xl"
             />
           </div>
 
@@ -434,13 +453,35 @@ const ImageViewPage = () => {
           )}
 
           <PhotoSlider
-            images={sliderImages}
+            images={sliderImages[currentIndex] ? [sliderImages[currentIndex]] : []}
             visible={isSliderVisible}
             onClose={() => setIsSliderVisible(false)}
-            index={currentIndex}
-            onIndexChange={handleIndexChange}
+            index={0}
+            onIndexChange={() => {}}
+            pullClosable={false}
+            maskClosable={false}
             toolbarRender={({ onRotate, rotate }) => (
-              <div className="flex items-center gap-4 px-4 h-full">
+              <div className="flex items-center gap-2 px-4 h-full">
+                <button
+                  className="p-1.5 hover:bg-white/20 rounded-full transition-colors text-white disabled:opacity-30"
+                  onClick={handlePrev}
+                  disabled={!hasPrev}
+                  title="이전 이미지 (←)"
+                >
+                  <ChevronLeft size={20} />
+                </button>
+                <span className="text-white/70 text-xs min-w-[50px] text-center">
+                  {currentIndex + 1} / {filteredFolderImages?.length}
+                </span>
+                <button
+                  className="p-1.5 hover:bg-white/20 rounded-full transition-colors text-white disabled:opacity-30"
+                  onClick={handleNext}
+                  disabled={!hasNext}
+                  title="다음 이미지 (→)"
+                >
+                  <ChevronRight size={20} />
+                </button>
+                <div className="w-px h-5 bg-white/20 mx-1" />
                 <button
                   className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
                   onClick={() => onRotate(rotate + 90)}
@@ -466,6 +507,8 @@ const ImageViewPage = () => {
               </div>
             )}
           />
+
+
 
           {filteredFolderImages && (
             <div className="absolute bottom-4 left-1/2 -translate-x-1/2 bg-black/50 backdrop-blur-md px-4 py-1.5 rounded-full text-white text-xs font-medium flex gap-3">
