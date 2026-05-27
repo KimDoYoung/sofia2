@@ -28,7 +28,7 @@ const TRANSITION_OPTIONS: { value: ImageTransition; label: string; desc: string 
 const SettingsPage = () => {
   const [successMessage, setSuccessMessage] = useState('');
   const [errorMessage, setErrorMessage] = useState('');
-  const { imageTransition, updateImageTransition, isUpdating } = useUserSettings();
+  const { imageTransition, updateImageTransition, isUpdating, isLoading } = useUserSettings();
 
   const {
     register,
@@ -76,7 +76,7 @@ const SettingsPage = () => {
               {TRANSITION_OPTIONS.map((opt) => (
                 <button
                   key={opt.value}
-                  disabled={isUpdating}
+                  disabled={isUpdating || isLoading}
                   onClick={() => updateImageTransition(opt.value)}
                   className={`flex flex-col items-center gap-1.5 p-3 rounded-xl border-2 transition-all text-sm font-medium
                     ${imageTransition === opt.value
