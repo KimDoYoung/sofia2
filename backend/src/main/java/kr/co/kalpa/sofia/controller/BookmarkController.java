@@ -31,4 +31,10 @@ public class BookmarkController {
         bookmarkService.deleteBookmark(id);
         return ResponseEntity.noContent().build();
     }
+
+    @DeleteMapping
+    public ResponseEntity<Void> deleteAllBookmarks() {
+        bookmarkService.deleteAllBookmarks();
+        return ResponseEntity.noContent().build();
+    }
 }

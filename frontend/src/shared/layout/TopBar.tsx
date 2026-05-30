@@ -2,9 +2,9 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { apiClient } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronLeft, ChevronRight, Bookmark, Trash2, X } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Bookmark, Trash2, X, Menu, LogOut, Settings } from 'lucide-react';
 import axios from 'axios';
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 
 interface BookmarkDto {
   id: number;
@@ -21,6 +21,8 @@ const TopBar = () => {
   const location = useLocation();
   const { name, clearAuth } = useAuthStore();
   const [isBookmarkModalOpen, setIsBookmarkModalOpen] = useState(false);
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+  const mobileMenuRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   // Extract folderId from pathname (e.g., /folder/12)
@@ -63,6 +65,15 @@ const TopBar = () => {
     },
   });
 
+  const deleteAllBookmarksMutation = useMutation({
+    mutationFn: async () => {
+      await apiClient.delete('/bookmarks');
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookmarks'] });
+    },
+  });
+
   const currentFolderIndex = folders?.findIndex(f => f.id === currentFolderId);
   const prevFolderId = currentFolderIndex !== undefined && currentFolderIndex > 0 
     ? folders?.[currentFolderIndex - 1].id 
@@ -83,19 +94,32 @@ const TopBar = () => {
     }
   };
 
+  // Close mobile menu when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (mobileMenuRef.current && !mobileMenuRef.current.contains(event.target as Node)) {
+        setIsMobileMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
   return (
-    <div className="h-16 bg-white border-b flex items-center justify-between px-6 shadow-sm">
-      <div className="flex items-center gap-6">
+    <div className="h-16 bg-white border-b flex items-center justify-between px-4 sm:px-6 shadow-sm relative z-50">
+      <div className="flex items-center gap-2 sm:gap-6">
         <h1
-          className="text-xl font-bold text-blue-600 cursor-pointer flex items-baseline gap-2"
+          className="text-lg sm:text-xl font-bold text-blue-600 cursor-pointer flex items-baseline gap-2"
           onClick={() => navigate('/')}
         >
           Sofia
-          {healthData?.version && <span className="text-xs text-blue-400 font-medium tracking-wide">v{healthData.version}</span>}
-          <span className="text-xs text-gray-400 font-normal">view of images in folder</span>
+          {healthData?.version && <span className="text-[10px] sm:text-xs text-blue-400 font-medium tracking-wide">v{healthData.version}</span>}
+          <span className="hidden md:inline text-xs text-gray-400 font-normal">view of images in folder</span>
         </h1>
       </div>
-      <div className="flex items-center gap-4">
+
+      {/* Desktop Menu */}
+      <div className="hidden lg:flex items-center gap-4">
         {currentFolderId && folders && (
           <div className="flex items-center gap-2 bg-gray-50 p-1 rounded-lg border mr-2">
             <button
@@ -153,6 +177,72 @@ const TopBar = () => {
         </button>
       </div>
 
+      {/* Mobile/Tablet Menu Button */}
+      <div className="flex lg:hidden items-center gap-2">
+        {currentFolderId && folders && (
+           <div className="flex items-center gap-1 bg-gray-50 p-1 rounded-lg border mr-1">
+            <button
+              onClick={() => prevFolderId && navigate(`/folder/${prevFolderId}`)}
+              disabled={!prevFolderId}
+              className="p-1 text-gray-600 disabled:text-gray-300"
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              onClick={() => nextFolderId && navigate(`/folder/${nextFolderId}`)}
+              disabled={!nextFolderId}
+              className="p-1 text-gray-600 disabled:text-gray-300"
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+        )}
+        <button
+          onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+          className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors border"
+        >
+          <Menu size={24} />
+        </button>
+      </div>
+
+      {/* Mobile Menu Dropdown */}
+      {isMobileMenuOpen && (
+        <div 
+          ref={mobileMenuRef}
+          className="absolute top-full right-4 mt-2 w-56 bg-white border rounded-xl shadow-xl py-2 flex flex-col gap-1 lg:hidden animate-in slide-in-from-top-2 duration-200"
+        >
+          <button
+            onClick={() => { setIsBookmarkModalOpen(true); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-amber-50 transition-colors"
+          >
+            <Bookmark size={18} className="text-amber-500" />
+            북마크 목록
+          </button>
+          <button
+            onClick={() => { navigate('/folder/add'); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+          >
+            <Plus size={18} className="text-blue-600" />
+            폴더 추가
+          </button>
+          <div className="h-px bg-gray-100 mx-3 my-1" />
+          <button
+            onClick={() => { navigate('/settings'); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"
+          >
+            <Settings size={18} className="text-gray-500" />
+            설정 ({name}님)
+          </button>
+          <button
+            onClick={() => { handleLogout(); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
+          >
+            <LogOut size={18} />
+            로그아웃
+          </button>
+        </div>
+      )}
+
       {/* Bookmark Modal */}
       {isBookmarkModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center">
@@ -165,10 +255,24 @@ const TopBar = () => {
           {/* Modal Content */}
           <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
             <div className="flex items-center justify-between p-4 border-b bg-gray-50">
-              <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-                <Bookmark className="text-amber-500" size={20} />
-                북마크 목록
-              </h2>
+              <div className="flex items-center gap-4">
+                <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
+                  <Bookmark className="text-amber-500" size={20} />
+                  북마크 목록
+                </h2>
+                {bookmarks && bookmarks.length > 0 && (
+                  <button
+                    onClick={() => {
+                      if (window.confirm('모든 북마크를 삭제하시겠습니까?')) {
+                        deleteAllBookmarksMutation.mutate();
+                      }
+                    }}
+                    className="text-[10px] px-2 py-1 bg-red-50 text-red-600 hover:bg-red-100 rounded border border-red-200 transition-colors font-semibold"
+                  >
+                    전체 삭제
+                  </button>
+                )}
+              </div>
               <button 
                 onClick={() => setIsBookmarkModalOpen(false)}
                 className="p-1 hover:bg-gray-200 rounded-full transition-colors"

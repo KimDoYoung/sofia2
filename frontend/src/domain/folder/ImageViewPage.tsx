@@ -533,6 +533,13 @@ const ImageViewPage = () => {
                 </button>
                 <button
                   className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
+                  onClick={handleAddBookmark}
+                  title="북마크 추가"
+                >
+                  <Bookmark size={20} />
+                </button>
+                <button
+                  className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
                   onClick={() => copyLink(image.id)}
                   title="링크 복사"
                 >

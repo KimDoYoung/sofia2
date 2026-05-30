@@ -11,4 +11,5 @@ import java.util.List;
 public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
     List<Bookmark> findByUserOrderByCreatedAtDesc(User user);
     void deleteByIdAndUser(Long id, User user);
+    void deleteByUser(User user);
 }

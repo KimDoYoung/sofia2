@@ -53,6 +53,12 @@ public class BookmarkService {
         bookmarkRepository.deleteByIdAndUser(id, user);
     }
 
+    @Transactional
+    public void deleteAllBookmarks() {
+        User user = getCurrentUser();
+        bookmarkRepository.deleteByUser(user);
+    }
+
     private User getCurrentUser() {
         UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
         return userRepository.findById(userDetails.getId())
