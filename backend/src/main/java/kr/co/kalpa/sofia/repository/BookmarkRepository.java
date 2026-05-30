@@ -1,0 +1,14 @@
+package kr.co.kalpa.sofia.repository;
+
+import kr.co.kalpa.sofia.domain.Bookmark;
+import kr.co.kalpa.sofia.domain.User;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
+
+import java.util.List;
+
+@Repository
+public interface BookmarkRepository extends JpaRepository<Bookmark, Long> {
+    List<Bookmark> findByUserOrderByCreatedAtDesc(User user);
+    void deleteByIdAndUser(Long id, User user);
+}

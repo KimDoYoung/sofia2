@@ -75,3 +75,13 @@ CREATE TABLE IF NOT EXISTS sofia.users (
 );
 
 INSERT INTO sofia.users(user_id, user_pw, user_nm) VALUES('kdy987', 'kalpa987!', 'KimDoYoung');
+
+-- 4. 북마크 테이블 추가
+CREATE TABLE IF NOT EXISTS bookmarks (
+    id BIGSERIAL PRIMARY KEY,
+    user_id BIGINT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    image_id BIGINT NOT NULL REFERENCES image_files(id) ON DELETE CASCADE,
+    name VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);

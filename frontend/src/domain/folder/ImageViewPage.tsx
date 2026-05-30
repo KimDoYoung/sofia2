@@ -2,7 +2,7 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
-import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, Link, Menu, Pencil, Trash2 } from 'lucide-react';
+import { ChevronLeft, ChevronRight, RotateCw, RotateCcw, Download, Link, Menu, Pencil, Trash2, Bookmark } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { PhotoSlider } from 'react-photo-view';
 import 'react-photo-view/dist/react-photo-view.css';
@@ -108,6 +108,27 @@ const ImageViewPage = () => {
       toast({ title: '오류', description: '이미지 삭제에 실패했습니다.', variant: 'destructive' });
     }
   });
+
+  const addBookmarkMutation = useMutation({
+    mutationFn: async (name: string) => {
+      await apiClient.post('/bookmarks', { imageId: Number(imageId), name });
+    },
+    onSuccess: () => {
+      toast({ title: '성공', description: '북마크가 추가되었습니다.' });
+    },
+    onError: () => {
+      toast({ title: '오류', description: '북마크 추가에 실패했습니다.', variant: 'destructive' });
+    }
+  });
+
+  const handleAddBookmark = () => {
+    if (!image) return;
+    const defaultName = `[${image.folder.folderName}] ${image.orgName}`;
+    const name = window.prompt('북마크 이름을 입력하세요:', defaultName);
+    if (name !== null && name.trim() !== '') {
+      addBookmarkMutation.mutate(name.trim());
+    }
+  };
 
   const handleRename = () => {
     if (!image) return;
@@ -280,6 +301,18 @@ const ImageViewPage = () => {
 
             <div className="hidden md:flex items-center gap-2">
               <Button
+                onClick={handleAddBookmark}
+                variant="outline"
+                size="sm"
+                className="h-9 gap-2 border-gray-200"
+                disabled={addBookmarkMutation.isPending}
+                title="북마크 추가"
+              >
+                <Bookmark size={16} />
+                <span className="hidden lg:inline">북마크 추가</span>
+              </Button>
+
+              <Button
                 onClick={() => copyLink(image.id)}
                 variant="outline"
                 size="sm"
@@ -363,6 +396,15 @@ const ImageViewPage = () => {
                 </button>
 
                 <div className="h-px bg-gray-100 mx-3 my-1" />
+
+                {/* 북마크 추가 */}
+                <button
+                  className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                  disabled={addBookmarkMutation.isPending}
+                  onClick={() => { handleAddBookmark(); closeMenu(); }}
+                >
+                  <Bookmark size={16} /> 북마크 추가
+                </button>
 
                 {/* 링크 복사 */}
                 <button
