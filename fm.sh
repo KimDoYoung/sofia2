@@ -77,8 +77,9 @@ do_dev() {
     header "Dev - 개발 서버 실행"
     cd "$FRONTEND_DIR" || exit
     local mode="${SOFIA_MODE:-development}"
+    [[ "$mode" == "local" ]] && mode="development"
     info "개발 서버 시작 (http://localhost:5173) mode=${mode}"
-    npm run dev || warn "npm run dev 실패. 먼저 npm install을 실행했는지 확인해 주세요."
+    npm run dev -- --mode "$mode" || warn "npm run dev 실패. 먼저 npm install을 실행했는지 확인해 주세요."
 }
 
 do_install() {
@@ -92,6 +93,7 @@ do_build() {
     header "Build - 프로덕션 빌드"
     cd "$FRONTEND_DIR" || exit
     local mode="${SOFIA_MODE:-production}"
+    [[ "$mode" == "local" ]] && mode="production"
     info "빌드 시작... mode=${mode}"
     npm run build -- --mode "$mode"
 }
