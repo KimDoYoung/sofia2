@@ -21,6 +21,21 @@ export default defineConfig({
   build: {
     outDir: '../backend/src/main/resources/static',
     emptyOutDir: true,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (id.includes('node_modules')) {
+            if (id.includes('ag-grid')) {
+              return 'vendor-ag-grid';
+            }
+            if (id.includes('@milkdown') || id.includes('@tiptap')) {
+              return 'vendor-editor';
+            }
+            return 'vendor';
+          }
+        },
+      },
+    },
   },
   server: {
     port: 5173,
