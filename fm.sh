@@ -96,6 +96,13 @@ do_build() {
     [[ "$mode" == "local" ]] && mode="production"
     info "빌드 시작... mode=${mode}"
     npm run build -- --mode "$mode"
+    
+    info "빌드 결과물을 백엔드로 복사합니다..."
+    local static_dir="../backend/src/main/resources/static"
+    rm -rf "$static_dir"/*
+    mkdir -p "$static_dir"
+    cp -r dist/* "$static_dir/"
+    info "복사 완료: $static_dir"
 }
 
 do_preview() {
