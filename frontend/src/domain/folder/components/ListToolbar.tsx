@@ -109,18 +109,25 @@ export const ListToolbar = ({
         {/* ── Desktop: Control Box (md 이상에서만 표시) ── */}
         <div className="hidden md:flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
           {/* 전체 선택 / 해제 토글 */}
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={anySelected ? onDeselectAll : onSelectAll}
-            className={`h-9 px-3 gap-2 ${anySelected
-              ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
-              : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
-              }`}
-            title={anySelected ? '전체 해제' : '전체 선택'}
-          >
-            {anySelected ? <CheckSquare size={16} /> : <Square size={16} />}
-          </Button>
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={anySelected ? onDeselectAll : onSelectAll}
+              className={`h-9 px-3 gap-2 ${anySelected
+                ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
+                }`}
+              title={anySelected ? '전체 해제' : '전체 선택'}
+            >
+              {anySelected ? <CheckSquare size={16} /> : <Square size={16} />}
+            </Button>
+            {anySelected && (
+              <span className="text-xs font-bold px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full mr-1 shrink-0 animate-in fade-in zoom-in duration-150">
+                {selectedCount}개 선택
+              </span>
+            )}
+          </div>
           <div className="w-px h-4 bg-gray-300 mx-1" />
 
           <Button
