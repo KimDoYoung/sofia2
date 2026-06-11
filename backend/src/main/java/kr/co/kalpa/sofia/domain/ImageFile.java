@@ -68,4 +68,9 @@ public class ImageFile {
 
     @Column(nullable = false)
     private Long fileSize;
+
+    @Column(name = "rotation_angle", nullable = false, columnDefinition = "integer default 0")
+    @Builder.Default
+    private Integer rotationAngle = 0;
 }
+

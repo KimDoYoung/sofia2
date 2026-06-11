@@ -6,6 +6,7 @@ import kr.co.kalpa.sofia.service.ImageService;
 import kr.co.kalpa.sofia.dto.ImageUpdateRequest;
 import kr.co.kalpa.sofia.dto.ImageDeleteRequest;
 import kr.co.kalpa.sofia.dto.ImageRotateRequest;
+import kr.co.kalpa.sofia.dto.ImageExportRequest;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
@@ -76,6 +77,14 @@ public class ImageController {
         String mimeType = Files.probeContentType(path);
         MediaType contentType = MediaType.parseMediaType(mimeType != null ? mimeType : "image/jpeg");
         
+        if (file.getRotationAngle() != null && file.getRotationAngle() != 0) {
+            byte[] rotatedBytes = imageService.getRotatedImageBytes(file);
+            Resource resource = new org.springframework.core.io.ByteArrayResource(rotatedBytes);
+            return ResponseEntity.ok()
+                    .contentType(contentType)
+                    .body(resource);
+        }
+        
         return serveResource(path, contentType);
     }
 
@@ -106,8 +115,8 @@ public class ImageController {
     }
 
     @PostMapping("/export/pdf")
-    public ResponseEntity<Resource> exportToPdf(@RequestBody ImageDeleteRequest request) throws IOException {
-        Path pdfPath = imageService.exportAsPdf(request.getIds());
+    public ResponseEntity<Resource> exportToPdf(@RequestBody ImageExportRequest request) throws IOException {
+        Path pdfPath = imageService.exportAsPdf(request.getIds(), request.getImagesPerPage(), request.getOrientation());
         
         String filename = "sofia_images_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".pdf";
         
@@ -134,8 +143,13 @@ public class ImageController {
     }
 
     @PostMapping("/export/merge")
-    public ResponseEntity<Resource> exportToMergedImage(@RequestBody ImageDeleteRequest request) throws IOException {
-        Path mergedImagePath = imageService.exportAsMergedImage(request.getIds());
+    public ResponseEntity<Resource> exportToMergedImage(@RequestBody ImageExportRequest request) throws IOException {
+        Path mergedImagePath = imageService.exportAsMergedImage(
+            request.getIds(), 
+            request.getMode(), 
+            request.getCols(), 
+            request.getGap()
+        );
         
         String filename = "sofia_merged_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".jpg";
         

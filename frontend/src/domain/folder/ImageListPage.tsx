@@ -16,6 +16,7 @@ import type { ImageFile } from './types';
 import { ListToolbar } from './components/ListToolbar';
 import { ImageGridView } from './components/ImageGridView';
 import { ImageListView } from './components/ImageListView';
+import { ExportOptionsModal } from './components/ExportOptionsModal';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -30,6 +31,7 @@ const ImageListPage = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [exportModalType, setExportModalType] = useState<'pdf' | 'merge' | null>(null);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const gridRef = useRef<AgGridReact>(null);
@@ -189,14 +191,15 @@ const ImageListPage = () => {
   };
 
 
-  const handleExportPdf = async () => {
+  const handleExportPdf = async (options: { imagesPerPage?: number; orientation?: string }) => {
     if (selectedIds.length === 0) return;
-    const selected_image_count = selectedIds.length;
-    if (!confirm(`선택한 ${selected_image_count}개의 이미지를 PDF로 다운로드하시겠습니까?`)) return;
-    
     setIsExporting(true);
     try {
-      const response = await apiClient.post('/images/export/pdf', { ids: selectedIds }, {
+      const response = await apiClient.post('/images/export/pdf', { 
+        ids: selectedIds,
+        imagesPerPage: options.imagesPerPage,
+        orientation: options.orientation
+      }, {
         responseType: 'blob'
       });
       
@@ -226,14 +229,16 @@ const ImageListPage = () => {
     }
   };
 
-  const handleMergeImages = async () => {
+  const handleMergeImages = async (options: { mode?: string; cols?: number | null; gap?: number }) => {
     if (selectedIds.length === 0) return;
-    const selected_image_count = selectedIds.length;
-    if (!confirm(`선택한 ${selected_image_count}개의 이미지를 한 장의 이미지로 병합하시겠습니까?`)) return;
-    
     setIsMerging(true);
     try {
-      const response = await apiClient.post('/images/export/merge', { ids: selectedIds }, {
+      const response = await apiClient.post('/images/export/merge', { 
+        ids: selectedIds,
+        mode: options.mode,
+        cols: options.cols,
+        gap: options.gap
+      }, {
         responseType: 'blob'
       });
       
@@ -275,9 +280,9 @@ const ImageListPage = () => {
         onDeselectAll={handleDeselectAll}
         onBulkRotate={handleBulkRotate}
         onBulkDelete={handleBulkDelete}
-        onExportPdf={handleExportPdf}
+        onExportPdf={() => setExportModalType('pdf')}
         isExporting={isExporting}
-        onExportMerge={handleMergeImages}
+        onExportMerge={() => setExportModalType('merge')}
         isMerging={isMerging}
         viewMode={viewMode}
         onViewModeChange={(mode) => {
@@ -342,6 +347,21 @@ const ImageListPage = () => {
           <ArrowUp size={24} />
         </button>
       )}
+
+      <ExportOptionsModal
+        isOpen={exportModalType !== null}
+        onClose={() => setExportModalType(null)}
+        type={exportModalType || 'pdf'}
+        isProcessing={isExporting || isMerging}
+        onConfirm={async (options) => {
+          if (exportModalType === 'pdf') {
+            await handleExportPdf(options);
+          } else {
+            await handleMergeImages(options);
+          }
+          setExportModalType(null);
+        }}
+      />
     </div>
   );
 };

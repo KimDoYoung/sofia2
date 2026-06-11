@@ -142,28 +142,25 @@ public class ImageService {
     public void rotateImages(List<Long> ids, int angle) {
         for (Long id : ids) {
             ImageFile image = findImageOrThrow(id);
-            Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
             try {
-                File sourceFile = rawPath.toFile();
-
-                // Use Thumbnailator for rotation
-                Thumbnails.of(sourceFile)
-                        .scale(1.0)
-                        .rotate(angle)
-                        .toFile(sourceFile);
-
-                // Update resolution in DB if 90 or 270 degrees
-                if (angle == 90 || angle == 270 || angle == -90 || angle == -270) {
-                    int oldWidth = image.getImageWidth();
-                    image.setImageWidth(image.getImageHeight());
-                    image.setImageHeight(oldWidth);
-                    imageFileRepository.save(image);
+                // Update rotation angle virtually
+                int currentAngle = image.getRotationAngle() != null ? image.getRotationAngle() : 0;
+                int newAngle = (currentAngle + angle) % 360;
+                if (newAngle < 0) {
+                    newAngle += 360;
                 }
+                image.setRotationAngle(newAngle);
+                imageFileRepository.save(image);
 
-                // Recreate thumbnails
+                // Delete the cached thumbnail file to trigger recreation
                 Path thumbPath = getThumbnailPath(image, false);
-                Files.createDirectories(thumbPath.getParent());
-                createThumbnail(sourceFile, thumbPath.toFile(), 300, 300);
+                Files.deleteIfExists(thumbPath);
+
+                // Recreate thumbnail with the new rotation angle
+                Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
+                if (Files.exists(rawPath)) {
+                    createThumbnail(rawPath.toFile(), thumbPath.toFile(), 300, 300, newAngle);
+                }
             } catch (IOException e) {
                 throw new RuntimeException("Failed to rotate image: " + id, e);
             }
@@ -188,7 +185,7 @@ public class ImageService {
             Files.createDirectories(thumbPath.getParent());
             Path rawPath = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
             if (Files.exists(rawPath)) {
-                createThumbnail(rawPath.toFile(), thumbPath.toFile(), size, size);
+                createThumbnail(rawPath.toFile(), thumbPath.toFile(), size, size, file.getRotationAngle() != null ? file.getRotationAngle() : 0);
             } else {
                 // If raw file doesn't exist, we can't create thumbnail
                 log.warn("Original image not found, cannot create thumbnail: {}", rawPath);
@@ -198,13 +195,17 @@ public class ImageService {
         return thumbPath;
     }
 
-    public void createThumbnail(File source, File target, int width, int height) throws IOException {
-        Thumbnails.of(source)
-                .size(width, height)
-                .toFile(target);
+    public void createThumbnail(File source, File target, int width, int height, int rotationAngle) throws IOException {
+        var builder = Thumbnails.of(source)
+                .size(width, height);
+        if (rotationAngle != 0) {
+            builder = builder.rotate(rotationAngle);
+        }
+        builder.toFile(target);
     }
 
-    public Path exportAsPdf(List<Long> ids) {
+
+    public Path exportAsPdf(List<Long> ids, Integer imagesPerPageParam, String orientationParam) {
         Path tempFile;
         try {
             tempFile = Files.createTempFile("sofia_export_", ".pdf");
@@ -212,62 +213,119 @@ public class ImageService {
             throw new RuntimeException("Failed to create temporary file for PDF export", e);
         }
 
+        int imagesPerPage = imagesPerPageParam != null ? imagesPerPageParam : 1;
+        String orientation = orientationParam != null ? orientationParam : "auto";
+
+        int cols = 1;
+        int rows = 1;
+        if (imagesPerPage == 2) { cols = 1; rows = 2; }
+        else if (imagesPerPage == 4) { cols = 2; rows = 2; }
+        else if (imagesPerPage == 6) { cols = 2; rows = 3; }
+
+        List<Path> tempImages = new java.util.ArrayList<>();
         try (PDDocument document = new PDDocument()) {
-            for (Long id : ids) {
-                ImageFile imageFile = findImageOrThrow(id);
-                if (imageFile.getFolder() == null)
-                    continue;
+            int N = ids.size();
+            int i = 0;
 
-                Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(),
-                        imageFile.getOrgName());
-
-                if (!Files.exists(imagePath)) {
-                    log.warn("Image file not found for PDF export: {}", imagePath);
-                    continue;
+            while (i < N) {
+                // Determine page size / orientation
+                PDRectangle mediaBox = PDRectangle.A4;
+                if ("landscape".equals(orientation)) {
+                    mediaBox = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
+                } else if ("portrait".equals(orientation)) {
+                    mediaBox = PDRectangle.A4;
+                } else {
+                    // "auto"
+                    if (imagesPerPage == 1) {
+                        ImageFile firstImg = findImageOrThrow(ids.get(i));
+                        int rotAngle = firstImg.getRotationAngle() != null ? firstImg.getRotationAngle() : 0;
+                        int w = firstImg.getImageWidth();
+                        int h = firstImg.getImageHeight();
+                        if (rotAngle == 90 || rotAngle == 270) {
+                            int temp = w;
+                            w = h;
+                            h = temp;
+                        }
+                        if (w > h) {
+                            mediaBox = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
+                        }
+                    } else {
+                        mediaBox = PDRectangle.A4;
+                    }
                 }
 
-                try {
-                    PDImageXObject pdImage;
-                    String ext = imageFile.getImageFormat().toLowerCase();
-                    if (ext.equals("jpg") || ext.equals("jpeg")) {
-                        pdImage = JPEGFactory.createFromStream(document, Files.newInputStream(imagePath));
-                    } else {
-                        BufferedImage bim = ImageIO.read(imagePath.toFile());
-                        if (bim == null) {
-                            log.warn("Could not read image for PDF export: {}", imagePath);
+                PDPage page = new PDPage(mediaBox);
+                document.addPage(page);
+
+                try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
+                    float pageWidth = mediaBox.getWidth();
+                    float pageHeight = mediaBox.getHeight();
+                    float cellWidth = pageWidth / cols;
+                    float cellHeight = pageHeight / rows;
+
+                    // 5% margin
+                    float marginX = cellWidth * 0.05f;
+                    float marginY = cellHeight * 0.05f;
+                    float maxWidth = cellWidth - 2 * marginX;
+                    float maxHeight = cellHeight - 2 * marginY;
+
+                    for (int cellIdx = 0; cellIdx < imagesPerPage && i < N; cellIdx++, i++) {
+                        Long id = ids.get(i);
+                        ImageFile imageFile = findImageOrThrow(id);
+                        if (imageFile.getFolder() == null) {
+                            cellIdx--; // don't count this cell
                             continue;
                         }
-                        pdImage = LosslessFactory.createFromImage(document, bim);
+
+                        Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(),
+                                imageFile.getOrgName());
+
+                        if (!Files.exists(imagePath)) {
+                            log.warn("Image file not found for PDF export: {}", imagePath);
+                            cellIdx--; // don't count this cell
+                            continue;
+                        }
+
+                        try {
+                            int rotAngle = imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
+
+                            // 1. Create a scaled temporary image file in tmp
+                            Path scaledTempFile = Files.createTempFile("sofia_scaled_", ".jpg");
+                            tempImages.add(scaledTempFile);
+
+                            // Scale keeping aspect ratio (contain)
+                            Thumbnails.of(imagePath.toFile())
+                                    .size((int) maxWidth, (int) maxHeight)
+                                    .rotate(rotAngle)
+                                    .outputFormat("jpg")
+                                    .toFile(scaledTempFile.toFile());
+
+                            // 2. Load the scaled temporary image into PDFBox
+                            PDImageXObject pdImage;
+                            try (java.io.InputStream is = Files.newInputStream(scaledTempFile)) {
+                                pdImage = JPEGFactory.createFromStream(document, is);
+                            }
+
+                            float imgWidth = pdImage.getWidth();
+                            float imgHeight = pdImage.getHeight();
+
+                            // Place centered in cell
+                            int col = cellIdx % cols;
+                            int row = cellIdx / cols;
+                            int pdfRow = rows - 1 - row; 
+
+                            float x = col * cellWidth + (cellWidth - imgWidth) / 2;
+                            float y = pdfRow * cellHeight + (cellHeight - imgHeight) / 2;
+
+                            contentStream.drawImage(pdImage, x, y, imgWidth, imgHeight);
+                        } catch (Exception e) {
+                            log.error("Error adding image {} to PDF cell: {}", imagePath, e.getMessage());
+                            cellIdx--;
+                        }
                     }
-
-                    // Scale to fit A4
-                    PDRectangle mediaBox = PDRectangle.A4;
-                    // Handle landscape images by rotating page if width > height
-                    if (pdImage.getWidth() > pdImage.getHeight()) {
-                        mediaBox = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
-                    }
-
-                    PDPage page = new PDPage(mediaBox);
-                    document.addPage(page);
-
-                    try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                        float pageWidth = mediaBox.getWidth();
-                        float pageHeight = mediaBox.getHeight();
-                        float imgWidth = pdImage.getWidth();
-                        float imgHeight = pdImage.getHeight();
-
-                        float scale = Math.min(pageWidth / imgWidth, pageHeight / imgHeight);
-                        float dw = imgWidth * scale;
-                        float dh = imgHeight * scale;
-                        float x = (pageWidth - dw) / 2;
-                        float y = (pageHeight - dh) / 2;
-
-                        contentStream.drawImage(pdImage, x, y, dw, dh);
-                    }
-                } catch (Exception e) {
-                    log.error("Error adding image {} to PDF: {}", imagePath, e.getMessage());
                 }
             }
+
             document.save(tempFile.toFile());
             return tempFile;
         } catch (IOException e) {
@@ -278,10 +336,19 @@ public class ImageService {
                 // Ignore
             }
             throw new RuntimeException("Failed to generate PDF export", e);
+        } finally {
+            // Clean up temporary scaled images
+            for (Path p : tempImages) {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (IOException ex) {
+                    log.warn("Failed to delete temporary scaled image: {}", p, ex);
+                }
+            }
         }
     }
 
-    public Path exportAsMergedImage(List<Long> ids) {
+    public Path exportAsMergedImage(List<Long> ids, String mode, Integer colsParam, Integer gapParam) {
         if (ids == null || ids.isEmpty()) {
             throw new IllegalArgumentException("No images selected for merge");
         }
@@ -294,28 +361,50 @@ public class ImageService {
         }
 
         int N = ids.size();
+        String activeMode = mode != null ? mode : "fitPage";
         int cols, rows;
-        if (N == 1) { cols = 1; rows = 1; }
-        else if (N == 2) { cols = 1; rows = 2; }
-        else if (N <= 4) { cols = 2; rows = 2; }
-        else if (N <= 6) { cols = 2; rows = 3; }
-        else if (N <= 9) { cols = 3; rows = 3; }
-        else if (N <= 12) { cols = 3; rows = 4; }
-        else if (N <= 16) { cols = 4; rows = 4; }
-        else if (N <= 20) { cols = 4; rows = 5; }
-        else if (N <= 25) { cols = 5; rows = 5; }
-        else if (N <= 30) { cols = 5; rows = 6; }
-        else {
-            cols = (int) Math.ceil(Math.sqrt(N / 1.414));
+        int canvasWidth, canvasHeight;
+        int cellWidth, cellHeight;
+
+        if ("scroll".equals(activeMode)) {
+            cols = colsParam != null && colsParam > 0 ? colsParam : 1;
             rows = (int) Math.ceil((double) N / cols);
+            cellWidth = 1240;
+            cellHeight = 1754;
+            canvasWidth = cols * cellWidth;
+            canvasHeight = rows * cellHeight;
+        } else {
+            // fitPage
+            canvasWidth = 2480;
+            canvasHeight = 3508;
+            if (colsParam != null && colsParam > 0) {
+                cols = colsParam;
+            } else {
+                if (N == 1) { cols = 1; }
+                else if (N == 2) { cols = 1; }
+                else if (N <= 4) { cols = 2; }
+                else if (N <= 6) { cols = 2; }
+                else if (N <= 9) { cols = 3; }
+                else if (N <= 12) { cols = 3; }
+                else if (N <= 16) { cols = 4; }
+                else if (N <= 20) { cols = 4; }
+                else if (N <= 25) { cols = 5; }
+                else if (N <= 30) { cols = 5; }
+                else {
+                    cols = (int) Math.ceil(Math.sqrt(N / 1.414));
+                }
+            }
+            rows = (int) Math.ceil((double) N / cols);
+            cellWidth = canvasWidth / cols;
+            cellHeight = rows > 0 ? canvasHeight / rows : canvasHeight;
         }
 
-        // A4 Portrait dimensions: 2480 x 3508 pixels
-        int canvasWidth = 2480;
-        int canvasHeight = 3508;
+        int gap = gapParam != null ? gapParam : 2;
+        int padding = gap / 2;
 
         BufferedImage mergedImage = new BufferedImage(canvasWidth, canvasHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = mergedImage.createGraphics();
+        List<Path> tempImages = new java.util.ArrayList<>();
 
         try {
             // Fill background with white
@@ -326,15 +415,6 @@ public class ImageService {
             g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
-
-            int cellWidth = canvasWidth / cols;
-            int cellHeight = canvasHeight / rows;
-            
-            // 5% margin
-            int marginX = (int) (cellWidth * 0.05);
-            int marginY = (int) (cellHeight * 0.05);
-            int maxWidth = cellWidth - 2 * marginX;
-            int maxHeight = cellHeight - 2 * marginY;
 
             for (int i = 0; i < N; i++) {
                 Long id = ids.get(i);
@@ -350,29 +430,53 @@ public class ImageService {
                 }
 
                 try {
-                    BufferedImage img = ImageIO.read(imagePath.toFile());
-                    if (img == null) {
-                        log.warn("Could not read image for merge: {}", imagePath);
-                        continue;
-                    }
-
-                    double scale = Math.min((double) maxWidth / img.getWidth(), (double) maxHeight / img.getHeight());
-                    int drawWidth = (int) (img.getWidth() * scale);
-                    int drawHeight = (int) (img.getHeight() * scale);
-
                     int colIdx = i % cols;
                     int rowIdx = i / cols;
 
-                    int x = colIdx * cellWidth + (cellWidth - drawWidth) / 2;
-                    int y = rowIdx * cellHeight + (cellHeight - drawHeight) / 2;
+                    int x = colIdx * cellWidth + padding;
+                    int y = rowIdx * cellHeight + padding;
+                    int w = cellWidth - 2 * padding;
+                    int h = cellHeight - 2 * padding;
 
-                    g2d.drawImage(img, x, y, drawWidth, drawHeight, null);
+                    int rotAngle = imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
+
+                    // 1. Create a scaled temporary image file in tmp
+                    Path scaledTempFile = Files.createTempFile("sofia_scaled_merge_", ".jpg");
+                    tempImages.add(scaledTempFile);
+
+                    // Scale keeping aspect ratio (contain)
+                    Thumbnails.of(imagePath.toFile())
+                            .size(w, h)
+                            .rotate(rotAngle)
+                            .outputFormat("jpg")
+                            .toFile(scaledTempFile.toFile());
+
+                    // 2. Read the scaled temporary image
+                    BufferedImage img = ImageIO.read(scaledTempFile.toFile());
+                    if (img == null) {
+                        log.warn("Could not read scaled image for merge: {}", scaledTempFile);
+                        continue;
+                    }
+
+                    // Draw centered inside the cell (no crop, no distortion)
+                    int drawX = x + (w - img.getWidth()) / 2;
+                    int drawY = y + (h - img.getHeight()) / 2;
+
+                    g2d.drawImage(img, drawX, drawY, null);
                 } catch (Exception e) {
                     log.error("Error drawing image {} to merged canvas: {}", imagePath, e.getMessage());
                 }
             }
         } finally {
             g2d.dispose();
+            // Clean up temporary scaled images
+            for (Path p : tempImages) {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (IOException ex) {
+                    log.warn("Failed to delete temporary scaled image: {}", p, ex);
+                }
+            }
         }
 
         try {
@@ -388,5 +492,21 @@ public class ImageService {
             }
             throw new RuntimeException("Failed to generate merged image export", e);
         }
+    }
+
+    public byte[] getRotatedImageBytes(ImageFile file) throws IOException {
+        Path rawPath = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
+        BufferedImage rotated = Thumbnails.of(rawPath.toFile())
+                .scale(1.0)
+                .rotate(file.getRotationAngle() != null ? file.getRotationAngle() : 0)
+                .asBufferedImage();
+        
+        java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
+        String format = file.getImageFormat();
+        if (format == null || format.trim().isEmpty()) {
+            format = "jpg";
+        }
+        ImageIO.write(rotated, format, baos);
+        return baos.toByteArray();
     }
 }
