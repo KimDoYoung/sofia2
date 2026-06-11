@@ -13,7 +13,6 @@ import type { ColDef, CellValueChangedEvent, ICellRendererParams, ValueFormatter
 // Icons
 import { 
   Trash2, 
-  Plus, 
   RefreshCw,
   FolderTree,
   Table
@@ -42,6 +41,16 @@ const FolderListPage = () => {
   const [viewMode, setViewMode] = useState<'tree' | 'list'>(() => {
     return (localStorage.getItem('folderViewMode') as 'tree' | 'list') || 'tree';
   });
+
+  // Listen to window size changes for responsive AgGrid columns
+  const [isMobile, setIsMobile] = useState(false);
+
+  useEffect(() => {
+    setIsMobile(window.innerWidth < 768);
+    const handleResize = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, []);
 
   // Save viewMode preference
   useEffect(() => {
@@ -103,79 +112,87 @@ const FolderListPage = () => {
   };
 
   // AG Grid Column definitions
-  const columnDefs: ColDef<ImageFolder>[] = useMemo(() => [
-    { field: 'id', headerName: 'ID', width: 80 },
-    {
-      field: 'folderName',
-      headerName: '폴더명',
-      flex: 1,
-      cellRenderer: (params: ICellRendererParams<ImageFolder>) => (
-        <button
-          className="text-blue-600 hover:underline font-medium"
-          onClick={() => navigate(`/folder/${params.data?.id}`)}
-        >
-          {params.value}
-        </button>
-      ),
-      filter: true
-    },
-    {
-      field: 'lastLoadTime',
-      headerName: '마지막 로드 시간',
-      width: 220,
-      valueFormatter: (params: ValueFormatterParams<ImageFolder>) => params.value ? formatDate(params.value) : '',
-      filter: false
-    },
-    {
-      field: 'note',
-      headerName: '비고',
-      flex: 1,
-      editable: true,
-      cellEditor: 'agTextCellEditor',
-      filter: true
-    },
-    {
-      headerName: '삭제',
-      width: 70,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-      cellRenderer: (params: ICellRendererParams<ImageFolder>) => (
-        <button
-          title="폴더 삭제"
-          onClick={() => {
-            if (params.data) {
-              handleDelete(params.data.id, params.data.folderName);
-            }
-          }}
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            width: 32,
-            height: 32,
-            borderRadius: 8,
-            border: '1px solid #fca5a5',
-            background: 'transparent',
-            color: '#ef4444',
-            cursor: 'pointer',
-            transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#ef4444';
-            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(239,68,68,0.35)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-            (e.currentTarget as HTMLButtonElement).style.color = '#ef4444';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
-          }}
-        >
-          <Trash2 size={16} strokeWidth={2} />
-        </button>
-      ),
-      filter: false
-    },
-  ], [navigate, handleDelete]);
+  const columnDefs: ColDef<ImageFolder>[] = useMemo(() => {
+    const cols: ColDef<ImageFolder>[] = [
+      { field: 'id', headerName: 'ID', width: 80 },
+      {
+        field: 'folderName',
+        headerName: '폴더명',
+        flex: 1,
+        cellRenderer: (params: ICellRendererParams<ImageFolder>) => (
+          <button
+            className="text-blue-600 hover:underline font-medium text-left"
+            onClick={() => navigate(`/folder/${params.data?.id}`)}
+          >
+            {params.value}
+          </button>
+        ),
+        filter: true
+      }
+    ];
+
+    if (!isMobile) {
+      cols.push(
+        {
+          field: 'lastLoadTime',
+          headerName: '마지막 로드 시간',
+          width: 220,
+          valueFormatter: (params: ValueFormatterParams<ImageFolder>) => params.value ? formatDate(params.value) : '',
+          filter: false
+        },
+        {
+          field: 'note',
+          headerName: '비고',
+          flex: 1,
+          editable: true,
+          cellEditor: 'agTextCellEditor',
+          filter: true
+        },
+        {
+          headerName: '삭제',
+          width: 70,
+          cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+          cellRenderer: (params: ICellRendererParams<ImageFolder>) => (
+            <button
+              title="폴더 삭제"
+              onClick={() => {
+                if (params.data) {
+                  handleDelete(params.data.id, params.data.folderName);
+                }
+              }}
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                width: 32,
+                height: 32,
+                borderRadius: 8,
+                border: '1px solid #fca5a5',
+                background: 'transparent',
+                color: '#ef4444',
+                cursor: 'pointer',
+                transition: 'all 0.15s ease',
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = '#ef4444';
+                (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(239,68,68,0.35)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+                (e.currentTarget as HTMLButtonElement).style.color = '#ef4444';
+                (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
+              }}
+            >
+              <Trash2 size={16} strokeWidth={2} />
+            </button>
+          ),
+          filter: false
+        }
+      );
+    }
+    return cols;
+  }, [navigate, handleDelete, isMobile]);
 
   if (isLoading) {
     return (
@@ -216,7 +233,7 @@ const FolderListPage = () => {
               }`}
             >
               <FolderTree size={14} />
-              트리형
+              트리로 보기
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -227,7 +244,7 @@ const FolderListPage = () => {
               }`}
             >
               <Table size={14} />
-              리스트형 (AgGrid)
+              리스트로 보기
             </button>
           </div>
 
@@ -241,14 +258,6 @@ const FolderListPage = () => {
             >
               <RefreshCw size={14} className={`mr-1.5 ${isRefetching ? 'animate-spin' : ''}`} />
               새로고침
-            </Button>
-            <Button 
-              size="sm"
-              onClick={() => navigate('/folder/add')}
-              className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
-            >
-              <Plus size={16} className="mr-1.5" />
-              폴더 추가
             </Button>
           </div>
         </div>

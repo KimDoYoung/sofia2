@@ -356,21 +356,14 @@ const FolderTreeView = ({
       {/* Tree Data Table */}
       {displayNodes.length > 0 ? (
         <div className="w-full overflow-x-auto bg-white rounded-xl shadow-md border border-gray-150/80">
-          <table className="w-full min-w-[850px] border-collapse text-left text-sm text-gray-500 table-fixed">
-            <colgroup>
-              <col className="w-[45%]" />
-              <col className="w-[8%]" />
-              <col className="w-[18%]" />
-              <col className="w-[22%]" />
-              <col className="w-[7%]" />
-            </colgroup>
+          <table className="w-full min-w-0 md:min-w-[850px] border-collapse text-left text-sm text-gray-500">
             <thead className="bg-gray-50/75 border-b border-gray-100 text-xs font-semibold uppercase tracking-wider text-gray-700">
               <tr>
                 <th className="px-6 py-4">폴더명 (계층형 트리)</th>
-                <th className="px-6 py-4 text-center">ID</th>
-                <th className="px-6 py-4">마지막 로드 시간</th>
-                <th className="px-6 py-4">비고</th>
-                <th className="px-6 py-4 text-center">삭제</th>
+                <th className="px-6 py-4 text-center hidden md:table-cell w-20">ID</th>
+                <th className="px-6 py-4 hidden md:table-cell w-52">마지막 로드 시간</th>
+                <th className="px-6 py-4 hidden md:table-cell">비고</th>
+                <th className="px-6 py-4 text-center hidden md:table-cell w-20">삭제</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100 bg-white">
@@ -447,19 +440,19 @@ const FolderTreeView = ({
                     </td>
 
                     {/* ID */}
-                    <td className="px-6 py-3 text-center font-mono text-xs text-gray-400">
+                    <td className="px-6 py-3 text-center font-mono text-xs text-gray-400 hidden md:table-cell">
                       {isRegistered ? node.folder!.id : '—'}
                     </td>
 
                     {/* Last Load Time */}
-                    <td className="px-6 py-3 text-xs text-gray-600">
+                    <td className="px-6 py-3 text-xs text-gray-600 hidden md:table-cell">
                       {isRegistered && node.folder!.lastLoadTime 
                         ? formatDate(node.folder!.lastLoadTime) 
                         : '—'}
                     </td>
 
                     {/* Note (Editable inline) */}
-                    <td className="px-6 py-3">
+                    <td className="px-6 py-3 hidden md:table-cell">
                       {isRegistered ? (
                         <NoteCell 
                           folder={node.folder!} 
@@ -472,7 +465,7 @@ const FolderTreeView = ({
                     </td>
 
                     {/* Delete */}
-                    <td className="px-6 py-3 text-center">
+                    <td className="px-6 py-3 text-center hidden md:table-cell">
                       {isRegistered ? (
                         <button
                           title="폴더 삭제"
