@@ -29,6 +29,7 @@ const ImageListPage = () => {
   const { imageListViewMode: viewMode, setImageListViewMode: setViewMode, searchQuery, setSearchQuery } = useUIStore();
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isExporting, setIsExporting] = useState(false);
+  const [isMerging, setIsMerging] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const gridRef = useRef<AgGridReact>(null);
@@ -225,6 +226,43 @@ const ImageListPage = () => {
     }
   };
 
+  const handleMergeImages = async () => {
+    if (selectedIds.length === 0) return;
+    const selected_image_count = selectedIds.length;
+    if (!confirm(`선택한 ${selected_image_count}개의 이미지를 한 장의 이미지로 병합하시겠습니까?`)) return;
+    
+    setIsMerging(true);
+    try {
+      const response = await apiClient.post('/images/export/merge', { ids: selectedIds }, {
+        responseType: 'blob'
+      });
+      
+      const url = window.URL.createObjectURL(new Blob([response.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      
+      const contentDisposition = response.headers['content-disposition'];
+      let filename = `sofia_merged_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.jpg`;
+      if (contentDisposition) {
+        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        if (filenameMatch && filenameMatch.length > 1) {
+          filename = filenameMatch[1];
+        }
+      }
+      
+      link.setAttribute('download', filename);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      toast({ title: '성공', description: '병합 이미지가 생성되었습니다.' });
+    } catch {
+      toast({ title: '오류', description: '이미지 병합 중 오류가 발생했습니다.', variant: 'destructive' });
+    } finally {
+      setIsMerging(false);
+    }
+  };
+
   if (isLoading) return <div className="p-8 text-center">Loading images...</div>;
 
   return (
@@ -239,6 +277,8 @@ const ImageListPage = () => {
         onBulkDelete={handleBulkDelete}
         onExportPdf={handleExportPdf}
         isExporting={isExporting}
+        onExportMerge={handleMergeImages}
+        isMerging={isMerging}
         viewMode={viewMode}
         onViewModeChange={(mode) => {
           setViewMode(mode);

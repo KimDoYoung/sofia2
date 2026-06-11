@@ -133,6 +133,34 @@ public class ImageController {
                 .body(resource);
     }
 
+    @PostMapping("/export/merge")
+    public ResponseEntity<Resource> exportToMergedImage(@RequestBody ImageDeleteRequest request) throws IOException {
+        Path mergedImagePath = imageService.exportAsMergedImage(request.getIds());
+        
+        String filename = "sofia_merged_" + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")) + ".jpg";
+        
+        Resource resource = new FileSystemResource(mergedImagePath) {
+            @Override
+            public InputStream getInputStream() throws IOException {
+                return new java.io.FileInputStream(mergedImagePath.toFile()) {
+                    @Override
+                    public void close() throws IOException {
+                        try {
+                            super.close();
+                        } finally {
+                            Files.deleteIfExists(mergedImagePath);
+                        }
+                    }
+                };
+            }
+        };
+
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                .contentType(MediaType.IMAGE_JPEG)
+                .body(resource);
+    }
+
     private ImageFile findImageOrThrow(Long id) {
         return fileRepository.findById(id).orElseThrow(() -> new RuntimeException("Image not found: " + id));
     }

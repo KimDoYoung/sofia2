@@ -13,6 +13,7 @@ import {
   Menu,
   Search,
   X,
+  Layers,
 } from 'lucide-react';
 import { useState, useRef, useEffect } from 'react';
 import { useUIStore } from '@/store/uiStore';
@@ -27,6 +28,8 @@ interface ListToolbarProps {
   onBulkDelete: () => void;
   onExportPdf: () => void;
   isExporting: boolean;
+  onExportMerge: () => void;
+  isMerging: boolean;
   viewMode: 'thumb' | 'smallThumb' | 'list';
   onViewModeChange: (mode: 'thumb' | 'smallThumb' | 'list') => void;
 }
@@ -41,6 +44,8 @@ export const ListToolbar = ({
   onBulkDelete,
   onExportPdf,
   isExporting,
+  onExportMerge,
+  isMerging,
   viewMode,
   onViewModeChange,
 }: ListToolbarProps) => {
@@ -167,6 +172,21 @@ export const ListToolbar = ({
             )}
             <span className="hidden lg:inline">{isExporting ? '생성 중...' : 'PDF'}</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={selectedCount === 0 || isMerging}
+            onClick={onExportMerge}
+            className="h-9 px-3 gap-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+            title="한 장의 이미지로 병합 다운로드"
+          >
+            {isMerging ? (
+              <div className="h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Layers size={16} />
+            )}
+            <span className="hidden lg:inline">{isMerging ? '병합 중...' : 'Merge'}</span>
+          </Button>
         </div>
 
         {/* ── Tablet/Mobile: 햄버거 드롭다운 (md 미만에서만 표시) ── */}
@@ -242,6 +262,20 @@ export const ListToolbar = ({
                   <FileText size={16} />
                 )}
                 {isExporting ? '생성 중...' : 'PDF 다운로드'}
+              </button>
+
+              {/* Merge */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-indigo-600 hover:bg-indigo-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedCount === 0 || isMerging}
+                onClick={() => { onExportMerge(); closeMenu(); }}
+              >
+                {isMerging ? (
+                  <div className="h-4 w-4 border-2 border-indigo-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Layers size={16} />
+                )}
+                {isMerging ? '병합 중...' : 'Merge 이미지'}
               </button>
             </div>
           )}

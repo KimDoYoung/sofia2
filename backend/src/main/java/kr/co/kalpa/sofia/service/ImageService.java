@@ -19,6 +19,9 @@ import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
 
 import javax.imageio.ImageIO;
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -275,6 +278,115 @@ public class ImageService {
                 // Ignore
             }
             throw new RuntimeException("Failed to generate PDF export", e);
+        }
+    }
+
+    public Path exportAsMergedImage(List<Long> ids) {
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("No images selected for merge");
+        }
+
+        Path tempFile;
+        try {
+            tempFile = Files.createTempFile("sofia_merge_", ".jpg");
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to create temporary file for merged image export", e);
+        }
+
+        int N = ids.size();
+        int cols, rows;
+        if (N == 1) { cols = 1; rows = 1; }
+        else if (N == 2) { cols = 1; rows = 2; }
+        else if (N <= 4) { cols = 2; rows = 2; }
+        else if (N <= 6) { cols = 2; rows = 3; }
+        else if (N <= 9) { cols = 3; rows = 3; }
+        else if (N <= 12) { cols = 3; rows = 4; }
+        else if (N <= 16) { cols = 4; rows = 4; }
+        else if (N <= 20) { cols = 4; rows = 5; }
+        else if (N <= 25) { cols = 5; rows = 5; }
+        else if (N <= 30) { cols = 5; rows = 6; }
+        else {
+            cols = (int) Math.ceil(Math.sqrt(N / 1.414));
+            rows = (int) Math.ceil((double) N / cols);
+        }
+
+        // A4 Portrait dimensions: 2480 x 3508 pixels
+        int canvasWidth = 2480;
+        int canvasHeight = 3508;
+
+        BufferedImage mergedImage = new BufferedImage(canvasWidth, canvasHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = mergedImage.createGraphics();
+
+        try {
+            // Fill background with white
+            g2d.setColor(Color.WHITE);
+            g2d.fillRect(0, 0, canvasWidth, canvasHeight);
+
+            // High-quality rendering settings
+            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+
+            int cellWidth = canvasWidth / cols;
+            int cellHeight = canvasHeight / rows;
+            
+            // 5% margin
+            int marginX = (int) (cellWidth * 0.05);
+            int marginY = (int) (cellHeight * 0.05);
+            int maxWidth = cellWidth - 2 * marginX;
+            int maxHeight = cellHeight - 2 * marginY;
+
+            for (int i = 0; i < N; i++) {
+                Long id = ids.get(i);
+                ImageFile imageFile = findImageOrThrow(id);
+                if (imageFile.getFolder() == null) continue;
+
+                Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(),
+                        imageFile.getOrgName());
+
+                if (!Files.exists(imagePath)) {
+                    log.warn("Image file not found for merge: {}", imagePath);
+                    continue;
+                }
+
+                try {
+                    BufferedImage img = ImageIO.read(imagePath.toFile());
+                    if (img == null) {
+                        log.warn("Could not read image for merge: {}", imagePath);
+                        continue;
+                    }
+
+                    double scale = Math.min((double) maxWidth / img.getWidth(), (double) maxHeight / img.getHeight());
+                    int drawWidth = (int) (img.getWidth() * scale);
+                    int drawHeight = (int) (img.getHeight() * scale);
+
+                    int colIdx = i % cols;
+                    int rowIdx = i / cols;
+
+                    int x = colIdx * cellWidth + (cellWidth - drawWidth) / 2;
+                    int y = rowIdx * cellHeight + (cellHeight - drawHeight) / 2;
+
+                    g2d.drawImage(img, x, y, drawWidth, drawHeight, null);
+                } catch (Exception e) {
+                    log.error("Error drawing image {} to merged canvas: {}", imagePath, e.getMessage());
+                }
+            }
+        } finally {
+            g2d.dispose();
+        }
+
+        try {
+            // Write output as JPEG
+            ImageIO.write(mergedImage, "jpg", tempFile.toFile());
+            return tempFile;
+        } catch (IOException e) {
+            log.error("Failed to save merged image: {}", e.getMessage());
+            try {
+                Files.deleteIfExists(tempFile);
+            } catch (IOException ex) {
+                // Ignore
+            }
+            throw new RuntimeException("Failed to generate merged image export", e);
         }
     }
 }
