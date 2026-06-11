@@ -1,12 +1,27 @@
+import { useState, useMemo, useEffect, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { formatDate } from '@/lib/utils';
 import { useNavigate } from 'react-router-dom';
+import { useToast } from '@/shared/components/ui/use-toast';
+
+// AgGrid imports
 import { AgGridReact } from 'ag-grid-react';
 import { ModuleRegistry, AllCommunityModule, themeQuartz } from 'ag-grid-community';
 import type { ColDef, CellValueChangedEvent, ICellRendererParams, ValueFormatterParams } from 'ag-grid-community';
-import { useToast } from '@/shared/components/ui/use-toast';
-import { Trash2 } from 'lucide-react';
+
+// Icons
+import { 
+  Trash2, 
+  Plus, 
+  RefreshCw,
+  FolderTree,
+  Table
+} from 'lucide-react';
+import { Button } from '@/shared/components/ui/button';
+
+// Components
+import FolderTreeView from './components/FolderTreeView';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -22,8 +37,18 @@ const FolderListPage = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
   const { toast } = useToast();
+  
+  // View mode state ('tree' or 'list') - stored in localStorage
+  const [viewMode, setViewMode] = useState<'tree' | 'list'>(() => {
+    return (localStorage.getItem('folderViewMode') as 'tree' | 'list') || 'tree';
+  });
 
-  const { data: folders, isLoading } = useQuery<ImageFolder[]>({
+  // Save viewMode preference
+  useEffect(() => {
+    localStorage.setItem('folderViewMode', viewMode);
+  }, [viewMode]);
+
+  const { data: folders, isLoading, refetch, isRefetching } = useQuery<ImageFolder[]>({
     queryKey: ['folders'],
     queryFn: async () => {
       const res = await apiClient.get('/folders');
@@ -57,6 +82,17 @@ const FolderListPage = () => {
     }
   });
 
+  const handleUpdateNote = useCallback((id: number, note: string) => {
+    updateNoteMutation.mutate({ id, note });
+  }, [updateNoteMutation]);
+
+  const handleDelete = useCallback((id: number, folderName: string) => {
+    if (window.confirm(`'${folderName}' 폴더 정보를 삭제하시겠습니까?\n(실제 폴더는 삭제되지 않으며 썸네일만 삭제됩니다.)`)) {
+      deleteFolderMutation.mutate(id);
+    }
+  }, [deleteFolderMutation]);
+
+  // AG Grid Specific event handler
   const onCellValueChanged = (event: CellValueChangedEvent) => {
     if (event.column.getColId() === 'note') {
       updateNoteMutation.mutate({
@@ -66,13 +102,8 @@ const FolderListPage = () => {
     }
   };
 
-  const handleDelete = (id: number, folderName: string) => {
-    if (window.confirm(`'${folderName}' 폴더 정보를 삭제하시겠습니까?\n(실제 폴더는 삭제되지 않으며 썸네일만 삭제됩니다.)`)) {
-      deleteFolderMutation.mutate(id);
-    }
-  };
-
-  const columnDefs: ColDef<ImageFolder>[] = [
+  // AG Grid Column definitions
+  const columnDefs: ColDef<ImageFolder>[] = useMemo(() => [
     { field: 'id', headerName: 'ID', width: 80 },
     {
       field: 'folderName',
@@ -144,32 +175,112 @@ const FolderListPage = () => {
       ),
       filter: false
     },
-  ];
+  ], [navigate, handleDelete]);
 
-  if (isLoading) return <div className="p-8 text-center">Loading folders...</div>;
+  if (isLoading) {
+    return (
+      <div className="flex flex-col items-center justify-center h-[50vh] gap-3">
+        <RefreshCw className="animate-spin text-blue-500" size={32} />
+        <span className="text-gray-500 text-sm">폴더 정보를 불러오는 중...</span>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-4">
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold text-gray-800">폴더 목록</h2>
+    <div className="space-y-6 max-w-7xl mx-auto py-2">
+      {/* Top Header Section */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h2 className="text-2xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2">
+            📂 등록 폴더 목록
+            {folders && (
+              <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
+                총 {folders.length}개 폴더
+              </span>
+            )}
+          </h2>
+          <p className="text-sm text-gray-500 mt-1">
+            등록된 이미지 폴더를 탐색하고 관리합니다.
+          </p>
+        </div>
+        
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Segmented View Switcher */}
+          <div className="flex items-center bg-gray-100 p-0.5 rounded-lg border border-gray-200 shadow-inner">
+            <button
+              onClick={() => setViewMode('tree')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === 'tree'
+                  ? 'bg-white text-blue-600 shadow-sm border border-gray-200/50'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              <FolderTree size={14} />
+              트리형
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all cursor-pointer ${
+                viewMode === 'list'
+                  ? 'bg-white text-blue-600 shadow-sm border border-gray-200/50'
+                  : 'text-gray-500 hover:text-gray-800'
+              }`}
+            >
+              <Table size={14} />
+              리스트형 (AgGrid)
+            </button>
+          </div>
+
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={() => refetch()} 
+              disabled={isRefetching}
+              className="text-gray-600 border-gray-200"
+            >
+              <RefreshCw size={14} className={`mr-1.5 ${isRefetching ? 'animate-spin' : ''}`} />
+              새로고침
+            </Button>
+            <Button 
+              size="sm"
+              onClick={() => navigate('/folder/add')}
+              className="bg-blue-600 hover:bg-blue-700 text-white font-medium"
+            >
+              <Plus size={16} className="mr-1.5" />
+              폴더 추가
+            </Button>
+          </div>
+        </div>
       </div>
 
-      <div className="w-full h-[600px] shadow-sm rounded-lg overflow-hidden">
-        <AgGridReact
-          theme={themeQuartz}
-          rowData={folders}
-          columnDefs={columnDefs}
-          defaultColDef={{
-            sortable: true,
-            filter: false,
-            resizable: true,
-          }}
-          pagination={true}
-          paginationPageSize={20}
-          onCellValueChanged={onCellValueChanged}
-          singleClickEdit={false}
+      {/* Conditionally Render Content based on viewMode */}
+      {viewMode === 'tree' ? (
+        <FolderTreeView 
+          folders={folders || []} 
+          onUpdateNote={handleUpdateNote} 
+          onDeleteFolder={handleDelete}
+          isUpdatingNote={updateNoteMutation.isPending}
         />
-      </div>
+      ) : (
+        /* Restore original AG Grid list view */
+        <div className="w-full h-[600px] shadow-sm rounded-lg overflow-hidden border border-gray-200">
+          <AgGridReact
+            theme={themeQuartz}
+            rowData={folders}
+            columnDefs={columnDefs}
+            defaultColDef={{
+              sortable: true,
+              filter: false,
+              resizable: true,
+            }}
+            pagination={true}
+            paginationPageSize={20}
+            onCellValueChanged={onCellValueChanged}
+            singleClickEdit={false}
+          />
+        </div>
+      )}
     </div>
   );
 };
