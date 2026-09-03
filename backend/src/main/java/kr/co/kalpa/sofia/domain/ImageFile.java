@@ -1,9 +1,8 @@
 package kr.co.kalpa.sofia.domain;
 
-import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import jakarta.persistence.*;
-import lombok.*;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Entity
 @Table(name = "image_files")
@@ -73,4 +72,3 @@ public class ImageFile {
     @Builder.Default
     private Integer rotationAngle = 0;
 }
-

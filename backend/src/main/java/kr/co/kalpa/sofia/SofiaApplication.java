@@ -17,10 +17,9 @@ public class SofiaApplication extends SpringBootServletInitializer {
             mode = System.getenv("SPRING_PROFILES_ACTIVE");
         }
         if (mode == null || mode.isEmpty()) {
-            mode = "jskn"; 
+            mode = "jskn";
         }
-        return application.sources(SofiaApplication.class)
-                .profiles(mode);
+        return application.sources(SofiaApplication.class).profiles(mode);
     }
 
     public static void main(String[] args) {
@@ -29,7 +28,7 @@ public class SofiaApplication extends SpringBootServletInitializer {
             mode = "local"; // Default to local
         }
         System.setProperty("spring.profiles.active", mode);
-        
+
         SpringApplication.run(SofiaApplication.class, args);
     }
 }

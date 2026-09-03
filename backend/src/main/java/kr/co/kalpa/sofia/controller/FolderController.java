@@ -1,5 +1,9 @@
 package kr.co.kalpa.sofia.controller;
 
+import java.io.IOException;
+import java.util.Collections;
+import java.util.List;
+import java.util.Map;
 import kr.co.kalpa.sofia.domain.ImageFolder;
 import kr.co.kalpa.sofia.dto.FolderTreeDto;
 import kr.co.kalpa.sofia.dto.TaskProgressDto;
@@ -7,11 +11,6 @@ import kr.co.kalpa.sofia.service.FolderService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.io.IOException;
-import java.util.Collections;
-import java.util.List;
-import java.util.Map;
 
 @RestController
 @RequestMapping("/api/folders")
@@ -39,13 +38,15 @@ public class FolderController {
 
     // 요청으로 전달된 폴더명으로 새 폴더를 생성하고 결과를 반환한다
     @PostMapping
-    public ResponseEntity<ImageFolder> addFolder(@RequestBody Map<String, String> request) throws IOException {
+    public ResponseEntity<ImageFolder> addFolder(@RequestBody Map<String, String> request)
+            throws IOException {
         String folderName = request.get("folderName");
         return ResponseEntity.ok(folderService.addFolder(folderName));
     }
 
     @PostMapping("/async")
-    public ResponseEntity<Map<String, String>> addFolderAsync(@RequestBody Map<String, String> request) {
+    public ResponseEntity<Map<String, String>> addFolderAsync(
+            @RequestBody Map<String, String> request) {
         String folderName = request.get("folderName");
         String taskId = folderService.addFolderAsync(folderName);
         return ResponseEntity.ok(Collections.singletonMap("taskId", taskId));
@@ -57,7 +58,8 @@ public class FolderController {
     }
 
     @PutMapping("/{id}/note")
-    public ResponseEntity<ImageFolder> updateFolderNote(@PathVariable Long id, @RequestBody Map<String, String> request) {
+    public ResponseEntity<ImageFolder> updateFolderNote(
+            @PathVariable Long id, @RequestBody Map<String, String> request) {
         String note = request.get("note");
         return ResponseEntity.ok(folderService.updateFolderNote(id, note));
     }

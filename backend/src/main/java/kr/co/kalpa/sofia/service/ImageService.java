@@ -1,5 +1,17 @@
 package kr.co.kalpa.sofia.service;
 
+import java.awt.Color;
+import java.awt.Graphics2D;
+import java.awt.RenderingHints;
+import java.awt.image.BufferedImage;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.List;
+import java.util.UUID;
+import javax.imageio.ImageIO;
 import kr.co.kalpa.sofia.domain.ImageFile;
 import kr.co.kalpa.sofia.domain.ImageFolder;
 import kr.co.kalpa.sofia.dto.ImageUpdateRequest;
@@ -12,24 +24,10 @@ import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
 import org.apache.pdfbox.pdmodel.common.PDRectangle;
 import org.apache.pdfbox.pdmodel.graphics.image.JPEGFactory;
-import org.apache.pdfbox.pdmodel.graphics.image.LosslessFactory;
 import org.apache.pdfbox.pdmodel.graphics.image.PDImageXObject;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
-
-import javax.imageio.ImageIO;
-import java.awt.Color;
-import java.awt.Graphics2D;
-import java.awt.RenderingHints;
-import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.nio.file.Path;
-import java.nio.file.Paths;
-import java.util.List;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -54,8 +52,10 @@ public class ImageService {
 
     @Transactional
     public ImageFile saveImage(MultipartFile file, Long folderId) throws IOException {
-        ImageFolder folder = imageFolderRepository.findById(folderId)
-                .orElseThrow(() -> new RuntimeException("Folder not found"));
+        ImageFolder folder =
+                imageFolderRepository
+                        .findById(folderId)
+                        .orElseThrow(() -> new RuntimeException("Folder not found"));
 
         String originalFilename = file.getOriginalFilename();
         String extension = originalFilename.substring(originalFilename.lastIndexOf(".") + 1);
@@ -70,16 +70,17 @@ public class ImageService {
         File savedFile = copyLocation.toFile();
         BufferedImage image = ImageIO.read(savedFile);
 
-        ImageFile imageFile = ImageFile.builder()
-                .orgName(originalFilename)
-                .hashCode(hashCode)
-                .seq(folder.getImageFiles().size() + 1)
-                .folder(folder)
-                .imageFormat(extension)
-                .imageWidth(image.getWidth())
-                .imageHeight(image.getHeight())
-                .imageMode("RGB") // Simplified
-                .build();
+        ImageFile imageFile =
+                ImageFile.builder()
+                        .orgName(originalFilename)
+                        .hashCode(hashCode)
+                        .seq(folder.getImageFiles().size() + 1)
+                        .folder(folder)
+                        .imageFormat(extension)
+                        .imageWidth(image.getWidth())
+                        .imageHeight(image.getHeight())
+                        .imageMode("RGB") // Simplified
+                        .build();
 
         metadataService.extractMetadata(savedFile, imageFile);
 
@@ -92,26 +93,39 @@ public class ImageService {
 
         if (request.getOrgName() != null && !request.getOrgName().equals(image.getOrgName())) {
             if (image.getFolder() == null) {
-                throw new RuntimeException("Cannot rename image: No associated folder found for image ID " + id);
+                throw new RuntimeException(
+                        "Cannot rename image: No associated folder found for image ID " + id);
             }
 
-            Path oldPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
-            Path newPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), request.getOrgName());
+            Path oldPath =
+                    Paths.get(
+                            baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
+            Path newPath =
+                    Paths.get(
+                            baseImageFolder,
+                            image.getFolder().getFolderName(),
+                            request.getOrgName());
 
             try {
                 if (!Files.exists(oldPath)) {
                     log.error("Original file missing on disk, cannot rename: {}", oldPath);
-                    throw new RuntimeException("Original file missing on disk, cannot perform rename.");
+                    throw new RuntimeException(
+                            "Original file missing on disk, cannot perform rename.");
                 }
 
                 if (Files.exists(newPath)) {
-                    throw new RuntimeException("A file with the new name already exists: " + request.getOrgName());
+                    throw new RuntimeException(
+                            "A file with the new name already exists: " + request.getOrgName());
                 }
 
                 Files.move(oldPath, newPath);
                 image.setOrgName(request.getOrgName());
             } catch (IOException e) {
-                log.error("Failed to rename physical file from {} to {}: {}", oldPath, newPath, e.getMessage());
+                log.error(
+                        "Failed to rename physical file from {} to {}: {}",
+                        oldPath,
+                        newPath,
+                        e.getMessage());
                 throw new RuntimeException("Failed to rename file on disk: " + e.getMessage());
             }
         }
@@ -126,12 +140,15 @@ public class ImageService {
     public void deleteImages(List<Long> ids) {
         for (Long id : ids) {
             ImageFile image = findImageOrThrow(id);
-            Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
+            Path rawPath =
+                    Paths.get(
+                            baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
             try {
                 Files.deleteIfExists(rawPath);
                 Files.deleteIfExists(getThumbnailPath(image, false));
             } catch (IOException e) {
-                log.error("Failed to delete physical files for image id {}: {}", id, e.getMessage());
+                log.error(
+                        "Failed to delete physical files for image id {}: {}", id, e.getMessage());
                 // Continue with database deletion even if physical file deletion fails
             }
             imageFileRepository.deleteById(id);
@@ -157,7 +174,11 @@ public class ImageService {
                 Files.deleteIfExists(thumbPath);
 
                 // Recreate thumbnail with the new rotation angle
-                Path rawPath = Paths.get(baseImageFolder, image.getFolder().getFolderName(), image.getOrgName());
+                Path rawPath =
+                        Paths.get(
+                                baseImageFolder,
+                                image.getFolder().getFolderName(),
+                                image.getOrgName());
                 if (Files.exists(rawPath)) {
                     createThumbnail(rawPath.toFile(), thumbPath.toFile(), 300, 300, newAngle);
                 }
@@ -168,7 +189,9 @@ public class ImageService {
     }
 
     private ImageFile findImageOrThrow(Long id) {
-        return imageFileRepository.findById(id).orElseThrow(() -> new RuntimeException("Image not found: " + id));
+        return imageFileRepository
+                .findById(id)
+                .orElseThrow(() -> new RuntimeException("Image not found: " + id));
     }
 
     public Path getThumbnailPath(ImageFile file) throws IOException {
@@ -178,14 +201,24 @@ public class ImageService {
     public Path getThumbnailPath(ImageFile file, boolean createIfMissing) throws IOException {
         int size = 300;
 
-        Path thumbPath = Paths.get(baseFolder, "thumbnails", file.getFolder().getId().toString(),
-                file.getId() + ".jpg");
+        Path thumbPath =
+                Paths.get(
+                        baseFolder,
+                        "thumbnails",
+                        file.getFolder().getId().toString(),
+                        file.getId() + ".jpg");
 
         if (createIfMissing && !Files.exists(thumbPath)) {
             Files.createDirectories(thumbPath.getParent());
-            Path rawPath = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
+            Path rawPath =
+                    Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
             if (Files.exists(rawPath)) {
-                createThumbnail(rawPath.toFile(), thumbPath.toFile(), size, size, file.getRotationAngle() != null ? file.getRotationAngle() : 0);
+                createThumbnail(
+                        rawPath.toFile(),
+                        thumbPath.toFile(),
+                        size,
+                        size,
+                        file.getRotationAngle() != null ? file.getRotationAngle() : 0);
             } else {
                 // If raw file doesn't exist, we can't create thumbnail
                 log.warn("Original image not found, cannot create thumbnail: {}", rawPath);
@@ -195,15 +228,14 @@ public class ImageService {
         return thumbPath;
     }
 
-    public void createThumbnail(File source, File target, int width, int height, int rotationAngle) throws IOException {
-        var builder = Thumbnails.of(source)
-                .size(width, height);
+    public void createThumbnail(File source, File target, int width, int height, int rotationAngle)
+            throws IOException {
+        var builder = Thumbnails.of(source).size(width, height);
         if (rotationAngle != 0) {
             builder = builder.rotate(rotationAngle);
         }
         builder.toFile(target);
     }
-
 
     public Path exportAsPdf(List<Long> ids, Integer imagesPerPageParam, String orientationParam) {
         Path tempFile;
@@ -218,9 +250,16 @@ public class ImageService {
 
         int cols = 1;
         int rows = 1;
-        if (imagesPerPage == 2) { cols = 1; rows = 2; }
-        else if (imagesPerPage == 4) { cols = 2; rows = 2; }
-        else if (imagesPerPage == 6) { cols = 2; rows = 3; }
+        if (imagesPerPage == 2) {
+            cols = 1;
+            rows = 2;
+        } else if (imagesPerPage == 4) {
+            cols = 2;
+            rows = 2;
+        } else if (imagesPerPage == 6) {
+            cols = 2;
+            rows = 3;
+        }
 
         List<Path> tempImages = new java.util.ArrayList<>();
         try (PDDocument document = new PDDocument()) {
@@ -231,14 +270,18 @@ public class ImageService {
                 // Determine page size / orientation
                 PDRectangle mediaBox = PDRectangle.A4;
                 if ("landscape".equals(orientation)) {
-                    mediaBox = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
+                    mediaBox =
+                            new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
                 } else if ("portrait".equals(orientation)) {
                     mediaBox = PDRectangle.A4;
                 } else {
                     // "auto"
                     if (imagesPerPage == 1) {
                         ImageFile firstImg = findImageOrThrow(ids.get(i));
-                        int rotAngle = firstImg.getRotationAngle() != null ? firstImg.getRotationAngle() : 0;
+                        int rotAngle =
+                                firstImg.getRotationAngle() != null
+                                        ? firstImg.getRotationAngle()
+                                        : 0;
                         int w = firstImg.getImageWidth();
                         int h = firstImg.getImageHeight();
                         if (rotAngle == 90 || rotAngle == 270) {
@@ -247,7 +290,9 @@ public class ImageService {
                             h = temp;
                         }
                         if (w > h) {
-                            mediaBox = new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
+                            mediaBox =
+                                    new PDRectangle(
+                                            PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
                         }
                     } else {
                         mediaBox = PDRectangle.A4;
@@ -277,8 +322,11 @@ public class ImageService {
                             continue;
                         }
 
-                        Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(),
-                                imageFile.getOrgName());
+                        Path imagePath =
+                                Paths.get(
+                                        baseImageFolder,
+                                        imageFile.getFolder().getFolderName(),
+                                        imageFile.getOrgName());
 
                         if (!Files.exists(imagePath)) {
                             log.warn("Image file not found for PDF export: {}", imagePath);
@@ -287,7 +335,10 @@ public class ImageService {
                         }
 
                         try {
-                            int rotAngle = imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
+                            int rotAngle =
+                                    imageFile.getRotationAngle() != null
+                                            ? imageFile.getRotationAngle()
+                                            : 0;
 
                             // 1. Create a scaled temporary image file in tmp
                             Path scaledTempFile = Files.createTempFile("sofia_scaled_", ".jpg");
@@ -312,14 +363,17 @@ public class ImageService {
                             // Place centered in cell
                             int col = cellIdx % cols;
                             int row = cellIdx / cols;
-                            int pdfRow = rows - 1 - row; 
+                            int pdfRow = rows - 1 - row;
 
                             float x = col * cellWidth + (cellWidth - imgWidth) / 2;
                             float y = pdfRow * cellHeight + (cellHeight - imgHeight) / 2;
 
                             contentStream.drawImage(pdImage, x, y, imgWidth, imgHeight);
                         } catch (Exception e) {
-                            log.error("Error adding image {} to PDF cell: {}", imagePath, e.getMessage());
+                            log.error(
+                                    "Error adding image {} to PDF cell: {}",
+                                    imagePath,
+                                    e.getMessage());
                             cellIdx--;
                         }
                     }
@@ -348,7 +402,8 @@ public class ImageService {
         }
     }
 
-    public Path exportAsMergedImage(List<Long> ids, String mode, Integer colsParam, Integer gapParam) {
+    public Path exportAsMergedImage(
+            List<Long> ids, String mode, Integer colsParam, Integer gapParam) {
         if (ids == null || ids.isEmpty()) {
             throw new IllegalArgumentException("No images selected for merge");
         }
@@ -357,7 +412,8 @@ public class ImageService {
         try {
             tempFile = Files.createTempFile("sofia_merge_", ".jpg");
         } catch (IOException e) {
-            throw new RuntimeException("Failed to create temporary file for merged image export", e);
+            throw new RuntimeException(
+                    "Failed to create temporary file for merged image export", e);
         }
 
         int N = ids.size();
@@ -380,17 +436,27 @@ public class ImageService {
             if (colsParam != null && colsParam > 0) {
                 cols = colsParam;
             } else {
-                if (N == 1) { cols = 1; }
-                else if (N == 2) { cols = 1; }
-                else if (N <= 4) { cols = 2; }
-                else if (N <= 6) { cols = 2; }
-                else if (N <= 9) { cols = 3; }
-                else if (N <= 12) { cols = 3; }
-                else if (N <= 16) { cols = 4; }
-                else if (N <= 20) { cols = 4; }
-                else if (N <= 25) { cols = 5; }
-                else if (N <= 30) { cols = 5; }
-                else {
+                if (N == 1) {
+                    cols = 1;
+                } else if (N == 2) {
+                    cols = 1;
+                } else if (N <= 4) {
+                    cols = 2;
+                } else if (N <= 6) {
+                    cols = 2;
+                } else if (N <= 9) {
+                    cols = 3;
+                } else if (N <= 12) {
+                    cols = 3;
+                } else if (N <= 16) {
+                    cols = 4;
+                } else if (N <= 20) {
+                    cols = 4;
+                } else if (N <= 25) {
+                    cols = 5;
+                } else if (N <= 30) {
+                    cols = 5;
+                } else {
                     cols = (int) Math.ceil(Math.sqrt(N / 1.414));
                 }
             }
@@ -402,7 +468,8 @@ public class ImageService {
         int gap = gapParam != null ? gapParam : 2;
         int padding = gap / 2;
 
-        BufferedImage mergedImage = new BufferedImage(canvasWidth, canvasHeight, BufferedImage.TYPE_INT_RGB);
+        BufferedImage mergedImage =
+                new BufferedImage(canvasWidth, canvasHeight, BufferedImage.TYPE_INT_RGB);
         Graphics2D g2d = mergedImage.createGraphics();
         List<Path> tempImages = new java.util.ArrayList<>();
 
@@ -412,17 +479,22 @@ public class ImageService {
             g2d.fillRect(0, 0, canvasWidth, canvasHeight);
 
             // High-quality rendering settings
-            g2d.setRenderingHint(RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
+            g2d.setRenderingHint(
+                    RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
-            g2d.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+            g2d.setRenderingHint(
+                    RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
             for (int i = 0; i < N; i++) {
                 Long id = ids.get(i);
                 ImageFile imageFile = findImageOrThrow(id);
                 if (imageFile.getFolder() == null) continue;
 
-                Path imagePath = Paths.get(baseImageFolder, imageFile.getFolder().getFolderName(),
-                        imageFile.getOrgName());
+                Path imagePath =
+                        Paths.get(
+                                baseImageFolder,
+                                imageFile.getFolder().getFolderName(),
+                                imageFile.getOrgName());
 
                 if (!Files.exists(imagePath)) {
                     log.warn("Image file not found for merge: {}", imagePath);
@@ -438,7 +510,8 @@ public class ImageService {
                     int w = cellWidth - 2 * padding;
                     int h = cellHeight - 2 * padding;
 
-                    int rotAngle = imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
+                    int rotAngle =
+                            imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
 
                     // 1. Create a scaled temporary image file in tmp
                     Path scaledTempFile = Files.createTempFile("sofia_scaled_merge_", ".jpg");
@@ -464,7 +537,10 @@ public class ImageService {
 
                     g2d.drawImage(img, drawX, drawY, null);
                 } catch (Exception e) {
-                    log.error("Error drawing image {} to merged canvas: {}", imagePath, e.getMessage());
+                    log.error(
+                            "Error drawing image {} to merged canvas: {}",
+                            imagePath,
+                            e.getMessage());
                 }
             }
         } finally {
@@ -495,12 +571,14 @@ public class ImageService {
     }
 
     public byte[] getRotatedImageBytes(ImageFile file) throws IOException {
-        Path rawPath = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
-        BufferedImage rotated = Thumbnails.of(rawPath.toFile())
-                .scale(1.0)
-                .rotate(file.getRotationAngle() != null ? file.getRotationAngle() : 0)
-                .asBufferedImage();
-        
+        Path rawPath =
+                Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
+        BufferedImage rotated =
+                Thumbnails.of(rawPath.toFile())
+                        .scale(1.0)
+                        .rotate(file.getRotationAngle() != null ? file.getRotationAngle() : 0)
+                        .asBufferedImage();
+
         java.io.ByteArrayOutputStream baos = new java.io.ByteArrayOutputStream();
         String format = file.getImageFormat();
         if (format == null || format.trim().isEmpty()) {

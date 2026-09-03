@@ -1,13 +1,12 @@
 package kr.co.kalpa.sofia.controller;
 
+import java.util.List;
 import kr.co.kalpa.sofia.dto.BookmarkDto;
 import kr.co.kalpa.sofia.dto.BookmarkRequest;
 import kr.co.kalpa.sofia.service.BookmarkService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
-
-import java.util.List;
 
 @RestController
 @RequestMapping("/api/bookmarks")

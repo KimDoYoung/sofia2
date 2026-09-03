@@ -1,17 +1,14 @@
 package kr.co.kalpa.sofia.security;
 
 import com.fasterxml.jackson.annotation.JsonIgnore;
+import java.util.Collection;
+import java.util.List;
+import java.util.Objects;
 import kr.co.kalpa.sofia.domain.User;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import org.springframework.security.core.GrantedAuthority;
-import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.security.core.userdetails.UserDetails;
-
-import java.util.Collection;
-import java.util.List;
-import java.util.Objects;
-import java.util.stream.Collectors;
 
 @AllArgsConstructor
 @Getter
@@ -22,15 +19,11 @@ public class UserDetailsImpl implements UserDetails {
     private String username;
     private String name;
 
-    @JsonIgnore
-    private String password;
+    @JsonIgnore private String password;
 
     public static UserDetailsImpl build(User user) {
         return new UserDetailsImpl(
-                user.getId(),
-                user.getUsername(),
-                user.getName(),
-                user.getPassword());
+                user.getId(), user.getUsername(), user.getName(), user.getPassword());
     }
 
     @Override

@@ -1,10 +1,9 @@
 package kr.co.kalpa.sofia.domain;
 
 import jakarta.persistence.*;
+import java.time.Instant;
 import lombok.Getter;
 import lombok.Setter;
-
-import java.time.Instant;
 
 @Entity
 @Table(name = "refresh_tokens", schema = "sofia")

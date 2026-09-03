@@ -23,6 +23,8 @@ Sofia 2는 폴더별로 정리된 이미지 파일들을 관리하고 조회할 
 * `./bm.sh build`: 전체 빌드 (컴파일 + JAR/WAR 생성).
 * `./bm.sh clean`: 빌드 아티팩트(산출물) 삭제.
 * `./bm.sh test`: 테스트 실행.
+* `./bm.sh lint`: Spotless 코드 스타일 검사.
+* `./bm.sh format`: Spotless 코드 스타일 자동 포맷팅.
 
 ### 프론트엔드 (React)
 

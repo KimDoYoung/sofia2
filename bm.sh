@@ -201,6 +201,19 @@ do_clean() {
     info "빌드 캐시가 삭제되었습니다."
 }
 
+do_lint() {
+    header "Lint - 코드 스타일 검사 (Spotless)"
+    load_env
+    "$GRADLEW" -p "$BACKEND_DIR" spotlessCheck || warn "코드 스타일 위반이 발견되었습니다. './bm.sh format'을 실행하여 자동 수정할 수 있습니다."
+}
+
+do_format() {
+    header "Format - 코드 스타일 자동 수정 (Spotless)"
+    load_env
+    "$GRADLEW" -p "$BACKEND_DIR" spotlessApply
+    info "코드 포맷팅 완료."
+}
+
 do_status() {
     header "Status - 애플리케이션 상태 확인"
     info "현재 모드: ${SOFIA_MODE}"
@@ -218,6 +231,8 @@ print_menu() {
         "build:전체 빌드"
         "war:WAR 파일 생성"
         "test:테스트 실행"
+        "lint:코드 스타일 검사"
+        "format:코드 자동 포맷팅"
         "clean:빌드 캐시 삭제"
         "status:상태 확인"
     )
@@ -253,7 +268,7 @@ main() {
         print_banner
         print_menu
 
-        local cmds=("run" "compile" "build" "war" "test" "clean" "status")
+        local cmds=("run" "compile" "build" "war" "test" "lint" "format" "clean" "status")
 
         read -rp "  번호를 입력하세요: " choice
         echo ""
@@ -280,6 +295,8 @@ main() {
         build)      do_build ;;
         war)        do_war ;;
         test)       do_test ;;
+        lint)       do_lint ;;
+        format)     do_format ;;
         clean)      do_clean ;;
         status)     do_status ;;
         help)

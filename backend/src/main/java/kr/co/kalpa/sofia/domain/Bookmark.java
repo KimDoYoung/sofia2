@@ -1,8 +1,8 @@
 package kr.co.kalpa.sofia.domain;
 
 import jakarta.persistence.*;
-import lombok.*;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Entity
 @Table(name = "bookmarks")

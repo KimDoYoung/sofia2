@@ -5,13 +5,11 @@ import com.drew.metadata.Metadata;
 import com.drew.metadata.exif.ExifIFD0Directory;
 import com.drew.metadata.exif.ExifSubIFDDirectory;
 import com.drew.metadata.exif.GpsDirectory;
+import java.io.File;
+import java.util.Date;
 import kr.co.kalpa.sofia.domain.ImageFile;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
-
-import java.io.File;
-import java.time.ZoneId;
-import java.util.Date;
 
 @Slf4j
 @Component
@@ -30,16 +28,21 @@ public class MetadataService {
             }
 
             // More detailed EXIF info
-            ExifSubIFDDirectory subIfdDir = metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
+            ExifSubIFDDirectory subIfdDir =
+                    metadata.getFirstDirectoryOfType(ExifSubIFDDirectory.class);
             if (subIfdDir != null) {
                 Date date = subIfdDir.getDate(ExifSubIFDDirectory.TAG_DATETIME_ORIGINAL);
                 if (date != null) {
-                    imageFile.setCaptureDateTime(date.toInstant().atZone(java.time.ZoneOffset.UTC).toLocalDateTime());
+                    imageFile.setCaptureDateTime(
+                            date.toInstant().atZone(java.time.ZoneOffset.UTC).toLocalDateTime());
                 }
-                imageFile.setShutterSpeed(subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_SHUTTER_SPEED));
-                imageFile.setApertureValue(subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_APERTURE));
+                imageFile.setShutterSpeed(
+                        subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_SHUTTER_SPEED));
+                imageFile.setApertureValue(
+                        subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_APERTURE));
                 imageFile.setIsoSpeed(subIfdDir.getInteger(ExifSubIFDDirectory.TAG_ISO_EQUIVALENT));
-                imageFile.setFocalLength(subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_FOCAL_LENGTH));
+                imageFile.setFocalLength(
+                        subIfdDir.getDoubleObject(ExifSubIFDDirectory.TAG_FOCAL_LENGTH));
             }
 
             // GPS info

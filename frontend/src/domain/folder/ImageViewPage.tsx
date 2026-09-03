@@ -121,16 +121,16 @@ const ImageViewPage = () => {
     }
   });
 
-  const handleAddBookmark = () => {
+  const handleAddBookmark = useCallback(() => {
     if (!image) return;
     const defaultName = `[${image.folder.folderName}] ${image.orgName}`;
     const name = window.prompt('북마크 이름을 입력하세요:', defaultName);
     if (name !== null && name.trim() !== '') {
       addBookmarkMutation.mutate(name.trim());
     }
-  };
+  }, [image, addBookmarkMutation]);
 
-  const handleRename = () => {
+  const handleRename = useCallback(() => {
     if (!image) return;
     const dotIndex = image.orgName.lastIndexOf('.');
     const nameWithoutExt = dotIndex !== -1 ? image.orgName.substring(0, dotIndex) : image.orgName;
@@ -139,13 +139,13 @@ const ImageViewPage = () => {
     if (newName !== null && newName.trim() !== '') {
       updateImageMutation.mutate({ orgName: newName.trim() + ext });
     }
-  };
+  }, [image, updateImageMutation]);
 
-  const handleDelete = () => {
+  const handleDelete = useCallback(() => {
     if (window.confirm('이미지를 삭제하시겠습니까?')) {
       deleteMutation.mutate();
     }
-  };
+  }, [deleteMutation]);
 
   const currentIndex = useMemo(() => {
     if (!filteredFolderImages || !imageId) return 0;
@@ -183,16 +183,56 @@ const ImageViewPage = () => {
     }
   }, [hasNext, filteredFolderImages, handleIndexChange, currentIndex]);
 
-  // Keyboard navigation
+  // Keyboard navigation & shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'ArrowLeft') handlePrev();
-      if (e.key === 'ArrowRight') handleNext();
-      if (isSliderVisible && e.key === 'Escape') setIsSliderVisible(false);
+      if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+      const target = e.target as HTMLElement | null;
+      if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+        return;
+      }
+
+      if (e.key === 'ArrowLeft') {
+        handlePrev();
+        return;
+      }
+      if (e.key === 'ArrowRight') {
+        handleNext();
+        return;
+      }
+      if (isSliderVisible && e.key === 'Escape') {
+        setIsSliderVisible(false);
+        return;
+      }
+
+      const code = e.code;
+      const key = e.key.toLowerCase();
+      const targetId = image?.id ?? Number(imageId);
+
+      if (targetId && (code === 'KeyL' || key === 'l' || key === 'ㅣ')) {
+        e.preventDefault();
+        copyLink(targetId);
+      } else if (targetId && (code === 'KeyC' || key === 'c' || key === 'ㅊ')) {
+        e.preventDefault();
+        rotateMutation.mutate(90);
+      } else if (targetId && (code === 'KeyA' || key === 'a' || key === 'ㅁ')) {
+        e.preventDefault();
+        rotateMutation.mutate(-90);
+      } else if (targetId && (code === 'KeyR' || key === 'r' || key === 'ㄱ')) {
+        e.preventDefault();
+        handleRename();
+      } else if (targetId && (code === 'KeyD' || key === 'd' || key === 'ㅇ')) {
+        e.preventDefault();
+        handleDelete();
+      } else if (targetId && (code === 'KeyB' || key === 'b' || key === 'ㅠ')) {
+        e.preventDefault();
+        handleAddBookmark();
+      }
     };
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [isSliderVisible, handlePrev, handleNext]);
+  }, [isSliderVisible, handlePrev, handleNext, image?.id, imageId, copyLink, rotateMutation, handleRename, handleDelete, handleAddBookmark]);
 
   // 외부 클릭 시 햄버거 메뉴 닫기
   useEffect(() => {
@@ -281,7 +321,7 @@ const ImageViewPage = () => {
                 className="h-9 gap-2 border-gray-200"
                 onClick={() => rotateMutation.mutate(90)}
                 disabled={rotateMutation.isPending}
-                title="90도 회전"
+                title="90도 회전(c)"
               >
                 <RotateCw size={16} />
                 <span className="hidden lg:inline">90도 회전</span>
@@ -292,7 +332,7 @@ const ImageViewPage = () => {
                 className="h-9 gap-2 border-gray-200"
                 onClick={() => rotateMutation.mutate(-90)}
                 disabled={rotateMutation.isPending}
-                title="90도 반시계방향 회전"
+                title="90도 반시계방향 회전(a)"
               >
                 <RotateCcw size={16} />
                 <span className="hidden lg:inline">-90도 회전</span>
@@ -306,7 +346,7 @@ const ImageViewPage = () => {
                 size="sm"
                 className="h-9 gap-2 border-gray-200"
                 disabled={addBookmarkMutation.isPending}
-                title="북마크 추가"
+                title="북마크 추가(b)"
               >
                 <Bookmark size={16} />
                 <span className="hidden lg:inline">북마크 추가</span>
@@ -317,6 +357,7 @@ const ImageViewPage = () => {
                 variant="outline"
                 size="sm"
                 className="h-9 gap-2 border-gray-200"
+                title="링크 복사(l)"
               >
                 <Link size={16} />
                 <span className="hidden lg:inline">링크 복사</span>
@@ -328,7 +369,7 @@ const ImageViewPage = () => {
                 size="sm"
                 className="h-9 gap-2 border-gray-200"
                 disabled={updateImageMutation.isPending}
-                title="파일명 변경"
+                title="파일명 변경(r)"
               >
                 <Pencil size={16} />
                 <span className="hidden lg:inline">이름 바꾸기</span>
@@ -340,7 +381,7 @@ const ImageViewPage = () => {
                 size="sm"
                 className="h-9 gap-2 border-gray-200 text-red-600 hover:text-red-700 hover:bg-red-50"
                 disabled={deleteMutation.isPending}
-                title="삭제"
+                title="삭제(d)"
               >
                 <Trash2 size={16} />
                 <span className="hidden lg:inline">삭제</span>

@@ -5,16 +5,15 @@ import io.jsonwebtoken.security.Keys;
 import jakarta.annotation.PostConstruct;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
+import java.nio.charset.StandardCharsets;
+import java.util.Date;
+import javax.crypto.SecretKey;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseCookie;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.stereotype.Component;
 import org.springframework.web.util.WebUtils;
-
-import javax.crypto.SecretKey;
-import java.nio.charset.StandardCharsets;
-import java.util.Date;
 
 @Slf4j
 @Component
@@ -54,7 +53,8 @@ public class JwtUtils {
     }
 
     public ResponseCookie generateRefreshJwtCookie(String refreshToken) {
-        return generateCookie(jwtRefreshCookie, refreshToken, "/sofia/api/auth/refreshtoken", 7 * 24 * 60 * 60);
+        return generateCookie(
+                jwtRefreshCookie, refreshToken, "/sofia/api/auth/refreshtoken", 7 * 24 * 60 * 60);
     }
 
     public ResponseCookie getCleanJwtCookie() {
@@ -62,7 +62,10 @@ public class JwtUtils {
     }
 
     public ResponseCookie getCleanRefreshJwtCookie() {
-        return ResponseCookie.from(jwtRefreshCookie, null).path("/sofia/api/auth/refreshtoken").maxAge(0).build();
+        return ResponseCookie.from(jwtRefreshCookie, null)
+                .path("/sofia/api/auth/refreshtoken")
+                .maxAge(0)
+                .build();
     }
 
     private ResponseCookie generateCookie(String name, String value, String path, long maxAge) {

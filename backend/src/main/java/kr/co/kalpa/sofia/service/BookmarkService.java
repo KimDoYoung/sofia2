@@ -1,5 +1,7 @@
 package kr.co.kalpa.sofia.service;
 
+import java.util.List;
+import java.util.stream.Collectors;
 import kr.co.kalpa.sofia.domain.Bookmark;
 import kr.co.kalpa.sofia.domain.ImageFile;
 import kr.co.kalpa.sofia.domain.User;
@@ -13,9 +15,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.util.List;
-import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
@@ -35,14 +34,13 @@ public class BookmarkService {
     @Transactional
     public BookmarkDto addBookmark(BookmarkRequest request) {
         User user = getCurrentUser();
-        ImageFile image = imageFileRepository.findById(request.getImageId())
-                .orElseThrow(() -> new RuntimeException("Image not found"));
+        ImageFile image =
+                imageFileRepository
+                        .findById(request.getImageId())
+                        .orElseThrow(() -> new RuntimeException("Image not found"));
 
-        Bookmark bookmark = Bookmark.builder()
-                .user(user)
-                .image(image)
-                .name(request.getName())
-                .build();
+        Bookmark bookmark =
+                Bookmark.builder().user(user).image(image).name(request.getName()).build();
 
         return convertToDto(bookmarkRepository.save(bookmark));
     }
@@ -60,8 +58,11 @@ public class BookmarkService {
     }
 
     private User getCurrentUser() {
-        UserDetailsImpl userDetails = (UserDetailsImpl) SecurityContextHolder.getContext().getAuthentication().getPrincipal();
-        return userRepository.findById(userDetails.getId())
+        UserDetailsImpl userDetails =
+                (UserDetailsImpl)
+                        SecurityContextHolder.getContext().getAuthentication().getPrincipal();
+        return userRepository
+                .findById(userDetails.getId())
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
 

@@ -1,5 +1,8 @@
 package kr.co.kalpa.sofia.service;
 
+import java.time.Instant;
+import java.util.Optional;
+import java.util.UUID;
 import kr.co.kalpa.sofia.domain.RefreshToken;
 import kr.co.kalpa.sofia.domain.User;
 import kr.co.kalpa.sofia.repository.RefreshTokenRepository;
@@ -9,10 +12,6 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.Optional;
-import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -29,8 +28,11 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken createRefreshToken(Long userId) {
-        User user = userRepository.findById(userId).orElseThrow(() -> new RuntimeException("User not found"));
-        
+        User user =
+                userRepository
+                        .findById(userId)
+                        .orElseThrow(() -> new RuntimeException("User not found"));
+
         // Removed: refreshTokenRepository.deleteByUser(user);
         // This allows multiple sessions/devices.
 
@@ -58,7 +60,9 @@ public class RefreshTokenService {
     public RefreshToken verifyExpiration(RefreshToken token) {
         if (token.getExpiryDate().compareTo(Instant.now()) < 0) {
             refreshTokenRepository.delete(token);
-            throw new TokenRefreshException(token.getToken(), "Refresh token was expired. Please make a new signin request");
+            throw new TokenRefreshException(
+                    token.getToken(),
+                    "Refresh token was expired. Please make a new signin request");
         }
 
         return token;

@@ -1,7 +1,7 @@
 package kr.co.kalpa.sofia.dto;
 
-import lombok.*;
 import java.time.LocalDateTime;
+import lombok.*;
 
 @Getter
 @Setter

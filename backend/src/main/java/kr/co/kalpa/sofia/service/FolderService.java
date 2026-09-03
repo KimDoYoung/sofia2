@@ -1,21 +1,5 @@
 package kr.co.kalpa.sofia.service;
 
-import kr.co.kalpa.sofia.dto.FolderTreeDto;
-import kr.co.kalpa.sofia.dto.TaskProgressDto;
-import kr.co.kalpa.sofia.domain.ImageFile;
-import kr.co.kalpa.sofia.domain.ImageFolder;
-import kr.co.kalpa.sofia.repository.ImageFileRepository;
-import kr.co.kalpa.sofia.repository.ImageFolderRepository;
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-import net.coobird.thumbnailator.Thumbnails;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.scheduling.annotation.Async;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-import org.springframework.util.FileSystemUtils;
-
-import javax.imageio.ImageIO;
 import java.awt.image.BufferedImage;
 import java.io.File;
 import java.io.IOException;
@@ -24,14 +8,28 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.time.ZonedDateTime;
 import java.util.*;
-import org.springframework.data.domain.Sort;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
-
+import javax.imageio.ImageIO;
+import kr.co.kalpa.sofia.domain.ImageFile;
+import kr.co.kalpa.sofia.domain.ImageFolder;
+import kr.co.kalpa.sofia.dto.FolderTreeDto;
+import kr.co.kalpa.sofia.dto.TaskProgressDto;
+import kr.co.kalpa.sofia.repository.ImageFileRepository;
+import kr.co.kalpa.sofia.repository.ImageFolderRepository;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
+import net.coobird.thumbnailator.Thumbnails;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.data.domain.Sort;
+import org.springframework.scheduling.annotation.Async;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.transaction.support.TransactionTemplate;
+import org.springframework.util.FileSystemUtils;
 
 @Slf4j
 @Service
@@ -43,9 +41,7 @@ public class FolderService {
     private final MetadataService metadataService;
     private final TransactionTemplate transactionTemplate;
 
-    @Autowired
-    @Lazy
-    private FolderService self;
+    @Autowired @Lazy private FolderService self;
 
     @Value("${sofia.base.image.folder:./data/images}")
     private String baseImageFolder;
@@ -65,34 +61,38 @@ public class FolderService {
             Files.createDirectories(basePath);
         }
 
-        Set<String> addedFolders = folderRepository.findAll().stream()
-                .map(ImageFolder::getFolderName)
-                .collect(Collectors.toSet());
+        Set<String> addedFolders =
+                folderRepository.findAll().stream()
+                        .map(ImageFolder::getFolderName)
+                        .collect(Collectors.toSet());
 
         return buildTree(basePath, "", addedFolders);
     }
 
-    private List<FolderTreeDto> buildTree(Path currentPath, String relativePath, Set<String> addedFolders)
-            throws IOException {
+    private List<FolderTreeDto> buildTree(
+            Path currentPath, String relativePath, Set<String> addedFolders) throws IOException {
         List<FolderTreeDto> tree = new ArrayList<>();
         try (Stream<Path> stream = Files.list(currentPath)) {
-            List<Path> directories = stream.filter(Files::isDirectory)
-                    .filter(p -> !p.getFileName().toString().startsWith("."))
-                    .sorted()
-                    .collect(Collectors.toList());
+            List<Path> directories =
+                    stream.filter(Files::isDirectory)
+                            .filter(p -> !p.getFileName().toString().startsWith("."))
+                            .sorted()
+                            .collect(Collectors.toList());
 
             for (Path dir : directories) {
                 String dirName = dir.getFileName().toString();
-                String fullRelativePath = relativePath.isEmpty() ? dirName : relativePath + "/" + dirName;
+                String fullRelativePath =
+                        relativePath.isEmpty() ? dirName : relativePath + "/" + dirName;
 
                 List<FolderTreeDto> children = buildTree(dir, fullRelativePath, addedFolders);
 
-                tree.add(FolderTreeDto.builder()
-                        .name(dirName)
-                        .path(fullRelativePath)
-                        .isAlreadyAdded(addedFolders.contains(fullRelativePath))
-                        .children(children)
-                        .build());
+                tree.add(
+                        FolderTreeDto.builder()
+                                .name(dirName)
+                                .path(fullRelativePath)
+                                .isAlreadyAdded(addedFolders.contains(fullRelativePath))
+                                .children(children)
+                                .build());
             }
         }
         return tree;
@@ -100,12 +100,14 @@ public class FolderService {
 
     public String addFolderAsync(String folderName) {
         String taskId = UUID.randomUUID().toString();
-        taskProgressMap.put(taskId, TaskProgressDto.builder()
-                .taskId(taskId)
-                .status("IN_PROGRESS")
-                .current(0)
-                .total(0)
-                .build());
+        taskProgressMap.put(
+                taskId,
+                TaskProgressDto.builder()
+                        .taskId(taskId)
+                        .status("IN_PROGRESS")
+                        .current(0)
+                        .total(0)
+                        .build());
 
         // Start async processing
         self.processFolderInternal(taskId, folderName);
@@ -124,20 +126,22 @@ public class FolderService {
 
             List<Path> imageFilesPaths;
             try (Stream<Path> stream = Files.list(folderPath)) {
-                imageFilesPaths = stream.filter(this::isImageFile)
-                        .collect(Collectors.toList());
+                imageFilesPaths = stream.filter(this::isImageFile).collect(Collectors.toList());
             }
 
             int total = imageFilesPaths.size();
             updateTaskProgress(taskId, 0, total);
 
-            final ImageFolder folder = transactionTemplate.execute(status -> {
-                ImageFolder f = ImageFolder.builder()
-                        .folderName(folderName)
-                        .lastLoadTime(ZonedDateTime.now())
-                        .build();
-                return folderRepository.save(f);
-            });
+            final ImageFolder folder =
+                    transactionTemplate.execute(
+                            status -> {
+                                ImageFolder f =
+                                        ImageFolder.builder()
+                                                .folderName(folderName)
+                                                .lastLoadTime(ZonedDateTime.now())
+                                                .build();
+                                return folderRepository.save(f);
+                            });
 
             Path thumbBaseDir = Paths.get(baseFolder, "thumbnails", folder.getId().toString());
             Files.createDirectories(thumbBaseDir);
@@ -146,13 +150,14 @@ public class FolderService {
             for (Path filePath : imageFilesPaths) {
                 final int seq = current + 1;
                 try {
-                    transactionTemplate.executeWithoutResult(status -> {
-                        try {
-                            processSingleImage(folder.getId(), filePath, thumbBaseDir, seq);
-                        } catch (IOException e) {
-                            throw new RuntimeException(e);
-                        }
-                    });
+                    transactionTemplate.executeWithoutResult(
+                            status -> {
+                                try {
+                                    processSingleImage(folder.getId(), filePath, thumbBaseDir, seq);
+                                } catch (IOException e) {
+                                    throw new RuntimeException(e);
+                                }
+                            });
                     current++;
                     updateTaskProgress(taskId, current, total);
                 } catch (Exception e) {
@@ -170,39 +175,37 @@ public class FolderService {
     }
 
     @Transactional
-    protected void processSingleImage(Long folderId, Path filePath, Path thumbBaseDir, int seq) throws IOException {
+    protected void processSingleImage(Long folderId, Path filePath, Path thumbBaseDir, int seq)
+            throws IOException {
         String fileName = filePath.getFileName().toString();
         String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
         String hashCode = UUID.randomUUID().toString();
 
         File file = filePath.toFile();
         BufferedImage img = ImageIO.read(file);
-        if (img == null)
-            return;
+        if (img == null) return;
 
         ImageFolder folder = folderRepository.getReferenceById(folderId);
 
-        ImageFile imageFile = ImageFile.builder()
-                .folder(folder)
-                .orgName(fileName)
-                .hashCode(hashCode)
-                .seq(seq)
-                .imageFormat(extension)
-                .imageWidth(img.getWidth())
-                .imageHeight(img.getHeight())
-                .imageMode("RGB")
-                .fileSize(file.length())
-                .build();
+        ImageFile imageFile =
+                ImageFile.builder()
+                        .folder(folder)
+                        .orgName(fileName)
+                        .hashCode(hashCode)
+                        .seq(seq)
+                        .imageFormat(extension)
+                        .imageWidth(img.getWidth())
+                        .imageHeight(img.getHeight())
+                        .imageMode("RGB")
+                        .fileSize(file.length())
+                        .build();
 
         metadataService.extractMetadata(file, imageFile);
         imageFile = fileRepository.save(imageFile);
 
         // Generate thumbnail
         File thumbFile = thumbBaseDir.resolve(imageFile.getId() + ".jpg").toFile();
-        Thumbnails.of(file)
-                .size(300, 300)
-                .outputFormat("jpg")
-                .toFile(thumbFile);
+        Thumbnails.of(file).size(300, 300).outputFormat("jpg").toFile(thumbFile);
     }
 
     private void updateTaskProgress(String taskId, int current, int total) {
@@ -245,10 +248,11 @@ public class FolderService {
             throw new IllegalArgumentException("Folder does not exist: " + folderName);
         }
 
-        ImageFolder folder = ImageFolder.builder()
-                .folderName(folderName)
-                .lastLoadTime(ZonedDateTime.now())
-                .build();
+        ImageFolder folder =
+                ImageFolder.builder()
+                        .folderName(folderName)
+                        .lastLoadTime(ZonedDateTime.now())
+                        .build();
         folder = folderRepository.save(folder);
 
         Path thumbBaseDir = Paths.get(baseFolder, "thumbnails", folder.getId().toString());
@@ -258,41 +262,38 @@ public class FolderService {
         int seq = 1;
 
         try (Stream<Path> stream = Files.list(folderPath)) {
-            List<Path> files = stream.filter(p -> isImageFile(p))
-                    .collect(Collectors.toList());
+            List<Path> files = stream.filter(p -> isImageFile(p)).collect(Collectors.toList());
 
             for (Path filePath : files) {
                 try {
                     String fileName = filePath.getFileName().toString();
-                    String extension = fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
+                    String extension =
+                            fileName.substring(fileName.lastIndexOf(".") + 1).toLowerCase();
                     String hashCode = UUID.randomUUID().toString();
 
                     File file = filePath.toFile();
                     BufferedImage img = ImageIO.read(file);
-                    if (img == null)
-                        continue;
+                    if (img == null) continue;
 
-                    ImageFile imageFile = ImageFile.builder()
-                            .folder(folder)
-                            .orgName(fileName)
-                            .hashCode(hashCode)
-                            .seq(seq++)
-                            .imageFormat(extension)
-                            .imageWidth(img.getWidth())
-                            .imageHeight(img.getHeight())
-                            .imageMode("RGB")
-                            .fileSize(file.length())
-                            .build();
+                    ImageFile imageFile =
+                            ImageFile.builder()
+                                    .folder(folder)
+                                    .orgName(fileName)
+                                    .hashCode(hashCode)
+                                    .seq(seq++)
+                                    .imageFormat(extension)
+                                    .imageWidth(img.getWidth())
+                                    .imageHeight(img.getHeight())
+                                    .imageMode("RGB")
+                                    .fileSize(file.length())
+                                    .build();
 
                     metadataService.extractMetadata(file, imageFile);
                     imageFile = fileRepository.save(imageFile);
 
                     // Generate thumbnail
                     File thumbFile = thumbBaseDir.resolve(imageFile.getId() + ".jpg").toFile();
-                    Thumbnails.of(file)
-                            .size(300, 300)
-                            .outputFormat("jpg")
-                            .toFile(thumbFile);
+                    Thumbnails.of(file).size(300, 300).outputFormat("jpg").toFile(thumbFile);
 
                     imageFiles.add(imageFile);
                 } catch (Exception e) {
@@ -307,16 +308,26 @@ public class FolderService {
 
     @Transactional
     public ImageFolder updateFolderNote(Long id, String note) {
-        ImageFolder folder = folderRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Folder not found with id: " + id));
+        ImageFolder folder =
+                folderRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Folder not found with id: " + id));
         folder.setNote(note);
         return folderRepository.save(folder);
     }
 
     @Transactional
     public void deleteFolder(Long id) throws IOException {
-        ImageFolder folder = folderRepository.findById(id)
-                .orElseThrow(() -> new IllegalArgumentException("Folder not found with id: " + id));
+        ImageFolder folder =
+                folderRepository
+                        .findById(id)
+                        .orElseThrow(
+                                () ->
+                                        new IllegalArgumentException(
+                                                "Folder not found with id: " + id));
 
         // Delete from database (cascades to image files)
         folderRepository.delete(folder);
@@ -330,8 +341,11 @@ public class FolderService {
 
     private boolean isImageFile(Path path) {
         String name = path.getFileName().toString().toLowerCase();
-        return Files.isRegularFile(path) &&
-                (name.endsWith(".jpg") || name.endsWith(".jpeg") || name.endsWith(".png") || name.endsWith(".webp")
+        return Files.isRegularFile(path)
+                && (name.endsWith(".jpg")
+                        || name.endsWith(".jpeg")
+                        || name.endsWith(".png")
+                        || name.endsWith(".webp")
                         || name.endsWith(".tiff"));
     }
 }
