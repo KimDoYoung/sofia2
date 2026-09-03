@@ -11,6 +11,7 @@ dist/
 dist-ssr
 *.local
 .eslintcache
+*.tsbuildinfo
 
 # IDEs
 .idea/
@@ -28,6 +29,8 @@ backend/.gradle/
 backend/build/
 backend/out/
 backend/bin
+backend/src/main/resources/static/*
+!backend/src/main/resources/static/.gitkeep
 
 # Frontend specific
 frontend/node_modules/
