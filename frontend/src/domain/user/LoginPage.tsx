@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { apiClient } from '@/lib/api'
 import { useAuthStore } from '@/store/authStore'
@@ -12,6 +12,13 @@ function LoginPage() {
   const [loginError, setLoginError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
+  const idInputRef = useRef<HTMLInputElement>(null)
+  const passwordInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    idInputRef.current?.focus()
+  }, [])
+
   function appendNum(n: string) {
     if (password.length >= 4) return
     setPassword((p) => p + n)
@@ -21,7 +28,7 @@ function LoginPage() {
   function clearPw() { setPassword(''); setLoginError('') }
 
   async function handleLogin() {
-    if (password.length === 0) return
+    if (password.length === 0 || isLoading) return
     setIsLoading(true)
     try {
       const res = await apiClient.post<{ username: string; name: string }>('/auth/login', {
@@ -56,9 +63,16 @@ function LoginPage() {
           <div className="mb-3">
             <label className="block text-sm text-gray-600 mb-1">👤 사용자 아이디</label>
             <input
+              ref={idInputRef}
               type="text"
               value={userId}
               onChange={(e) => setUserId(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || (e.key === 'Tab' && !e.shiftKey)) {
+                  e.preventDefault()
+                  passwordInputRef.current?.focus()
+                }
+              }}
               disabled={isLoading}
               className="w-full h-11 px-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 disabled:opacity-50"
             />
@@ -68,16 +82,31 @@ function LoginPage() {
             <label className="block text-sm text-gray-600 mb-1">🔒 비밀번호</label>
             <div className="relative w-full">
               <input
+                ref={passwordInputRef}
                 type={showPassword ? 'text' : 'password'}
                 value={password}
-                readOnly
+                onChange={(e) => {
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 4)
+                  setPassword(val)
+                  setLoginError('')
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleLogin()
+                  }
+                }}
+                inputMode="numeric"
+                maxLength={4}
                 placeholder="••••"
+                disabled={isLoading}
                 className="w-full h-11 pl-4 pr-12 border border-gray-300 rounded-lg text-xl tracking-[10px] focus:outline-none focus:ring-2 focus:ring-blue-300 focus:border-blue-400 disabled:opacity-50"
               />
               <button
                 type="button"
                 onClick={() => setShowPassword((v) => !v)}
                 disabled={isLoading}
+                tabIndex={-1}
                 className="absolute inset-y-0 right-0 w-12 flex items-center justify-center text-gray-500 hover:text-gray-700 disabled:opacity-50"
               >
                 {showPassword ? '🙈' : '👁️'}
