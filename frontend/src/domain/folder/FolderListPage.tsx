@@ -209,7 +209,7 @@ const FolderListPage = () => {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2">
-            📂 등록 폴더 목록
+            📂 등록된 폴더 목록
             {folders && (
               <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
                 총 {folders.length}개 폴더

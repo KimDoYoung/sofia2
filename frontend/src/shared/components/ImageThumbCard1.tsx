@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react';
 import { Pencil, FileText, Trash2, RotateCw, RotateCcw, CheckCircle2, MessageSquare, Link } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { cn } from '@/lib/utils';
@@ -31,9 +32,54 @@ export function ImageThumbCard1({
     onRotate,
 }: ImageThumbCard1Props) {
     const { copyLink } = useImageActions();
+    const [isHovered, setIsHovered] = useState(false);
+
+    useEffect(() => {
+        if (!isHovered) return;
+
+        const handleKeyDown = (e: KeyboardEvent) => {
+            if (e.ctrlKey || e.altKey || e.metaKey) return;
+
+            const target = e.target as HTMLElement | null;
+            if (target && (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable)) {
+                return;
+            }
+
+            const code = e.code;
+            const key = e.key.toLowerCase();
+
+            if (code === 'Space' || key === ' ') {
+                e.preventDefault();
+                onSelect(image.id);
+            } else if (code === 'KeyC' || key === 'c' || key === 'ㅊ') {
+                e.preventDefault();
+                onRotate(image.id, 90);
+            } else if (code === 'KeyA' || key === 'a' || key === 'ㅁ') {
+                e.preventDefault();
+                onRotate(image.id, -90);
+            } else if (code === 'KeyR' || key === 'r' || key === 'ㄱ') {
+                e.preventDefault();
+                onRename(image.id);
+            } else if (code === 'KeyN' || key === 'n' || key === 'ㅜ') {
+                e.preventDefault();
+                onAddNote(image.id);
+            } else if (code === 'KeyL' || key === 'l' || key === 'ㅣ') {
+                e.preventDefault();
+                copyLink(image.id);
+            } else if (code === 'KeyD' || key === 'd' || key === 'ㅇ') {
+                e.preventDefault();
+                onDelete(image.id);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, [isHovered, image.id, onSelect, onRotate, onRename, onAddNote, copyLink, onDelete]);
 
     return (
         <div
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
             className={cn(
                 "group relative flex flex-col bg-white rounded-lg border transition-all duration-200 overflow-hidden shadow-sm",
                 isSelected ? "ring-2 ring-blue-500 border-transparent shadow-md" : "border-gray-200 hover:border-blue-300"
@@ -52,6 +98,7 @@ export function ImageThumbCard1({
 
                 {/* 선택 체크박스 (좌측 상단) */}
                 <div
+                    title="선택(Space)"
                     className={cn(
                         "absolute top-2 left-2 z-10 transition-opacity",
                         isSelected ? "opacity-100" : "opacity-0 group-hover:opacity-100"
@@ -63,17 +110,6 @@ export function ImageThumbCard1({
                     ) : (
                         <div className="w-5 h-5 rounded-full border-2 border-white bg-black/20" />
                     )}
-                </div>
-
-                {/* 우측 상단 링크 복사 버튼 */}
-                <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <Button
-                        size="icon" variant="secondary" className="h-7 w-7 rounded-full bg-white/80 backdrop-blur-sm hover:bg-white"
-                        onClick={(e) => { e.stopPropagation(); copyLink(image.id); }}
-                        title="링크 복사"
-                    >
-                        <Link size={12} className="text-gray-700" />
-                    </Button>
                 </div>
 
                 {/* 이미지 위 호버 시 노트 노출 (하단 배치) */}
@@ -98,44 +134,48 @@ export function ImageThumbCard1({
                 </div>
 
                 {/* 하단 기능 버튼 모음 */}
-                <div className="flex items-center justify-between pt-1 border-t border-gray-100">
-                    <div className="flex gap-0.5">
-                        <Button
-                            variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
-                            onClick={(e) => { e.stopPropagation(); onRotate(image.id, 90); }}
-                            title="90도 시계방향 회전"
-                        >
-                            <RotateCw size={13} />
-                        </Button>
-                        <Button
-                            variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
-                            onClick={(e) => { e.stopPropagation(); onRotate(image.id, -90); }}
-                            title="90도 반시계방향 회전"
-                        >
-                            <RotateCcw size={13} />
-                        </Button>
-                        <Button
-                            variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
-                            onClick={(e) => { e.stopPropagation(); onRename(image.id); }}
-                            title="이름 바꾸기"
-                        >
-                            <Pencil size={13} />
-                        </Button>
-                        <Button
-                            variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-blue-600"
-                            onClick={(e) => { e.stopPropagation(); onAddNote(image.id); }}
-                            title="노트 기록"
-                        >
-                            <FileText size={13} />
-                        </Button>
-                    </div>
-
+                <div className="flex items-center justify-between pt-1 border-t border-gray-100 gap-0.5">
                     <Button
-                        variant="ghost" size="icon" className="h-6 w-6 text-gray-400 hover:text-red-500 hover:bg-red-50"
-                        onClick={(e) => { e.stopPropagation(); onDelete(image.id); }}
-                        title="삭제"
+                        variant="ghost" size="icon" className="flex-1 h-6 min-w-0 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 [&_svg]:size-3"
+                        onClick={(e) => { e.stopPropagation(); onRotate(image.id, 90); }}
+                        title="90도 시계방향 회전(c)"
                     >
-                        <Trash2 size={13} />
+                        <RotateCw />
+                    </Button>
+                    <Button
+                        variant="ghost" size="icon" className="flex-1 h-6 min-w-0 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 [&_svg]:size-3"
+                        onClick={(e) => { e.stopPropagation(); onRotate(image.id, -90); }}
+                        title="90도 반시계방향 회전(a)"
+                    >
+                        <RotateCcw />
+                    </Button>
+                    <Button
+                        variant="ghost" size="icon" className="flex-1 h-6 min-w-0 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 [&_svg]:size-3"
+                        onClick={(e) => { e.stopPropagation(); onRename(image.id); }}
+                        title="이름 바꾸기(r)"
+                    >
+                        <Pencil />
+                    </Button>
+                    <Button
+                        variant="ghost" size="icon" className="flex-1 h-6 min-w-0 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 [&_svg]:size-3"
+                        onClick={(e) => { e.stopPropagation(); onAddNote(image.id); }}
+                        title="노트 기록(n)"
+                    >
+                        <FileText />
+                    </Button>
+                    <Button
+                        variant="ghost" size="icon" className="flex-1 h-6 min-w-0 p-0 text-gray-400 hover:text-blue-600 hover:bg-blue-50 [&_svg]:size-3"
+                        onClick={(e) => { e.stopPropagation(); copyLink(image.id); }}
+                        title="링크 복사(l)"
+                    >
+                        <Link />
+                    </Button>
+                    <Button
+                        variant="ghost" size="icon" className="flex-1 h-6 min-w-0 p-0 text-gray-400 hover:text-red-500 hover:bg-red-50 [&_svg]:size-3"
+                        onClick={(e) => { e.stopPropagation(); onDelete(image.id); }}
+                        title="삭제(d)"
+                    >
+                        <Trash2 />
                     </Button>
                 </div>
             </div>
