@@ -13,6 +13,7 @@ interface ImageGridViewProps {
   onAddNote: (id: number, note?: string) => void;
   onDelete: (id: number) => void;
   onRotate: (id: number, angle: number) => void;
+  onContextMenu?: (e: React.MouseEvent) => void;
 }
 
 export const ImageGridView = ({
@@ -26,13 +27,14 @@ export const ImageGridView = ({
   onAddNote,
   onDelete,
   onRotate,
+  onContextMenu,
 }: ImageGridViewProps) => {
   const containerClass = viewMode === 'thumb'
-    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6"
-    : "grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2";
+    ? "grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 2xl:grid-cols-8 gap-6 min-h-[70vh] content-start"
+    : "grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 lg:grid-cols-12 gap-2 min-h-[70vh] content-start";
 
   return (
-    <div className={containerClass}>
+    <div className={containerClass} onContextMenu={onContextMenu}>
       {images.map((img) => (
         viewMode === 'thumb' ? (
           <ImageThumbCard2

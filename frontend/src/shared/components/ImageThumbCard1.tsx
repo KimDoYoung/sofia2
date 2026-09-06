@@ -80,6 +80,7 @@ export function ImageThumbCard1({
         <div
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
+            onContextMenu={(e) => e.stopPropagation()}
             className={cn(
                 "group relative flex flex-col bg-white rounded-lg border transition-all duration-200 overflow-hidden shadow-sm",
                 isSelected ? "ring-2 ring-blue-500 border-transparent shadow-md" : "border-gray-200 hover:border-blue-300"

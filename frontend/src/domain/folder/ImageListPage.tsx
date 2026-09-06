@@ -17,6 +17,7 @@ import { ListToolbar } from './components/ListToolbar';
 import { ImageGridView } from './components/ImageGridView';
 import { ImageListView } from './components/ImageListView';
 import { ExportOptionsModal } from './components/ExportOptionsModal';
+import { GridContextMenu } from './components/GridContextMenu';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -34,6 +35,7 @@ const ImageListPage = () => {
   const [exportModalType, setExportModalType] = useState<'pdf' | 'merge' | null>(null);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
   const gridRef = useRef<AgGridReact>(null);
 
   // Reset search when folder changes
@@ -335,6 +337,28 @@ const ImageListPage = () => {
             if (window.confirm('삭제하시겠습니까?')) bulkDeleteMutation.mutate([id]);
           }}
           onRotate={(id, angle) => rotateMutation.mutate({ ids: [id], angle })}
+          onContextMenu={(e) => {
+            e.preventDefault();
+            setContextMenu({ x: e.clientX, y: e.clientY });
+          }}
+        />
+      )}
+
+      {contextMenu && (
+        <GridContextMenu
+          x={contextMenu.x}
+          y={contextMenu.y}
+          selectedCount={selectedIds.length}
+          isExporting={isExporting}
+          isMerging={isMerging}
+          onClose={() => setContextMenu(null)}
+          onSelectAll={handleSelectAll}
+          onDeselectAll={handleDeselectAll}
+          onBulkRotate={handleBulkRotate}
+          onBulkDelete={handleBulkDelete}
+          onExportPdf={() => setExportModalType('pdf')}
+          onExportMerge={() => setExportModalType('merge')}
+          onScrollToTop={scrollToTop}
         />
       )}
 
