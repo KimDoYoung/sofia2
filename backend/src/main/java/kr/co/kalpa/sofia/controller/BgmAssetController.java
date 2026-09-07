@@ -31,22 +31,20 @@ public class BgmAssetController {
     }
 
     @PostMapping("/upload")
-    public ResponseEntity<BgmAssetDto> uploadBgm(
-            @RequestParam("file") MultipartFile file) throws IOException {
+    public ResponseEntity<BgmAssetDto> uploadBgm(@RequestParam("file") MultipartFile file)
+            throws IOException {
         BgmAssetDto saved = bgmAssetService.uploadBgm(file);
         return ResponseEntity.ok(saved);
     }
 
     @DeleteMapping("/{filename}")
-    public ResponseEntity<Map<String, Boolean>> deleteBgm(
-            @PathVariable String filename) {
+    public ResponseEntity<Map<String, Boolean>> deleteBgm(@PathVariable String filename) {
         boolean deleted = bgmAssetService.deleteBgm(filename);
         return ResponseEntity.ok(Collections.singletonMap("deleted", deleted));
     }
 
     @GetMapping("/stream/{filename}")
-    public ResponseEntity<Resource> streamBgm(
-            @PathVariable String filename) throws IOException {
+    public ResponseEntity<Resource> streamBgm(@PathVariable String filename) throws IOException {
         Resource resource = bgmAssetService.getBgmResource(filename);
         if (resource == null || !resource.exists()) {
             return ResponseEntity.notFound().build();
@@ -55,8 +53,7 @@ public class BgmAssetController {
         Path path = resource.getFile().toPath();
         String mimeType = Files.probeContentType(path);
         MediaType contentType =
-                MediaType.parseMediaType(
-                        mimeType != null ? mimeType : "audio/mpeg");
+                MediaType.parseMediaType(mimeType != null ? mimeType : "audio/mpeg");
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")

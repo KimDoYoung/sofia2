@@ -404,7 +404,7 @@ export const SlideShowModal = ({
                       className="relative shrink-0 w-24 h-24 rounded-xl overflow-hidden border-2 border-gray-200 bg-gray-100 group shadow-sm hover:border-blue-400 transition-all"
                     >
                       <img
-                        src={`/sofia/api/images/${img.id}/thumbnail`}
+                        src={`/sofia/api/images/${img.id}/thumb`}
                         alt={img.orgName}
                         className="w-full h-full object-cover"
                       />

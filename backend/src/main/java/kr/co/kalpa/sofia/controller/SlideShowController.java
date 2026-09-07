@@ -34,8 +34,7 @@ public class SlideShowController {
     }
 
     @GetMapping("/progress/{taskId}")
-    public ResponseEntity<SlideShowTaskStatus> getProgress(
-            @PathVariable String taskId) {
+    public ResponseEntity<SlideShowTaskStatus> getProgress(@PathVariable String taskId) {
         SlideShowTaskStatus status = slideShowService.getTaskStatus(taskId);
         if (status == null) {
             return ResponseEntity.notFound().build();
@@ -64,14 +63,11 @@ public class SlideShowController {
         }
 
         String timestamp =
-                LocalDateTime.now()
-                        .format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String filename = "sofia_slideshow_" + timestamp + ".mp4";
 
         ContentDisposition disposition =
-                ContentDisposition.attachment()
-                        .filename(filename, StandardCharsets.UTF_8)
-                        .build();
+                ContentDisposition.attachment().filename(filename, StandardCharsets.UTF_8).build();
 
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
@@ -81,8 +77,7 @@ public class SlideShowController {
 
     @PostMapping("/save/{taskId}")
     public ResponseEntity<Map<String, String>> saveVideoToFolder(
-            @PathVariable String taskId,
-            @RequestBody(required = false) Map<String, Object> body)
+            @PathVariable String taskId, @RequestBody(required = false) Map<String, Object> body)
             throws IOException {
         Long folderId = null;
         String customName = null;
@@ -96,8 +91,7 @@ public class SlideShowController {
             }
         }
 
-        String savedFilename =
-                slideShowService.saveToFolder(taskId, folderId, customName);
+        String savedFilename = slideShowService.saveToFolder(taskId, folderId, customName);
         return ResponseEntity.ok(Collections.singletonMap("filename", savedFilename));
     }
 }

@@ -399,7 +399,7 @@ export const ImageEffectModal = ({
                       title={img.orgName}
                     >
                       <img
-                        src={`/sofia/api/images/${img.id}/thumbnail`}
+                        src={`/sofia/api/images/${img.id}/thumb`}
                         alt={img.orgName}
                         className="w-full h-full object-cover"
                         loading="lazy"

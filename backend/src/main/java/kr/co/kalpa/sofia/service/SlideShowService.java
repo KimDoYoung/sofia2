@@ -145,7 +145,8 @@ public class SlideShowService {
             Files.createDirectories(targetDir);
         }
 
-        String timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
+        String timestamp =
+                LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"));
         String targetFilename;
         if (StringUtils.hasText(customName)) {
             String safe = customName.replaceAll("[\\\\/:*?\"<>|]", "_").trim();
@@ -167,14 +168,12 @@ public class SlideShowService {
     }
 
     private void runGeneration(String taskId, SlideShowRequest request) {
-        Path filterScriptPath = null;
         Path outputPath = null;
 
         try {
             updateStatus(taskId, "PROCESSING", 5, "이미지 정보 확인 및 로드 중...");
 
-            List<ImageFile> fetchedImages =
-                    imageFileRepository.findAllById(request.getImageIds());
+            List<ImageFile> fetchedImages = imageFileRepository.findAllById(request.getImageIds());
             Map<Long, ImageFile> imageMap = new HashMap<>();
             for (ImageFile img : fetchedImages) {
                 imageMap.put(img.getId(), img);
@@ -203,9 +202,7 @@ public class SlideShowService {
                 }
                 Path p =
                         Paths.get(
-                                baseImageFolder,
-                                img.getFolder().getFolderName(),
-                                img.getOrgName());
+                                baseImageFolder, img.getFolder().getFolderName(), img.getOrgName());
                 if (Files.exists(p)) {
                     imagePaths.add(p);
                     int rot = img.getRotationAngle() != null ? img.getRotationAngle() % 360 : 0;
@@ -259,8 +256,7 @@ public class SlideShowService {
             int blurW = 160;
             int blurH = 90;
 
-            String aspect =
-                    request.getAspectRatio() != null ? request.getAspectRatio() : "16:9";
+            String aspect = request.getAspectRatio() != null ? request.getAspectRatio() : "16:9";
             if ("9:16".equals(aspect)) {
                 width = 1080;
                 height = 1920;
@@ -296,9 +292,7 @@ public class SlideShowService {
 
                 // Blur background + foreground fit
                 filter.append(
-                        String.format(
-                                "[%d:v]%ssplit[bg%d_in][fg%d_in];\n",
-                                i, rotFilter, i, i));
+                        String.format("[%d:v]%ssplit[bg%d_in][fg%d_in];\n", i, rotFilter, i, i));
                 filter.append(
                         String.format(
                                 "[bg%d_in]scale=%d:%d:force_original_aspect_ratio=increase,crop=%d:%d,boxblur=4:1,scale=%d:%d[bg%d];\n",
@@ -321,14 +315,17 @@ public class SlideShowService {
                 String out = (i == n - 1) ? "[vout]" : String.format("[vx%d]", i);
                 filter.append(
                         String.format(
+                                Locale.US,
                                 "%s%sxfade=transition=%s:duration=%.2f:offset=%.2f%s;\n",
-                                in1, in2, transType, transDuration, offset, out));
+                                in1,
+                                in2,
+                                transType,
+                                transDuration,
+                                offset,
+                                out));
             }
 
-            filterScriptPath =
-                    Files.createTempFile("sofia_slideshow_filter_" + taskId, ".txt");
-            Files.writeString(filterScriptPath, filter.toString());
-
+            String filterString = filter.toString();
             outputPath = tempVideoDir.resolve(taskId + ".mp4");
 
             updateStatus(taskId, "PROCESSING", 15, "비디오 인코딩 시작 중...");
@@ -339,7 +336,7 @@ public class SlideShowService {
                             taskId,
                             imagePaths,
                             bgmPath,
-                            filterScriptPath,
+                            filterString,
                             outputPath,
                             duration,
                             totalDuration,
@@ -349,17 +346,13 @@ public class SlideShowService {
                 log.warn(
                         "GPU NVENC encoding failed for task {}, falling back to CPU libx264...",
                         taskId);
-                updateStatus(
-                        taskId,
-                        "PROCESSING",
-                        20,
-                        "CPU 소프트웨어 인코더로 안전하게 전환하여 재시도 중...");
+                updateStatus(taskId, "PROCESSING", 20, "CPU 소프트웨어 인코더로 안전하게 전환하여 재시도 중...");
                 success =
                         executeFfmpeg(
                                 taskId,
                                 imagePaths,
                                 bgmPath,
-                                filterScriptPath,
+                                filterString,
                                 outputPath,
                                 duration,
                                 totalDuration,
@@ -382,13 +375,6 @@ public class SlideShowService {
         } catch (Exception e) {
             log.error("Error generating slideshow for task {}", taskId, e);
             updateStatus(taskId, "FAILED", 0, "오류 발생: " + e.getMessage());
-        } finally {
-            if (filterScriptPath != null) {
-                try {
-                    Files.deleteIfExists(filterScriptPath);
-                } catch (IOException ignored) {
-                }
-            }
         }
     }
 
@@ -396,7 +382,7 @@ public class SlideShowService {
             String taskId,
             List<Path> imagePaths,
             Path bgmPath,
-            Path filterScriptPath,
+            String filterString,
             Path outputPath,
             double imageDuration,
             double totalDuration,
@@ -425,9 +411,9 @@ public class SlideShowService {
                 cmd.add(bgmPath.toAbsolutePath().toString());
             }
 
-            // 필터 스크립트 지정
-            cmd.add("-filter_complex_script");
-            cmd.add(filterScriptPath.toAbsolutePath().toString());
+            // 필터 지정 (-filter_complex 직접 전달, FFmpeg 9 호환)
+            cmd.add("-filter_complex");
+            cmd.add(filterString);
 
             // 비디오 맵
             cmd.add("-map");
@@ -457,9 +443,7 @@ public class SlideShowService {
                 double fadeStart = Math.max(0.0, totalDuration - 2.0);
                 cmd.add(
                         String.format(
-                                Locale.US,
-                                "afade=t=out:st=%.2f:d=2.0,volume=0.85",
-                                fadeStart));
+                                Locale.US, "afade=t=out:st=%.2f:d=2.0,volume=0.85", fadeStart));
                 cmd.add("-c:a");
                 cmd.add("aac");
                 cmd.add("-b:a");
@@ -467,6 +451,9 @@ public class SlideShowService {
                 cmd.add("-t");
                 cmd.add(String.format(Locale.US, "%.2f", totalDuration));
                 cmd.add("-shortest");
+            } else {
+                cmd.add("-t");
+                cmd.add(String.format(Locale.US, "%.2f", totalDuration));
             }
 
             cmd.add(outputPath.toAbsolutePath().toString());
@@ -477,14 +464,19 @@ public class SlideShowService {
             pb.redirectErrorStream(true);
             Process process = pb.start();
 
-            // 진행률 파싱
-            Pattern timePattern =
-                    Pattern.compile("time=(\\d{2}):(\\d{2}):(\\d{2}\\.\\d+)");
+            // 진행률 파싱 및 에러 디버깅을 위한 최근 로그 보관
+            Pattern timePattern = Pattern.compile("time=(\\d{2}):(\\d{2}):(\\d{2}\\.\\d+)");
+            List<String> recentLogs = new ArrayList<>();
 
             try (BufferedReader reader =
                     new BufferedReader(new InputStreamReader(process.getInputStream()))) {
                 String line;
                 while ((line = reader.readLine()) != null) {
+                    if (recentLogs.size() >= 30) {
+                        recentLogs.remove(0);
+                    }
+                    recentLogs.add(line);
+
                     Matcher m = timePattern.matcher(line);
                     if (m.find()) {
                         int hours = Integer.parseInt(m.group(1));
@@ -496,22 +488,28 @@ public class SlideShowService {
                                         Math.min(
                                                 98,
                                                 Math.round(
-                                                        (currentSeconds / totalDuration)
-                                                                * 80.0
+                                                        (currentSeconds / totalDuration) * 80.0
                                                                 + 15.0));
                         updateStatus(
                                 taskId,
                                 "PROCESSING",
                                 progress,
-                                String.format(
-                                        "동영상 렌더링 중... (%d%%)", progress));
+                                String.format("동영상 렌더링 중... (%d%%)", progress));
                     }
                 }
             }
 
             int exitCode = process.waitFor();
-            log.info("FFmpeg process exited with code: {}", exitCode);
-            return exitCode == 0;
+            if (exitCode != 0) {
+                log.error(
+                        "FFmpeg exited with code {}. Recent output:\n{}",
+                        exitCode,
+                        String.join("\n", recentLogs));
+                return false;
+            }
+
+            log.info("FFmpeg process completed successfully with exit code 0");
+            return true;
 
         } catch (Exception e) {
             log.error("FFmpeg execution error (GPU: {})", useGpu, e);
