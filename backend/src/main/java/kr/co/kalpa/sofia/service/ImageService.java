@@ -20,6 +20,7 @@ import kr.co.kalpa.sofia.repository.ImageFileRepository;
 import kr.co.kalpa.sofia.repository.ImageFolderRepository;
 import lombok.RequiredArgsConstructor;
 import net.coobird.thumbnailator.Thumbnails;
+import net.coobird.thumbnailator.geometry.Positions;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -238,7 +239,198 @@ public class ImageService {
         builder.toFile(target);
     }
 
+    private static class PdfCell {
+        float x;
+        float y;
+        float w;
+        float h;
+
+        PdfCell(float x, float y, float w, float h) {
+            this.x = x;
+            this.y = y;
+            this.w = w;
+            this.h = h;
+        }
+    }
+
+    private List<PdfCell> calculatePdfCells(
+            String layout,
+            int count,
+            float availX,
+            float availY,
+            float availW,
+            float availH,
+            float gap,
+            boolean isLandscape) {
+        List<PdfCell> cells = new java.util.ArrayList<>();
+        if ("1".equals(layout) || count == 1) {
+            cells.add(new PdfCell(availX, availY, availW, availH));
+        } else if ("2-v".equals(layout)) {
+            // 상하 2분할 (1열 2행)
+            float cellH = Math.max(10, (availH - gap) / 2.0f);
+            cells.add(new PdfCell(availX, availY + cellH + gap, availW, cellH)); // 상단 (0번)
+            cells.add(new PdfCell(availX, availY, availW, cellH)); // 하단 (1번)
+        } else if ("2-h".equals(layout)) {
+            // 좌우 2분할 (2열 1행)
+            float cellW = Math.max(10, (availW - gap) / 2.0f);
+            cells.add(new PdfCell(availX, availY, cellW, availH)); // 좌측 (0번)
+            cells.add(new PdfCell(availX + cellW + gap, availY, cellW, availH)); // 우측 (1번)
+        } else if ("3".equals(layout)) {
+            if (count >= 3) {
+                // 상단 2장 (좌/우) + 하단 1장 (가로 100% 꽉 채움)
+                float rowH = Math.max(10, (availH - gap) / 2.0f);
+                float halfW = Math.max(10, (availW - gap) / 2.0f);
+                cells.add(new PdfCell(availX, availY + rowH + gap, halfW, rowH)); // 상좌 (0번)
+                cells.add(
+                        new PdfCell(
+                                availX + halfW + gap, availY + rowH + gap, halfW, rowH)); // 상우 (1번)
+                cells.add(new PdfCell(availX, availY, availW, rowH)); // 하단 전체 (2번)
+            } else if (count == 2) {
+                float cellH = Math.max(10, (availH - gap) / 2.0f);
+                cells.add(new PdfCell(availX, availY + cellH + gap, availW, cellH));
+                cells.add(new PdfCell(availX, availY, availW, cellH));
+            } else {
+                cells.add(new PdfCell(availX, availY, availW, availH));
+            }
+        } else if ("4".equals(layout)) {
+            // 2 x 2 격자
+            float rowH = Math.max(10, (availH - gap) / 2.0f);
+            float colW = Math.max(10, (availW - gap) / 2.0f);
+            cells.add(new PdfCell(availX, availY + rowH + gap, colW, rowH)); // 상좌
+            cells.add(new PdfCell(availX + colW + gap, availY + rowH + gap, colW, rowH)); // 상우
+            cells.add(new PdfCell(availX, availY, colW, rowH)); // 하좌
+            cells.add(new PdfCell(availX + colW + gap, availY, colW, rowH)); // 하우
+        } else if ("6".equals(layout)) {
+            int cols = isLandscape ? 3 : 2;
+            int rows = isLandscape ? 2 : 3;
+            float colW = Math.max(10, (availW - (cols - 1) * gap) / (float) cols);
+            float rowH = Math.max(10, (availH - (rows - 1) * gap) / (float) rows);
+            for (int r = 0; r < rows; r++) {
+                int pdfRow = rows - 1 - r; // 위에서 아래로
+                for (int c = 0; c < cols; c++) {
+                    cells.add(
+                            new PdfCell(
+                                    availX + c * (colW + gap),
+                                    availY + pdfRow * (rowH + gap),
+                                    colW,
+                                    rowH));
+                }
+            }
+        } else {
+            cells.add(new PdfCell(availX, availY, availW, availH));
+        }
+        return cells;
+    }
+
     public Path exportAsPdf(List<Long> ids, Integer imagesPerPageParam, String orientationParam) {
+        ImageExportRequest req = new ImageExportRequest();
+        req.setIds(ids);
+        req.setImagesPerPage(imagesPerPageParam);
+        req.setOrientation(orientationParam);
+        return exportAsPdf(req);
+    }
+
+    public Path exportAsPdf(ImageExportRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
+            throw new IllegalArgumentException("No images selected for PDF export");
+        }
+
+        List<Long> ids = request.getIds();
+        String layout = request.getPdfLayout();
+        if (layout == null || layout.trim().isEmpty()) {
+            if (request.getImagesPerPage() != null) {
+                int p = request.getImagesPerPage();
+                if (p == 2) layout = "2-v";
+                else if (p == 4) layout = "4";
+                else if (p == 6) layout = "6";
+                else layout = "1";
+            } else {
+                layout = "1";
+            }
+        }
+
+        String orientation = request.getOrientation() != null ? request.getOrientation() : "auto";
+        String fitMode = request.getFitMode() != null ? request.getFitMode() : "contain";
+        float pageMargin =
+                request.getPageMargin() != null
+                        ? Math.max(0, request.getPageMargin().floatValue())
+                        : 10.0f;
+        float gap = request.getGap() != null ? Math.max(0, request.getGap().floatValue()) : 0.0f;
+
+        boolean applyBorder = Boolean.TRUE.equals(request.getBorder());
+        float borderWidth =
+                (request.getBorderWidth() != null
+                                && request.getBorderWidth() >= 1
+                                && request.getBorderWidth() <= 4)
+                        ? request.getBorderWidth().floatValue()
+                        : 1.0f;
+        float r = 0.0f, g = 0.0f, b = 0.0f;
+        if (request.getBorderColor() != null && request.getBorderColor().trim().startsWith("#")) {
+            try {
+                Color c = Color.decode(request.getBorderColor().trim());
+                r = c.getRed() / 255.0f;
+                g = c.getGreen() / 255.0f;
+                b = c.getBlue() / 255.0f;
+            } catch (Exception ignored) {
+            }
+        }
+
+        // 1. 유효 이미지 수집
+        List<ImageMergeItem> items = new java.util.ArrayList<>();
+        for (Long id : ids) {
+            ImageFile imageFile = findImageOrThrow(id);
+            if (imageFile.getFolder() == null) continue;
+
+            Path imagePath =
+                    Paths.get(
+                            baseImageFolder,
+                            imageFile.getFolder().getFolderName(),
+                            imageFile.getOrgName());
+
+            if (!Files.exists(imagePath)) {
+                log.warn("Image file not found for PDF export: {}", imagePath);
+                continue;
+            }
+
+            int rotAngle = imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
+            java.awt.Dimension dim = getImageDimension(imagePath, rotAngle);
+            if (dim == null || dim.width <= 0 || dim.height <= 0) {
+                log.warn("Invalid dimensions for image: {}", imagePath);
+                continue;
+            }
+
+            ImageMergeItem item = new ImageMergeItem();
+            item.id = id;
+            item.path = imagePath;
+            item.rotAngle = rotAngle;
+            item.origW = dim.width;
+            item.origH = dim.height;
+            items.add(item);
+        }
+
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("No valid images found for PDF export");
+        }
+
+        // 2. 페이지당 이미지 수 결정
+        int itemsPerPage = 1;
+        if ("2-v".equals(layout) || "2-h".equals(layout)) {
+            itemsPerPage = 2;
+        } else if ("3".equals(layout)) {
+            itemsPerPage = 3;
+        } else if ("4".equals(layout)) {
+            itemsPerPage = 4;
+        } else if ("6".equals(layout)) {
+            itemsPerPage = 6;
+        }
+
+        // 3. 페이지 그룹 분할
+        List<List<ImageMergeItem>> pages = new java.util.ArrayList<>();
+        for (int i = 0; i < items.size(); i += itemsPerPage) {
+            int end = Math.min(i + itemsPerPage, items.size());
+            pages.add(new java.util.ArrayList<>(items.subList(i, end)));
+        }
+
         Path tempFile;
         try {
             tempFile = Files.createTempFile("sofia_export_", ".pdf");
@@ -246,136 +438,114 @@ public class ImageService {
             throw new RuntimeException("Failed to create temporary file for PDF export", e);
         }
 
-        int imagesPerPage = imagesPerPageParam != null ? imagesPerPageParam : 1;
-        String orientation = orientationParam != null ? orientationParam : "auto";
-
-        int cols = 1;
-        int rows = 1;
-        if (imagesPerPage == 2) {
-            cols = 1;
-            rows = 2;
-        } else if (imagesPerPage == 4) {
-            cols = 2;
-            rows = 2;
-        } else if (imagesPerPage == 6) {
-            cols = 2;
-            rows = 3;
-        }
-
-        List<Path> tempImages = new java.util.ArrayList<>();
         try (PDDocument document = new PDDocument()) {
-            int N = ids.size();
-            int i = 0;
-
-            while (i < N) {
-                // Determine page size / orientation
-                PDRectangle mediaBox = PDRectangle.A4;
-                if ("landscape".equals(orientation)) {
-                    mediaBox =
-                            new PDRectangle(PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
-                } else if ("portrait".equals(orientation)) {
-                    mediaBox = PDRectangle.A4;
+            for (List<ImageMergeItem> pageItems : pages) {
+                // 용지 방향 결정
+                boolean isLandscape;
+                if ("landscape".equalsIgnoreCase(orientation)) {
+                    isLandscape = true;
+                } else if ("portrait".equalsIgnoreCase(orientation)) {
+                    isLandscape = false;
                 } else {
                     // "auto"
-                    if (imagesPerPage == 1) {
-                        ImageFile firstImg = findImageOrThrow(ids.get(i));
-                        int rotAngle =
-                                firstImg.getRotationAngle() != null
-                                        ? firstImg.getRotationAngle()
-                                        : 0;
-                        int w = firstImg.getImageWidth();
-                        int h = firstImg.getImageHeight();
-                        if (rotAngle == 90 || rotAngle == 270) {
-                            int temp = w;
-                            w = h;
-                            h = temp;
-                        }
-                        if (w > h) {
-                            mediaBox =
-                                    new PDRectangle(
-                                            PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth());
-                        }
+                    if ("2-h".equals(layout)) {
+                        isLandscape = true;
+                    } else if ("2-v".equals(layout) || "3".equals(layout)) {
+                        isLandscape = false;
                     } else {
-                        mediaBox = PDRectangle.A4;
+                        int landscapeCount = 0;
+                        for (ImageMergeItem it : pageItems) {
+                            if (it.origW > it.origH) landscapeCount++;
+                        }
+                        isLandscape = (landscapeCount * 2 >= pageItems.size());
                     }
                 }
+
+                PDRectangle mediaBox =
+                        isLandscape
+                                ? new PDRectangle(
+                                        PDRectangle.A4.getHeight(), PDRectangle.A4.getWidth())
+                                : PDRectangle.A4;
 
                 PDPage page = new PDPage(mediaBox);
                 document.addPage(page);
 
+                float pageWidth = mediaBox.getWidth();
+                float pageHeight = mediaBox.getHeight();
+                float availX = pageMargin;
+                float availY = pageMargin;
+                float availW = Math.max(10, pageWidth - 2 * pageMargin);
+                float availH = Math.max(10, pageHeight - 2 * pageMargin);
+
+                List<PdfCell> cells =
+                        calculatePdfCells(
+                                layout,
+                                pageItems.size(),
+                                availX,
+                                availY,
+                                availW,
+                                availH,
+                                gap,
+                                isLandscape);
+
                 try (PDPageContentStream contentStream = new PDPageContentStream(document, page)) {
-                    float pageWidth = mediaBox.getWidth();
-                    float pageHeight = mediaBox.getHeight();
-                    float cellWidth = pageWidth / cols;
-                    float cellHeight = pageHeight / rows;
-
-                    // 5% margin
-                    float marginX = cellWidth * 0.05f;
-                    float marginY = cellHeight * 0.05f;
-                    float maxWidth = cellWidth - 2 * marginX;
-                    float maxHeight = cellHeight - 2 * marginY;
-
-                    for (int cellIdx = 0; cellIdx < imagesPerPage && i < N; cellIdx++, i++) {
-                        Long id = ids.get(i);
-                        ImageFile imageFile = findImageOrThrow(id);
-                        if (imageFile.getFolder() == null) {
-                            cellIdx--; // don't count this cell
-                            continue;
-                        }
-
-                        Path imagePath =
-                                Paths.get(
-                                        baseImageFolder,
-                                        imageFile.getFolder().getFolderName(),
-                                        imageFile.getOrgName());
-
-                        if (!Files.exists(imagePath)) {
-                            log.warn("Image file not found for PDF export: {}", imagePath);
-                            cellIdx--; // don't count this cell
-                            continue;
-                        }
+                    for (int idx = 0; idx < pageItems.size(); idx++) {
+                        if (idx >= cells.size()) break;
+                        ImageMergeItem it = pageItems.get(idx);
+                        PdfCell cell = cells.get(idx);
 
                         try {
-                            int rotAngle =
-                                    imageFile.getRotationAngle() != null
-                                            ? imageFile.getRotationAngle()
-                                            : 0;
+                            BufferedImage img =
+                                    Thumbnails.of(it.path.toFile())
+                                            .rotate(it.rotAngle)
+                                            .scale(1.0)
+                                            .asBufferedImage();
 
-                            // 1. Create a scaled temporary image file in tmp
-                            Path scaledTempFile = Files.createTempFile("sofia_scaled_", ".jpg");
-                            tempImages.add(scaledTempFile);
+                            float drawX, drawY, drawW, drawH;
+                            BufferedImage renderImg;
 
-                            // Scale keeping aspect ratio (contain)
-                            Thumbnails.of(imagePath.toFile())
-                                    .size((int) maxWidth, (int) maxHeight)
-                                    .rotate(rotAngle)
-                                    .outputFormat("jpg")
-                                    .toFile(scaledTempFile.toFile());
-
-                            // 2. Load the scaled temporary image into PDFBox
-                            PDImageXObject pdImage;
-                            try (java.io.InputStream is = Files.newInputStream(scaledTempFile)) {
-                                pdImage = JPEGFactory.createFromStream(document, is);
+                            if ("cover".equalsIgnoreCase(fitMode)) {
+                                int pixelTargetW = Math.max(10, Math.round(cell.w * 2));
+                                int pixelTargetH = Math.max(10, Math.round(cell.h * 2));
+                                renderImg =
+                                        Thumbnails.of(img)
+                                                .size(pixelTargetW, pixelTargetH)
+                                                .crop(Positions.CENTER)
+                                                .asBufferedImage();
+                                drawX = cell.x;
+                                drawY = cell.y;
+                                drawW = cell.w;
+                                drawH = cell.h;
+                            } else {
+                                // contain (기본값)
+                                float scale =
+                                        Math.min(
+                                                cell.w / (float) it.origW,
+                                                cell.h / (float) it.origH);
+                                drawW = it.origW * scale;
+                                drawH = it.origH * scale;
+                                drawX = cell.x + (cell.w - drawW) / 2.0f;
+                                drawY = cell.y + (cell.h - drawH) / 2.0f;
+                                renderImg = img;
                             }
 
-                            float imgWidth = pdImage.getWidth();
-                            float imgHeight = pdImage.getHeight();
+                            PDImageXObject pdImage =
+                                    JPEGFactory.createFromImage(document, renderImg);
+                            contentStream.drawImage(pdImage, drawX, drawY, drawW, drawH);
 
-                            // Place centered in cell
-                            int col = cellIdx % cols;
-                            int row = cellIdx / cols;
-                            int pdfRow = rows - 1 - row;
+                            if (applyBorder) {
+                                contentStream.setLineWidth(borderWidth);
+                                contentStream.setStrokingColor(r, g, b);
+                                contentStream.addRect(drawX, drawY, drawW, drawH);
+                                contentStream.stroke();
+                            }
 
-                            float x = col * cellWidth + (cellWidth - imgWidth) / 2;
-                            float y = pdfRow * cellHeight + (cellHeight - imgHeight) / 2;
-
-                            contentStream.drawImage(pdImage, x, y, imgWidth, imgHeight);
+                            img.flush();
+                            if (renderImg != img) {
+                                renderImg.flush();
+                            }
                         } catch (Exception e) {
-                            log.error(
-                                    "Error adding image {} to PDF cell: {}",
-                                    imagePath,
-                                    e.getMessage());
-                            cellIdx--;
+                            log.error("Failed to add image {} to PDF: {}", it.path, e.getMessage());
                         }
                     }
                 }
@@ -387,19 +557,9 @@ public class ImageService {
             log.error("Failed to generate PDF: {}", e.getMessage());
             try {
                 Files.deleteIfExists(tempFile);
-            } catch (IOException ex) {
-                // Ignore
+            } catch (IOException ignored) {
             }
             throw new RuntimeException("Failed to generate PDF export", e);
-        } finally {
-            // Clean up temporary scaled images
-            for (Path p : tempImages) {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException ex) {
-                    log.warn("Failed to delete temporary scaled image: {}", p, ex);
-                }
-            }
         }
     }
 

@@ -116,9 +116,7 @@ public class ImageController {
     @PostMapping("/export/pdf")
     public ResponseEntity<Resource> exportToPdf(@RequestBody ImageExportRequest request)
             throws IOException {
-        Path pdfPath =
-                imageService.exportAsPdf(
-                        request.getIds(), request.getImagesPerPage(), request.getOrientation());
+        Path pdfPath = imageService.exportAsPdf(request);
 
         String filename =
                 "sofia_images_"

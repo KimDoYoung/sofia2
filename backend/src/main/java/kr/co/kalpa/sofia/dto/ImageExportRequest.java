@@ -24,6 +24,9 @@ public class ImageExportRequest {
     private Integer gap;
 
     // For PDF
-    private Integer imagesPerPage; // 1, 2, 4, 6
+    private Integer imagesPerPage; // 1, 2, 4, 6 (legacy)
+    private String pdfLayout; // "1", "2-v", "2-h", "3", "4", "6"
     private String orientation; // "auto", "portrait", "landscape"
+    private String fitMode; // "contain", "cover", "tight"
+    private Integer pageMargin; // 외곽 여백 (pt)
 }

@@ -16,7 +16,8 @@ import type { ImageFile } from './types';
 import { ListToolbar } from './components/ListToolbar';
 import { ImageGridView } from './components/ImageGridView';
 import { ImageListView } from './components/ImageListView';
-import { ExportOptionsModal } from './components/ExportOptionsModal';
+import { PdfOptionsModal } from './components/PdfOptionsModal';
+import type { PdfExportOptions } from './components/PdfOptionsModal';
 import { MergeOptionsModal } from './components/MergeOptionsModal';
 import type { MergeOptions } from './components/MergeOptionsModal';
 import { GridContextMenu } from './components/GridContextMenu';
@@ -196,31 +197,41 @@ const ImageListPage = () => {
   };
 
 
-  const handleExportPdf = async (options: { imagesPerPage?: number; orientation?: string }) => {
+  const handleExportPdf = async (options: PdfExportOptions) => {
     if (selectedIds.length === 0) return;
     setIsExporting(true);
     try {
-      const response = await apiClient.post('/images/export/pdf', { 
-        ids: selectedIds,
-        imagesPerPage: options.imagesPerPage,
-        orientation: options.orientation
-      }, {
-        responseType: 'blob'
-      });
-      
+      const response = await apiClient.post(
+        '/images/export/pdf',
+        {
+          ids: selectedIds,
+          orientation: options.orientation,
+          pdfLayout: options.pdfLayout,
+          fitMode: options.fitMode,
+          pageMargin: options.pageMargin,
+          gap: options.gap,
+          border: options.border,
+          borderWidth: options.borderWidth,
+          borderColor: options.borderColor,
+        },
+        {
+          responseType: 'blob',
+        }
+      );
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      
+
       const contentDisposition = response.headers['content-disposition'];
       let filename = `sofia_images_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.pdf`;
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
         if (filenameMatch && filenameMatch.length > 1) {
           filename = filenameMatch[1];
         }
       }
-      
+
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
@@ -228,7 +239,11 @@ const ImageListPage = () => {
       window.URL.revokeObjectURL(url);
       toast({ title: '성공', description: 'PDF 파일이 생성되었습니다.' });
     } catch {
-      toast({ title: '오류', description: 'PDF 생성 중 오류가 발생했습니다.', variant: 'destructive' });
+      toast({
+        title: '오류',
+        description: 'PDF 생성 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
     } finally {
       setIsExporting(false);
     }
@@ -388,10 +403,10 @@ const ImageListPage = () => {
         </button>
       )}
 
-      <ExportOptionsModal
+      <PdfOptionsModal
         isOpen={isPdfModalOpen}
         onClose={() => setIsPdfModalOpen(false)}
-        type="pdf"
+        selectedCount={selectedIds.length}
         isProcessing={isExporting}
         onConfirm={async (options) => {
           await handleExportPdf(options);
