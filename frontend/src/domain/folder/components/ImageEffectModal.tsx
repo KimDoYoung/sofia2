@@ -19,6 +19,9 @@ import {
   Check,
   Zap,
   Pencil,
+  Focus,
+  Film,
+  SlidersHorizontal,
 } from 'lucide-react';
 import type { ImageFile } from '../types';
 import type {
@@ -68,6 +71,7 @@ export const ImageEffectModal = ({
   const [selectedEffect, setSelectedEffect] = useState<EffectType>('oil');
   const [params, setParams] = useState<EffectParamsMap>(() => ({ ...DEFAULT_EFFECT_PARAMS }));
 
+  const [blend, setBlend] = useState(100);
   const [isComparing, setIsComparing] = useState(false);
   const [isRendering, setIsRendering] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
@@ -75,12 +79,13 @@ export const ImageEffectModal = ({
 
   const activeImage: ImageFile | undefined = selectedImages[activeImageIndex];
 
-  // 모달 열릴 때 인덱스 초기화
+  // 모달 열릴 때 초기화
   useEffect(() => {
     if (isOpen) {
       setActiveImageIndex(0);
       setIsComparing(false);
       setBatchProgress(null);
+      setBlend(100);
     }
   }, [isOpen]);
 
@@ -141,28 +146,26 @@ export const ImageEffectModal = ({
       originalPreviewCanvasRef.current = sourceCanvas;
 
       if (isComparing) {
-        // 원본 보기 모드일 때
         const canvas = previewCanvasRef.current;
         canvas.width = sourceCanvas.width;
         canvas.height = sourceCanvas.height;
         const ctx = canvas.getContext('2d');
         ctx?.drawImage(sourceCanvas, 0, 0);
       } else {
-        // 효과 적용 모드
-        applyImageEffect(previewCanvasRef.current, sourceCanvas, selectedEffect, params);
+        applyImageEffect(previewCanvasRef.current, sourceCanvas, selectedEffect, params, blend);
       }
     } catch (err) {
       console.error('Effect preview render failed:', err);
     } finally {
       setIsRendering(false);
     }
-  }, [activeImage, selectedEffect, params, isComparing, loadSourceImage]);
+  }, [activeImage, selectedEffect, params, isComparing, blend, loadSourceImage]);
 
   useEffect(() => {
     if (isOpen && activeImage) {
       updatePreview();
     }
-  }, [isOpen, activeImage, selectedEffect, params, isComparing, updatePreview]);
+  }, [isOpen, activeImage, selectedEffect, params, isComparing, blend, updatePreview]);
 
   // 단일 이미지 고화질 다운로드 핸들러
   const handleDownloadSingle = async () => {
@@ -174,7 +177,7 @@ export const ImageEffectModal = ({
       const sourceCanvas = createOrientedCanvas(img, activeImage.rotationAngle || 0, 2560);
       const outCanvas = document.createElement('canvas');
 
-      applyImageEffect(outCanvas, sourceCanvas, selectedEffect, params);
+      applyImageEffect(outCanvas, sourceCanvas, selectedEffect, params, blend);
 
       const baseName = activeImage.orgName.replace(/\.[^/.]+$/, '');
       const prefix = folderName ? `${folderName}_` : '';
@@ -212,7 +215,7 @@ export const ImageEffectModal = ({
         const sourceCanvas = createOrientedCanvas(img, item.rotationAngle || 0, 2560);
         const outCanvas = document.createElement('canvas');
 
-        applyImageEffect(outCanvas, sourceCanvas, selectedEffect, params);
+        applyImageEffect(outCanvas, sourceCanvas, selectedEffect, params, blend);
 
         const baseName = item.orgName.replace(/\.[^/.]+$/, '');
         const prefix = folderName ? `${folderName}_` : '';
@@ -272,6 +275,8 @@ export const ImageEffectModal = ({
       case 'ascii': return Terminal;
       case 'thermal': return Flame;
       case 'anaglyph': return Glasses;
+      case 'vignette': return Focus;
+      case 'grain': return Film;
       default: return Wand2;
     }
   };
@@ -501,6 +506,30 @@ export const ImageEffectModal = ({
                   </p>
                 </div>
               )}
+
+              {/* ── 블렌드 슬라이더 (전 효과 공통) ── */}
+              <div className="pt-3 border-t">
+                <div className="flex items-center justify-between mb-1.5">
+                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                    <SlidersHorizontal size={13} />
+                    효과 강도 (Blend)
+                  </label>
+                  <span className="text-xs font-bold text-indigo-600">{blend}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="100"
+                  step="5"
+                  value={blend}
+                  onChange={(e) => setBlend(Number(e.target.value))}
+                  className="w-full accent-indigo-600 cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-gray-400 mt-0.5">
+                  <span>원본</span>
+                  <span>효과 100%</span>
+                </div>
+              </div>
 
               {/* ── 선택된 효과별 세부 옵션 조절 슬라이더 ── */}
               <div className="pt-3 border-t space-y-3">
@@ -1244,6 +1273,132 @@ export const ImageEffectModal = ({
                       }
                       className="w-full accent-indigo-600 cursor-pointer"
                     />
+                  </div>
+                )}
+
+                {/* 16. 비네트 (Vignette) */}
+                {selectedEffect === 'vignette' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">어둡기 강도 (Strength)</span>
+                        <span className="font-bold text-indigo-600">{params.vignette.strength}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="20"
+                        max="100"
+                        step="5"
+                        value={params.vignette.strength}
+                        onChange={(e) =>
+                          setParams((prev) => ({
+                            ...prev,
+                            vignette: { ...prev.vignette, strength: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-full accent-indigo-600 cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">그라디언트 부드러움 (Feather)</span>
+                        <span className="font-bold text-indigo-600">{params.vignette.feather}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="80"
+                        step="5"
+                        value={params.vignette.feather}
+                        onChange={(e) =>
+                          setParams((prev) => ({
+                            ...prev,
+                            vignette: { ...prev.vignette, feather: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-full accent-indigo-600 cursor-pointer"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* 17. 필름 그레인 (Grain) */}
+                {selectedEffect === 'grain' && (
+                  <div className="space-y-3">
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">노이즈 세기 (Intensity)</span>
+                        <span className="font-bold text-indigo-600">{params.grain.intensity}</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="5"
+                        max="60"
+                        step="5"
+                        value={params.grain.intensity}
+                        onChange={(e) =>
+                          setParams((prev) => ({
+                            ...prev,
+                            grain: { ...prev.grain, intensity: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-full accent-indigo-600 cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">입자 크기 (Size)</span>
+                        <span className="font-bold text-indigo-600">{params.grain.size}px</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="4"
+                        step="1"
+                        value={params.grain.size}
+                        onChange={(e) =>
+                          setParams((prev) => ({
+                            ...prev,
+                            grain: { ...prev.grain, size: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-full accent-indigo-600 cursor-pointer"
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-gray-600">내장 비네트</span>
+                        <span className="font-bold text-indigo-600">{params.grain.vignette}%</span>
+                      </div>
+                      <input
+                        type="range"
+                        min="0"
+                        max="70"
+                        step="5"
+                        value={params.grain.vignette}
+                        onChange={(e) =>
+                          setParams((prev) => ({
+                            ...prev,
+                            grain: { ...prev.grain, vignette: Number(e.target.value) },
+                          }))
+                        }
+                        className="w-full accent-indigo-600 cursor-pointer"
+                      />
+                    </div>
+                    <div className="flex items-center justify-between pt-1">
+                      <span className="text-xs text-gray-600">따뜻한 빈티지 색감 이동</span>
+                      <input
+                        type="checkbox"
+                        checked={params.grain.colorShift}
+                        onChange={(e) =>
+                          setParams((prev) => ({
+                            ...prev,
+                            grain: { ...prev.grain, colorShift: e.target.checked },
+                          }))
+                        }
+                        className="w-4 h-4 text-indigo-600 rounded cursor-pointer accent-indigo-600"
+                      />
+                    </div>
                   </div>
                 )}
               </div>

@@ -17,6 +17,8 @@ import type {
   ThermalParams,
   AnaglyphParams,
   SketchParams,
+  VignetteParams,
+  GrainParams,
 } from '../types/effectTypes';
 
 /**
@@ -1025,13 +1027,113 @@ export const applyPencilSketch = (
 };
 
 // ─────────────────────────────────────────────────────────────
+// 16. 비네트 (Vignette)
+// ─────────────────────────────────────────────────────────────
+export const applyVignette = (
+  srcData: ImageData,
+  params: VignetteParams
+): ImageData => {
+  const { width: w, height: h, data: src } = srcData;
+  const out = new ImageData(new Uint8ClampedArray(src), w, h);
+  const { strength, feather } = params;
+  const cx = w / 2, cy = h / 2;
+
+  // inner edge: feather=0 → starts at 0.8, feather=80 → starts at 0
+  const innerEdge = 0.8 - (feather / 100) * 0.8;
+  const outerEdge = 1.42; // sqrt(2) ≈ corner of normalized ellipse
+  const maxDark = strength / 100;
+
+  for (let y = 0; y < h; y++) {
+    const ny = (y - cy) / cy;
+    for (let x = 0; x < w; x++) {
+      const nx = (x - cx) / cx;
+      const dist = Math.sqrt(nx * nx + ny * ny);
+
+      let factor = 1.0;
+      if (dist > innerEdge) {
+        const t = Math.min((dist - innerEdge) / (outerEdge - innerEdge), 1);
+        const smooth = t * t * (3 - 2 * t); // smoothstep
+        factor = 1 - smooth * maxDark;
+      }
+
+      const i = (y * w + x) * 4;
+      out.data[i]     = clamp(Math.round(src[i]     * factor), 0, 255);
+      out.data[i + 1] = clamp(Math.round(src[i + 1] * factor), 0, 255);
+      out.data[i + 2] = clamp(Math.round(src[i + 2] * factor), 0, 255);
+    }
+  }
+  return out;
+};
+
+// ─────────────────────────────────────────────────────────────
+// 17. 필름 그레인 (Film Grain)
+// ─────────────────────────────────────────────────────────────
+const GRAIN_TILE = 512;
+const buildGrainTile = (): Float32Array => {
+  const tile = new Float32Array(GRAIN_TILE * GRAIN_TILE);
+  for (let i = 0; i < tile.length; i++) {
+    // Box-Muller Gaussian noise
+    const u1 = Math.random() + 1e-10;
+    const u2 = Math.random();
+    tile[i] = Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+  }
+  return tile;
+};
+
+export const applyFilmGrain = (
+  srcData: ImageData,
+  params: GrainParams
+): ImageData => {
+  const { width: w, height: h, data: src } = srcData;
+  const out = new ImageData(new Uint8ClampedArray(src), w, h);
+  const { intensity, size, colorShift, vignette: vigStr } = params;
+  const cx = w / 2, cy = h / 2;
+
+  const grainTile = buildGrainTile();
+  const vigMax = vigStr / 100;
+
+  for (let y = 0; y < h; y++) {
+    const ny = (y - cy) / cy;
+    const gy = Math.floor(y / size) & (GRAIN_TILE - 1);
+
+    for (let x = 0; x < w; x++) {
+      const i = (y * w + x) * 4;
+      const gx = Math.floor(x / size) & (GRAIN_TILE - 1);
+      const noise = grainTile[gy * GRAIN_TILE + gx] * intensity;
+
+      // Elliptical vignette
+      let vfactor = 1.0;
+      if (vigMax > 0) {
+        const nx = (x - cx) / cx;
+        const dist = Math.sqrt(nx * nx + ny * ny);
+        if (dist > 0.4) {
+          const t = Math.min((dist - 0.4) / 1.0, 1);
+          vfactor = 1 - t * t * (3 - 2 * t) * vigMax;
+        }
+      }
+
+      // Warm vintage color cast
+      const warmR = colorShift ? 10 : 0;
+      const warmG = colorShift ? 2 : 0;
+      const warmB = colorShift ? -16 : 0;
+
+      out.data[i]     = clamp(Math.round((src[i]     + warmR) * vfactor + noise), 0, 255);
+      out.data[i + 1] = clamp(Math.round((src[i + 1] + warmG) * vfactor + noise), 0, 255);
+      out.data[i + 2] = clamp(Math.round((src[i + 2] + warmB) * vfactor + noise), 0, 255);
+    }
+  }
+  return out;
+};
+
+// ─────────────────────────────────────────────────────────────
 // 메인 디스패처: applyImageEffect
 // ─────────────────────────────────────────────────────────────
 export const applyImageEffect = (
   targetCanvas: HTMLCanvasElement,
   sourceCanvas: HTMLCanvasElement,
   effectType: EffectType,
-  params: EffectParamsMap
+  params: EffectParamsMap,
+  blend = 100  // 0 = 원본, 100 = 효과 100%
 ): void => {
   const w = sourceCanvas.width;
   const h = sourceCanvas.height;
@@ -1047,17 +1149,23 @@ export const applyImageEffect = (
 
   const srcData = srcCtx.getImageData(0, 0, w, h);
 
-  // 캔버스 드로잉 기반 효과
-  if (effectType === 'pointillize') {
-    applyPointillize(srcData, params.pointillize, targetCanvas);
-    return;
-  }
-  if (effectType === 'crossStitch') {
-    applyCrossStitch(srcData, params.crossStitch, targetCanvas);
-    return;
-  }
-  if (effectType === 'ascii') {
-    applyAsciiArt(srcData, params.ascii, targetCanvas);
+  // 캔버스 드로잉 기반 효과 — blend 지원: 원본 위에 효과 오버레이
+  if (effectType === 'pointillize' || effectType === 'crossStitch' || effectType === 'ascii') {
+    if (blend < 100) {
+      ctx.drawImage(sourceCanvas, 0, 0);
+      const tmp = document.createElement('canvas');
+      tmp.width = w; tmp.height = h;
+      if (effectType === 'pointillize') applyPointillize(srcData, params.pointillize, tmp);
+      else if (effectType === 'crossStitch') applyCrossStitch(srcData, params.crossStitch, tmp);
+      else applyAsciiArt(srcData, params.ascii, tmp);
+      ctx.globalAlpha = blend / 100;
+      ctx.drawImage(tmp, 0, 0);
+      ctx.globalAlpha = 1;
+    } else {
+      if (effectType === 'pointillize') applyPointillize(srcData, params.pointillize, targetCanvas);
+      else if (effectType === 'crossStitch') applyCrossStitch(srcData, params.crossStitch, targetCanvas);
+      else applyAsciiArt(srcData, params.ascii, targetCanvas);
+    }
     return;
   }
 
@@ -1103,8 +1211,26 @@ export const applyImageEffect = (
     case 'anaglyph':
       resultImageData = applyAnaglyph(srcData, params.anaglyph);
       break;
+    case 'vignette':
+      resultImageData = applyVignette(srcData, params.vignette);
+      break;
+    case 'grain':
+      resultImageData = applyFilmGrain(srcData, params.grain);
+      break;
     default:
       resultImageData = srcData;
+  }
+
+  // 블렌드: 원본과 효과 결과를 픽셀 단위로 선형 보간
+  if (blend < 100) {
+    const alpha = blend / 100;
+    const rd = resultImageData.data;
+    const sd = srcData.data;
+    for (let i = 0; i < rd.length; i += 4) {
+      rd[i]     = Math.round(sd[i]     + (rd[i]     - sd[i])     * alpha);
+      rd[i + 1] = Math.round(sd[i + 1] + (rd[i + 1] - sd[i + 1]) * alpha);
+      rd[i + 2] = Math.round(sd[i + 2] + (rd[i + 2] - sd[i + 2]) * alpha);
+    }
   }
 
   ctx.putImageData(resultImageData, 0, 0);

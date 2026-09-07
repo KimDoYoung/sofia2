@@ -16,7 +16,9 @@ export type EffectType =
   | 'ascii'
   | 'thermal'
   | 'anaglyph'
-  | 'sketch';
+  | 'sketch'
+  | 'vignette'
+  | 'grain';
 
 export interface SketchParams {
   blurRadius: number; // 4 ~ 24 (선 굵기/디테일)
@@ -97,6 +99,18 @@ export interface AnaglyphParams {
   offset: number; // 2 ~ 16
 }
 
+export interface VignetteParams {
+  strength: number; // 20 ~ 100 — 가장자리 어둡기
+  feather: number;  // 0 ~ 80 — 그라디언트 부드러움 (0=선명, 80=매우 부드럽)
+}
+
+export interface GrainParams {
+  intensity: number;   // 5 ~ 60 — 노이즈 세기
+  size: number;        // 1 ~ 4 — 입자 크기
+  colorShift: boolean; // 따뜻한 빈티지 색상 이동
+  vignette: number;    // 0 ~ 70 — 내장 비네트 (0=없음)
+}
+
 export interface EffectParamsMap {
   oil: OilParams;
   watercolor: WatercolorParams;
@@ -114,6 +128,8 @@ export interface EffectParamsMap {
   thermal: ThermalParams;
   anaglyph: AnaglyphParams;
   sketch: SketchParams;
+  vignette: VignetteParams;
+  grain: GrainParams;
 }
 
 export interface EffectMeta {
@@ -242,6 +258,20 @@ export const EFFECT_METAS: EffectMeta[] = [
     category: 'color',
     description: 'Red와 Cyan 채널의 좌표를 좌우로 어긋나게 합성해 입체 안경용 화면을 생성합니다.',
   },
+  {
+    id: 'vignette',
+    name: '비네트 (Vignette)',
+    enName: 'Vignette',
+    category: 'color',
+    description: '이미지 가장자리를 부드럽게 어둡게 처리해 시선을 중앙으로 집중시키는 렌즈 효과를 연출합니다.',
+  },
+  {
+    id: 'grain',
+    name: '필름 그레인 (Film Grain)',
+    enName: 'Film Grain',
+    category: 'color',
+    description: '가우시안 노이즈와 따뜻한 색감 이동, 선택적 비네트를 합성해 아날로그 필름 질감을 재현합니다.',
+  },
 ];
 
 export const DEFAULT_EFFECT_PARAMS: EffectParamsMap = {
@@ -261,4 +291,6 @@ export const DEFAULT_EFFECT_PARAMS: EffectParamsMap = {
   thermal: { palette: 'ironbow' },
   anaglyph: { offset: 8 },
   sketch: { blurRadius: 10, intensity: 100, tone: 'mono' },
+  vignette: { strength: 70, feather: 50 },
+  grain: { intensity: 25, size: 1, colorShift: true, vignette: 30 },
 };
