@@ -1,4 +1,4 @@
-import type { NormalizedSlot, CollageStyleMode } from '../types/collageTypes';
+import type { NormalizedSlot, CollageStyleMode, PixelSlot, ScatterItem } from '../types/collageTypes';
 
 export interface TemplateInfo {
   index: number;
@@ -9,6 +9,9 @@ export interface TemplateInfo {
 export const getAvailableTemplates = (count: number, mode: CollageStyleMode): TemplateInfo[] => {
   if (mode === 'photobooth') {
     return [{ index: 0, label: '세로 스트립', description: `${count}컷 세로 포토부스` }];
+  }
+  if (mode === 'mosaic' || mode === 'scatter' || mode === 'filmstrip') {
+    return [];
   }
 
   if (count === 2) {
@@ -253,4 +256,128 @@ export const getNormalizedSlots = (
   }
 
   return slots;
+};
+
+// ─── Justified / Mosaic layout ───────────────────────────────────────────────
+// Packs images into rows, each row same height, images keep natural aspect ratio.
+// Uses binary search to find rowH that makes total height = availH.
+
+const packIntoRows = (
+  aspectRatios: number[],
+  availW: number,
+  gap: number,
+  targetRowH: number,
+): number[][] => {
+  const rows: number[][] = [];
+  let currentRow: number[] = [];
+  let currentW = 0;
+
+  for (let i = 0; i < aspectRatios.length; i++) {
+    const imgW = aspectRatios[i] * targetRowH;
+    const addW = currentRow.length > 0 ? gap + imgW : imgW;
+    if (currentRow.length > 0 && currentW + addW > availW * 1.08) {
+      rows.push([...currentRow]);
+      currentRow = [i];
+      currentW = imgW;
+    } else {
+      currentRow.push(i);
+      currentW += addW;
+    }
+  }
+  if (currentRow.length > 0) rows.push(currentRow);
+  return rows;
+};
+
+const rowNaturalHeight = (row: number[], aspectRatios: number[], availW: number, gap: number): number => {
+  const sumAR = row.reduce((s, idx) => s + aspectRatios[idx], 0);
+  const gapW = gap * (row.length - 1);
+  return sumAR > 0 ? (availW - gapW) / sumAR : 0;
+};
+
+export const getJustifiedLayout = (
+  aspectRatios: number[],
+  availW: number,
+  availH: number,
+  gap: number,
+): PixelSlot[] => {
+  const count = aspectRatios.length;
+  if (count === 0) return [];
+
+  // Binary search: find targetRowH that makes total height ≈ availH
+  let lo = 20;
+  let hi = availH;
+
+  for (let iter = 0; iter < 32; iter++) {
+    const mid = (lo + hi) / 2;
+    const rows = packIntoRows(aspectRatios, availW, gap, mid);
+    const heights = rows.map(r => rowNaturalHeight(r, aspectRatios, availW, gap));
+    const totalH = heights.reduce((a, b) => a + b, 0) + gap * (rows.length - 1);
+    if (totalH > availH) hi = mid;
+    else lo = mid;
+  }
+
+  const targetRowH = (lo + hi) / 2;
+  const rows = packIntoRows(aspectRatios, availW, gap, targetRowH);
+  const rawHeights = rows.map(r => rowNaturalHeight(r, aspectRatios, availW, gap));
+  const totalGapH = gap * (rows.length - 1);
+  const totalRawH = rawHeights.reduce((a, b) => a + b, 0);
+  const hScale = (availH - totalGapH) / Math.max(totalRawH, 1);
+
+  const slots: PixelSlot[] = new Array(count);
+  let y = 0;
+
+  for (let r = 0; r < rows.length; r++) {
+    const row = rows[r];
+    const rowH = rawHeights[r] * hScale;
+    const gapW = gap * (row.length - 1);
+    const sumW = row.reduce((s, idx) => s + aspectRatios[idx] * rowH, 0);
+    const wScale = (availW - gapW) / Math.max(sumW, 1);
+
+    let x = 0;
+    for (const idx of row) {
+      const imgW = aspectRatios[idx] * rowH * wScale;
+      slots[idx] = { x, y, w: imgW, h: rowH };
+      x += imgW + gap;
+    }
+    y += rowH + gap;
+  }
+
+  return slots;
+};
+
+// ─── Scatter layout ───────────────────────────────────────────────────────────
+// Grid-based base positions with random offsets so photos spread across canvas.
+
+const seededRand = (seed: number) => {
+  let s = Math.abs(seed) || 1;
+  return () => {
+    s = (s * 16807) % 2147483647;
+    return (s - 1) / 2147483646;
+  };
+};
+
+export const getScatterLayout = (
+  count: number,
+  availW: number,
+  availH: number,
+  seed = 12345,
+): ScatterItem[] => {
+  const rand = seededRand(seed);
+  const minDim = Math.min(availW, availH);
+  const cols = Math.ceil(Math.sqrt(count));
+  const rows = Math.ceil(count / cols);
+
+  return Array.from({ length: count }, (_, i) => {
+    const col = i % cols;
+    const row = Math.floor(i / cols);
+    const baseCX = (col + 0.5) / cols * availW;
+    const baseCY = (row + 0.5) / rows * availH;
+    const maxOffset = minDim * 0.12;
+    return {
+      cx: baseCX + (rand() - 0.5) * 2 * maxOffset,
+      cy: baseCY + (rand() - 0.5) * 2 * maxOffset,
+      size: minDim * (0.28 + rand() * 0.22),
+      angle: (rand() - 0.5) * 30,
+    };
+  });
 };

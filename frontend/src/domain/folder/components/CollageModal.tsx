@@ -86,7 +86,7 @@ export const CollageModal = ({
 
   // 콜라쥬 설정
   const [config, setConfig] = useState<CollageConfig>(() => ({
-    mode: 'tilt', // 기본: 구글 포토 스타일 감성 틸트
+    mode: 'tilt',
     frameStyle: 'polaroid',
     aspectRatio: '1:1',
     templateIndex: 0,
@@ -94,7 +94,9 @@ export const CollageModal = ({
     outerPadding: 16,
     borderRadius: 8,
     shadow: true,
-    bgColor: '#FAF7EE', // 감성 크림
+    bgColor: '#FAF7EE',
+    bgStyle: 'solid',
+    bgColor2: '#D1FAE5',
     borderColor: '#E5E7EB',
     borderWidth: 2,
     tiltIntensity: 4,
@@ -333,39 +335,28 @@ export const CollageModal = ({
                   콜라쥬 스타일
                 </label>
                 <div className="grid grid-cols-3 gap-1.5 p-1 bg-gray-100 rounded-xl">
-                  <button
-                    type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, mode: 'tilt', frameStyle: 'polaroid', shadow: true }))}
-                    className={`py-2 px-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                      config.mode === 'tilt'
-                        ? 'bg-white text-violet-700 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    ✨ 감성 틸트
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, mode: 'grid' }))}
-                    className={`py-2 px-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                      config.mode === 'grid'
-                        ? 'bg-white text-violet-700 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    📐 모던 그리드
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setConfig(prev => ({ ...prev, mode: 'photobooth', aspectRatio: '1:2', frameStyle: 'polaroid' }))}
-                    className={`py-2 px-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
-                      config.mode === 'photobooth'
-                        ? 'bg-white text-violet-700 shadow-sm'
-                        : 'text-gray-600 hover:text-gray-900'
-                    }`}
-                  >
-                    🎞️ 인생네컷
-                  </button>
+                  {[
+                    { mode: 'mosaic' as const, label: '🖼️ 모자이크', tip: '비율 보존 자동 배치', apply: { frameStyle: 'none' as const, shadow: true, gap: 4 } },
+                    { mode: 'tilt' as const, label: '✨ 감성 틸트', tip: '미세 회전 감성룩', apply: { frameStyle: 'polaroid' as const, shadow: true } },
+                    { mode: 'scatter' as const, label: '🃏 흩뿌리기', tip: '사진이 겹치며 흩어짐', apply: { frameStyle: 'polaroid' as const, shadow: true, tiltIntensity: 6 } },
+                    { mode: 'grid' as const, label: '📐 모던 그리드', tip: '균등 격자 배치', apply: {} },
+                    { mode: 'filmstrip' as const, label: '📽️ 필름 스트립', tip: '빈티지 필름 느낌', apply: { bgColor: '#111111', bgStyle: 'solid' as const, frameStyle: 'none' as const } },
+                    { mode: 'photobooth' as const, label: '🎫 인생네컷', tip: '세로 포토부스', apply: { aspectRatio: '1:2' as const, frameStyle: 'polaroid' as const } },
+                  ].map(({ mode, label, tip, apply }) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setConfig(prev => ({ ...prev, mode, ...apply }))}
+                      title={tip}
+                      className={`py-2 px-1 text-xs font-semibold rounded-lg transition-all cursor-pointer leading-tight ${
+                        config.mode === mode
+                          ? 'bg-white text-violet-700 shadow-sm'
+                          : 'text-gray-600 hover:text-gray-900'
+                      }`}
+                    >
+                      {label}
+                    </button>
+                  ))}
                 </div>
               </div>
 
@@ -393,7 +384,7 @@ export const CollageModal = ({
               </div>
 
               {/* 3. 템플릿 레이아웃 (Grid/Tilt 일 때만) */}
-              {config.mode !== 'photobooth' && templates.length > 1 && (
+              {config.mode !== 'photobooth' && config.mode !== 'mosaic' && config.mode !== 'scatter' && config.mode !== 'filmstrip' && templates.length > 1 && (
                 <div>
                   <label className="text-xs font-bold text-gray-700 block mb-2 uppercase tracking-wider">
                     레이아웃 템플릿
@@ -498,8 +489,8 @@ export const CollageModal = ({
                 </div>
               </div>
 
-              {/* 5. 미세 회전 강도 (Tilt 모드일 때) */}
-              {config.mode === 'tilt' && (
+              {/* 5. 미세 회전 강도 (Tilt / Scatter 모드일 때) */}
+              {(config.mode === 'tilt' || config.mode === 'scatter') && (
                 <div className="space-y-2 pt-2 border-t border-gray-100">
                   <div className="flex justify-between items-center text-xs">
                     <span className="font-bold text-gray-700">자연스러운 기울기 강도</span>
@@ -569,34 +560,58 @@ export const CollageModal = ({
               </div>
 
               {/* 7. 배경 색상 */}
-              <div className="pt-2 border-t border-gray-100">
-                <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5 mb-2 uppercase tracking-wider">
-                  <Palette size={13} />
-                  배경 색상
-                </label>
-                <div className="flex flex-wrap gap-2 items-center">
-                  {BG_PRESETS.map(color => (
-                    <button
-                      key={color.value}
-                      type="button"
-                      onClick={() => setConfig(prev => ({ ...prev, bgColor: color.value }))}
-                      style={{ backgroundColor: color.value }}
-                      className={`w-7 h-7 rounded-full border border-gray-300 transition-transform cursor-pointer flex items-center justify-center ${
-                        config.bgColor === color.value ? 'scale-115 ring-2 ring-violet-600 shadow-sm' : 'hover:scale-105'
-                      }`}
-                      title={color.label}
+              {config.mode !== 'filmstrip' && (
+                <div className="pt-2 border-t border-gray-100">
+                  <label className="text-xs font-bold text-gray-700 flex items-center gap-1.5 mb-2 uppercase tracking-wider">
+                    <Palette size={13} />
+                    배경 색상
+                  </label>
+                  <div className="flex flex-wrap gap-2 items-center mb-2">
+                    {BG_PRESETS.map(color => (
+                      <button
+                        key={color.value}
+                        type="button"
+                        onClick={() => setConfig(prev => ({ ...prev, bgColor: color.value }))}
+                        style={{ backgroundColor: color.value }}
+                        className={`w-7 h-7 rounded-full border border-gray-300 transition-transform cursor-pointer flex items-center justify-center ${
+                          config.bgColor === color.value ? 'scale-115 ring-2 ring-violet-600 shadow-sm' : 'hover:scale-105'
+                        }`}
+                        title={color.label}
+                      />
+                    ))}
+                    <input
+                      type="color"
+                      value={config.bgColor}
+                      onChange={(e) => setConfig(prev => ({ ...prev, bgColor: e.target.value }))}
+                      className="w-7 h-7 rounded-full border border-gray-300 cursor-pointer p-0 bg-transparent"
+                      title="직접 색상 선택"
                     />
-                  ))}
-                  {/* 컬러 픽커 */}
-                  <input
-                    type="color"
-                    value={config.bgColor}
-                    onChange={(e) => setConfig(prev => ({ ...prev, bgColor: e.target.value }))}
-                    className="w-7 h-7 rounded-full border border-gray-300 cursor-pointer p-0 bg-transparent"
-                    title="직접 색상 선택"
-                  />
+                  </div>
+
+                  {/* 그라디언트 옵션 */}
+                  <div className="flex items-center gap-2 mt-1">
+                    <input
+                      type="checkbox"
+                      id="gradientToggle"
+                      checked={config.bgStyle === 'gradient'}
+                      onChange={(e) => setConfig(prev => ({ ...prev, bgStyle: e.target.checked ? 'gradient' : 'solid' }))}
+                      className="w-4 h-4 accent-violet-600 cursor-pointer"
+                    />
+                    <label htmlFor="gradientToggle" className="text-xs font-medium text-gray-700 cursor-pointer select-none">
+                      그라디언트 배경
+                    </label>
+                    {config.bgStyle === 'gradient' && (
+                      <input
+                        type="color"
+                        value={config.bgColor2}
+                        onChange={(e) => setConfig(prev => ({ ...prev, bgColor2: e.target.value }))}
+                        className="w-7 h-7 rounded-full border border-gray-300 cursor-pointer p-0 bg-transparent ml-1"
+                        title="그라디언트 끝 색상"
+                      />
+                    )}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* ── 하단 액션 버튼 ── */}

@@ -3,7 +3,7 @@ import type {
   CollagePhotoItem,
   AspectRatio,
 } from '../types/collageTypes';
-import { getNormalizedSlots } from './collageLayouts';
+import { getNormalizedSlots, getJustifiedLayout, getScatterLayout } from './collageLayouts';
 
 export interface CanvasDimensions {
   width: number;
@@ -29,9 +29,6 @@ export const getCanvasDimensions = (aspectRatio: AspectRatio, baseSize = 2048): 
   }
 };
 
-/**
- * HTMLImageElement 로드 (crossOrigin 지원)
- */
 export const loadImage = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
     const img = new Image();
@@ -42,9 +39,6 @@ export const loadImage = (url: string): Promise<HTMLImageElement> => {
   });
 };
 
-/**
- * 90도 단위 회전이 적용된 오프스크린 이미지 캔버스 생성
- */
 const getOrientedCanvas = (img: HTMLImageElement, rotation = 0): HTMLCanvasElement => {
   const canvas = document.createElement('canvas');
   const rot = ((rotation % 360) + 360) % 360;
@@ -67,9 +61,6 @@ const getOrientedCanvas = (img: HTMLImageElement, rotation = 0): HTMLCanvasEleme
   return canvas;
 };
 
-/**
- * 둥근 사각형 그리기 헬퍼 (Path2D or ctx.roundRect fallback)
- */
 const drawRoundedRect = (
   ctx: CanvasRenderingContext2D,
   x: number,
@@ -92,9 +83,383 @@ const drawRoundedRect = (
   }
 };
 
-/**
- * 콜라쥬를 지정된 Canvas에 렌더링하는 메인 함수
- */
+const drawCoverImage = (
+  ctx: CanvasRenderingContext2D,
+  img: HTMLCanvasElement,
+  dx: number,
+  dy: number,
+  dw: number,
+  dh: number
+) => {
+  const imgW = img.width;
+  const imgH = img.height;
+  const targetRatio = dw / dh;
+  const imgRatio = imgW / imgH;
+
+  let sx = 0, sy = 0, sw = imgW, sh = imgH;
+  if (imgRatio > targetRatio) {
+    sw = imgH * targetRatio;
+    sx = (imgW - sw) / 2;
+  } else {
+    sh = imgW / targetRatio;
+    sy = (imgH - sh) / 2;
+  }
+
+  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+};
+
+const drawBackground = (
+  ctx: CanvasRenderingContext2D,
+  canvasW: number,
+  canvasH: number,
+  config: CollageConfig,
+  forceColor?: string,
+) => {
+  if (forceColor) {
+    ctx.fillStyle = forceColor;
+  } else if (config.bgStyle === 'gradient' && config.bgColor2) {
+    const gradient = ctx.createLinearGradient(0, 0, 0, canvasH);
+    gradient.addColorStop(0, config.bgColor || '#FFFFFF');
+    gradient.addColorStop(1, config.bgColor2);
+    ctx.fillStyle = gradient;
+  } else {
+    ctx.fillStyle = config.bgColor || '#FFFFFF';
+  }
+  ctx.fillRect(0, 0, canvasW, canvasH);
+};
+
+const drawBottomText = (
+  ctx: CanvasRenderingContext2D,
+  config: CollageConfig,
+  canvasW: number,
+  canvasH: number,
+  scale: number,
+  outerPad: number,
+  textAreaH: number,
+) => {
+  const textToRender =
+    config.showText && config.customText && config.customText.trim() !== ''
+      ? config.customText.trim()
+      : '';
+  if (!textToRender) return;
+
+  ctx.save();
+  ctx.fillStyle = isLightColor(config.bgColor) ? '#4B5563' : '#E5E7EB';
+
+  let fontSize = Math.round(18 * scale);
+  ctx.font = `600 ${fontSize}px sans-serif`;
+  const maxTextWidth = canvasW - outerPad * 2 - 20 * scale;
+  const textWidth = ctx.measureText(textToRender).width;
+  if (textWidth > maxTextWidth && textWidth > 0) {
+    fontSize = Math.max(10 * scale, Math.round(fontSize * (maxTextWidth / textWidth)));
+    ctx.font = `600 ${fontSize}px sans-serif`;
+  }
+
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(textToRender, canvasW / 2, canvasH - outerPad - textAreaH / 2);
+  ctx.restore();
+};
+
+// ─── Polaroid frame rendering (shared by grid/tilt/scatter) ──────────────────
+
+const drawPolaroidFrame = (
+  ctx: CanvasRenderingContext2D,
+  src: HTMLCanvasElement,
+  boxW: number,
+  boxH: number,
+  scale: number,
+  config: CollageConfig,
+  showCaption = false,
+  captionText = '',
+) => {
+  // Instax-accurate proportions: side/top ≈ 6%, bottom ≈ 18% of photo width
+  const pSide = Math.max(5 * scale, boxW * 0.055);
+  const pTop = pSide;
+  const pBottom = Math.max(12 * scale, boxW * 0.18);
+
+  const photoW = boxW - pSide * 2;
+  const photoH = boxH - pTop - pBottom;
+  const left = -boxW / 2;
+  const top = -boxH / 2;
+  const radius = Math.min(3 * scale, boxW * 0.02);
+
+  // White card background
+  ctx.fillStyle = '#FFFFFF';
+  drawRoundedRect(ctx, left, top, boxW, boxH, radius);
+  ctx.fill();
+  ctx.shadowColor = 'transparent';
+
+  // Photo area
+  ctx.save();
+  drawRoundedRect(ctx, left + pSide, top + pTop, photoW, photoH, Math.max(0, radius - scale));
+  ctx.clip();
+  drawCoverImage(ctx, src, left + pSide, top + pTop, photoW, photoH);
+  ctx.restore();
+
+  // Subtle card border
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
+  ctx.lineWidth = scale;
+  drawRoundedRect(ctx, left, top, boxW, boxH, radius);
+  ctx.stroke();
+
+  // Caption in bottom white area
+  if (showCaption && captionText.trim()) {
+    const capY = top + pTop + photoH + pBottom / 2;
+    const maxCapW = photoW * 0.9;
+    let capFontSize = Math.round(Math.min(13 * scale, pBottom * 0.45));
+
+    ctx.fillStyle = '#555555';
+    ctx.font = `${capFontSize}px cursive`;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // Shrink if too wide
+    const capW = ctx.measureText(captionText.trim()).width;
+    if (capW > maxCapW && capW > 0) {
+      capFontSize = Math.max(8 * scale, Math.round(capFontSize * (maxCapW / capW)));
+      ctx.font = `${capFontSize}px cursive`;
+    }
+    ctx.fillText(captionText.trim(), left + boxW / 2, capY);
+  }
+};
+
+// ─── Mosaic (justified) mode ──────────────────────────────────────────────────
+
+const renderMosaic = (
+  ctx: CanvasRenderingContext2D,
+  items: CollagePhotoItem[],
+  loadedCanvases: HTMLCanvasElement[],
+  config: CollageConfig,
+  canvasW: number,
+  canvasH: number,
+  scale: number,
+) => {
+  const outerPad = config.outerPadding * scale;
+  const gap = config.gap * scale;
+  const textAreaH = config.showText && config.customText?.trim() ? 48 * scale : 0;
+  const availW = canvasW - outerPad * 2;
+  const availH = canvasH - outerPad * 2 - textAreaH;
+
+  const aspectRatios = loadedCanvases.map(c => c.width / Math.max(c.height, 1));
+  const slots = getJustifiedLayout(aspectRatios, availW, availH, gap);
+
+  for (let i = 0; i < items.length; i++) {
+    const slot = slots[i];
+    if (!slot) continue;
+    const src = loadedCanvases[i];
+
+    const x = outerPad + slot.x;
+    const y = outerPad + slot.y;
+    const { w, h } = slot;
+    const radius = config.borderRadius * scale;
+
+    ctx.save();
+
+    if (config.shadow) {
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.14)';
+      ctx.shadowBlur = 14 * scale;
+      ctx.shadowOffsetX = 0;
+      ctx.shadowOffsetY = 4 * scale;
+    }
+
+    ctx.fillStyle = config.bgColor || '#FFFFFF';
+    drawRoundedRect(ctx, x, y, w, h, radius);
+    ctx.fill();
+    ctx.shadowColor = 'transparent';
+
+    ctx.save();
+    drawRoundedRect(ctx, x, y, w, h, radius);
+    ctx.clip();
+    // Draw image to fill slot exactly — justified layout preserves aspect ratio
+    ctx.drawImage(src, x, y, w, h);
+    ctx.restore();
+
+    if (config.frameStyle === 'simple' && config.borderWidth > 0) {
+      ctx.strokeStyle = config.borderColor;
+      ctx.lineWidth = config.borderWidth * scale;
+      drawRoundedRect(ctx, x, y, w, h, radius);
+      ctx.stroke();
+    }
+
+    ctx.restore();
+  }
+};
+
+// ─── Scatter mode ─────────────────────────────────────────────────────────────
+
+const renderScatter = (
+  ctx: CanvasRenderingContext2D,
+  items: CollagePhotoItem[],
+  loadedCanvases: HTMLCanvasElement[],
+  config: CollageConfig,
+  canvasW: number,
+  canvasH: number,
+  scale: number,
+) => {
+  const outerPad = config.outerPadding * scale;
+  const availW = canvasW - outerPad * 2;
+  const availH = canvasH - outerPad * 2;
+
+  // Seed from item ordering so handleShufflePhotos changes layout
+  const seed = items.reduce((acc, item, i) => acc + item.id * (i + 1), 0);
+  const scatterItems = getScatterLayout(items.length, availW, availH, seed);
+
+  // Render back to front (index 0 is bottom layer)
+  for (let i = 0; i < items.length; i++) {
+    const sc = scatterItems[i];
+    const src = loadedCanvases[i];
+    const item = items[i];
+
+    const ar = src.width / Math.max(src.height, 1);
+    const photoW = sc.size;
+    const photoH = photoW / ar;
+
+    // Combine scatter base angle with per-photo tilt
+    const totalAngle = sc.angle + item.tiltAngle * (config.tiltIntensity / 4);
+    const cx = outerPad + sc.cx;
+    const cy = outerPad + sc.cy;
+
+    ctx.save();
+    ctx.translate(cx, cy);
+    ctx.rotate((totalAngle * Math.PI) / 180);
+
+    if (config.frameStyle === 'polaroid') {
+      if (config.shadow) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.28)';
+        ctx.shadowBlur = 22 * scale;
+        ctx.shadowOffsetX = 3 * scale;
+        ctx.shadowOffsetY = 9 * scale;
+      }
+      drawPolaroidFrame(
+        ctx, src, photoW, photoH, scale, config,
+        config.showText,
+        config.customText,
+      );
+    } else {
+      const radius = config.borderRadius * scale;
+      const left = -photoW / 2;
+      const top = -photoH / 2;
+
+      if (config.shadow) {
+        ctx.shadowColor = 'rgba(0, 0, 0, 0.22)';
+        ctx.shadowBlur = 18 * scale;
+        ctx.shadowOffsetX = 2 * scale;
+        ctx.shadowOffsetY = 7 * scale;
+      }
+
+      ctx.fillStyle = config.bgColor || '#FFFFFF';
+      drawRoundedRect(ctx, left, top, photoW, photoH, radius);
+      ctx.fill();
+      ctx.shadowColor = 'transparent';
+
+      ctx.save();
+      drawRoundedRect(ctx, left, top, photoW, photoH, radius);
+      ctx.clip();
+      drawCoverImage(ctx, src, left, top, photoW, photoH);
+      ctx.restore();
+
+      if (config.frameStyle === 'simple' && config.borderWidth > 0) {
+        ctx.strokeStyle = config.borderColor;
+        ctx.lineWidth = config.borderWidth * scale;
+        drawRoundedRect(ctx, left, top, photoW, photoH, radius);
+        ctx.stroke();
+      }
+    }
+
+    ctx.restore();
+  }
+};
+
+// ─── Filmstrip mode ───────────────────────────────────────────────────────────
+
+const renderFilmstrip = (
+  ctx: CanvasRenderingContext2D,
+  items: CollagePhotoItem[],
+  loadedCanvases: HTMLCanvasElement[],
+  config: CollageConfig,
+  canvasW: number,
+  canvasH: number,
+  scale: number,
+) => {
+  const gap = Math.max(3 * scale, config.gap * scale * 0.5);
+  const sprocketW = Math.round(canvasW * 0.075);
+  const sprocketHoleR = Math.round(sprocketW * 0.28);
+  const photoAreaX = sprocketW;
+  const photoAreaW = canvasW - sprocketW * 2;
+  const count = items.length;
+  const slotH = (canvasH - gap * (count + 1)) / count;
+
+  // Sprocket side areas
+  ctx.fillStyle = '#1C1C1C';
+  ctx.fillRect(0, 0, sprocketW, canvasH);
+  ctx.fillRect(canvasW - sprocketW, 0, sprocketW, canvasH);
+
+  // Film frame separator lines
+  ctx.strokeStyle = '#3A3A3A';
+  ctx.lineWidth = scale;
+  ctx.strokeRect(sprocketW, 0, photoAreaW, canvasH);
+
+  // Sprocket holes + frame numbers + photos
+  for (let i = 0; i < count; i++) {
+    const frameY = gap + i * (slotH + gap);
+    const holeCount = Math.max(2, Math.round(slotH / (sprocketHoleR * 4)));
+    const holeSpacing = slotH / holeCount;
+
+    // Sprocket holes on both sides
+    ctx.fillStyle = '#0A0A0A';
+    for (let h = 0; h < holeCount; h++) {
+      const hy = frameY + holeSpacing * (h + 0.5);
+      ctx.beginPath();
+      ctx.arc(sprocketW / 2, hy, sprocketHoleR, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.beginPath();
+      ctx.arc(canvasW - sprocketW / 2, hy, sprocketHoleR, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Frame number (amber like real film)
+    ctx.fillStyle = 'rgba(255, 210, 80, 0.75)';
+    const numFontSize = Math.max(8, Math.round(9 * scale));
+    ctx.font = `bold ${numFontSize}px monospace`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    ctx.fillText(`${String(i + 1).padStart(2, '0')}A`, photoAreaX + 3 * scale, frameY + 2 * scale);
+
+    // Photo
+    const src = loadedCanvases[i];
+    if (!src) continue;
+    const photoX = photoAreaX + gap;
+    const photoW = photoAreaW - gap * 2;
+    const photoH = slotH;
+
+    ctx.save();
+    ctx.beginPath();
+    ctx.rect(photoX, frameY, photoW, photoH);
+    ctx.clip();
+    drawCoverImage(ctx, src, photoX, frameY, photoW, photoH);
+    ctx.restore();
+
+    // Frame border
+    ctx.strokeStyle = '#2E2E2E';
+    ctx.lineWidth = scale;
+    ctx.strokeRect(photoX, frameY, photoW, photoH);
+  }
+
+  // Bottom text in amber mono font
+  if (config.showText && config.customText?.trim()) {
+    const txt = config.customText.trim();
+    const fontSize = Math.max(10, Math.round(11 * scale));
+    ctx.font = `${fontSize}px monospace`;
+    ctx.fillStyle = 'rgba(255, 210, 80, 0.85)';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'bottom';
+    ctx.fillText(txt, canvasW / 2, canvasH - 3 * scale);
+  }
+};
+
+// ─── Main render function ─────────────────────────────────────────────────────
+
 export const renderCollageToCanvas = async (
   canvas: HTMLCanvasElement,
   items: CollagePhotoItem[],
@@ -109,31 +474,13 @@ export const renderCollageToCanvas = async (
   const ctx = canvas.getContext('2d');
   if (!ctx) return;
 
-  // 1. 배경 칠하기
-  ctx.fillStyle = config.bgColor || '#FFFFFF';
-  ctx.fillRect(0, 0, canvasW, canvasH);
+  // Background
+  const filmstripBg = config.mode === 'filmstrip' ? '#111111' : undefined;
+  drawBackground(ctx, canvasW, canvasH, config, filmstripBg);
 
   if (items.length === 0) return;
 
-  // 2. 슬롯 계산
-  const slots = getNormalizedSlots(items.length, config.mode, config.templateIndex);
-
-  // 스케일 팩터 (2048 기준 UI 슬라이더 값 스케일)
-  const scale = canvasW / 600;
-  const outerPad = config.outerPadding * scale;
-  const gap = config.gap * scale;
-  const radius = config.borderRadius * scale;
-
-  // 하단 텍스트 여백
-  const textToRender =
-    config.showText && config.customText && config.customText.trim() !== ''
-      ? config.customText.trim()
-      : '';
-  const dateAreaH = textToRender ? 48 * scale : 0;
-  const availW = canvasW - outerPad * 2;
-  const availH = canvasH - outerPad * 2 - dateAreaH;
-
-  // 3. 이미지 로드 (캐시 우선 활용)
+  // Load / cache images
   const loadedCanvases: HTMLCanvasElement[] = await Promise.all(
     items.map(async (item) => {
       if (cachedCanvases && cachedCanvases.has(item.id)) {
@@ -148,34 +495,69 @@ export const renderCollageToCanvas = async (
     })
   );
 
-  // 4. 각 슬롯 렌더링
+  const scale = canvasW / 600;
+
+  // ── New modes ──
+  if (config.mode === 'mosaic') {
+    renderMosaic(ctx, items, loadedCanvases, config, canvasW, canvasH, scale);
+    const outerPad = config.outerPadding * scale;
+    const textAreaH = config.showText && config.customText?.trim() ? 48 * scale : 0;
+    drawBottomText(ctx, config, canvasW, canvasH, scale, outerPad, textAreaH);
+    return;
+  }
+
+  if (config.mode === 'scatter') {
+    renderScatter(ctx, items, loadedCanvases, config, canvasW, canvasH, scale);
+    if (config.frameStyle !== 'polaroid') {
+      const outerPad = config.outerPadding * scale;
+      const textAreaH = config.showText && config.customText?.trim() ? 48 * scale : 0;
+      drawBottomText(ctx, config, canvasW, canvasH, scale, outerPad, textAreaH);
+    }
+    return;
+  }
+
+  if (config.mode === 'filmstrip') {
+    renderFilmstrip(ctx, items, loadedCanvases, config, canvasW, canvasH, scale);
+    return;
+  }
+
+  // ── Existing grid / tilt / photobooth ──
+  const slots = getNormalizedSlots(items.length, config.mode, config.templateIndex);
+
+  const outerPad = config.outerPadding * scale;
+  const gap = config.gap * scale;
+
+  const textToRender =
+    config.showText && config.customText && config.customText.trim() !== ''
+      ? config.customText.trim()
+      : '';
+  const dateAreaH = textToRender ? 48 * scale : 0;
+  const availW = canvasW - outerPad * 2;
+  const availH = canvasH - outerPad * 2 - dateAreaH;
+
   for (let i = 0; i < items.length; i++) {
     const slot = slots[i] || { x: 0, y: 0, width: 1, height: 1 };
     const item = items[i];
     const sourceCanvas = loadedCanvases[i];
     if (!sourceCanvas) continue;
 
-    // 슬롯의 픽셀 좌표 및 크기
     const halfGap = gap / 2;
     const sx = outerPad + slot.x * availW + (slot.x > 0 ? halfGap : 0);
     const sy = outerPad + slot.y * availH + (slot.y > 0 ? halfGap : 0);
     const sw = slot.width * availW - (slot.x > 0 && slot.x + slot.width < 1 ? gap : halfGap * (slot.width < 1 ? 1 : 0));
     const sh = slot.height * availH - (slot.y > 0 && slot.y + slot.height < 1 ? gap : halfGap * (slot.height < 1 ? 1 : 0));
 
-    // 중심점
     const cx = sx + sw / 2;
     const cy = sy + sh / 2;
 
     ctx.save();
     ctx.translate(cx, cy);
 
-    // 미세 틸트 (약간의 회전)
     const effectiveTilt = config.mode === 'tilt' ? (item.tiltAngle * (config.tiltIntensity / 4)) : 0;
     if (effectiveTilt !== 0) {
       ctx.rotate((effectiveTilt * Math.PI) / 180);
     }
 
-    // 그림자 설정
     if (config.shadow) {
       ctx.shadowColor = 'rgba(0, 0, 0, 0.16)';
       ctx.shadowBlur = 16 * scale;
@@ -185,60 +567,26 @@ export const renderCollageToCanvas = async (
 
     const boxW = sw;
     const boxH = sh;
-    const left = -boxW / 2;
-    const top = -boxH / 2;
+    const radius = config.borderRadius * scale;
 
     if (config.frameStyle === 'polaroid') {
-      // 폴라로이드 프레임
-      const pBorder = Math.max(6 * scale, boxW * 0.04);
-      const pBottom = pBorder * 2.8; // 하단 넓은 여백
-
-      // 1) 흰색 카드 배경 + 그림자
-      ctx.fillStyle = '#FFFFFF';
-      drawRoundedRect(ctx, left, top, boxW, boxH, radius);
-      ctx.fill();
-
-      // 그림자 리셋 후 사진 그리기
-      ctx.shadowColor = 'transparent';
-
-      // 2) 사진 영역 클리핑
-      const photoX = left + pBorder;
-      const photoY = top + pBorder;
-      const photoW = boxW - pBorder * 2;
-      const photoH = boxH - pBorder - pBottom;
-
-      ctx.save();
-      drawRoundedRect(ctx, photoX, photoY, photoW, photoH, Math.max(0, radius - 2 * scale));
-      ctx.clip();
-
-      // Cover 모드로 사진 그리기
-      drawCoverImage(ctx, sourceCanvas, photoX, photoY, photoW, photoH);
-      ctx.restore();
-
-      // 은은한 폴라로이드 테두리선
-      ctx.strokeStyle = 'rgba(0, 0, 0, 0.06)';
-      ctx.lineWidth = 1 * scale;
-      drawRoundedRect(ctx, left, top, boxW, boxH, radius);
-      ctx.stroke();
-
+      // Grid/tilt/photobooth: no per-card caption; bottom text rendered at canvas level
+      drawPolaroidFrame(ctx, sourceCanvas, boxW, boxH, scale, config, false, '');
     } else {
-      // 일반 / 심플 프레임
-      // 그림자 적용을 위해 배경 채우기
+      const left = -boxW / 2;
+      const top = -boxH / 2;
+
       ctx.fillStyle = config.bgColor || '#FFFFFF';
       drawRoundedRect(ctx, left, top, boxW, boxH, radius);
       ctx.fill();
-
-      // 그림자 리셋
       ctx.shadowColor = 'transparent';
 
-      // 사진 그리기 클리핑
       ctx.save();
       drawRoundedRect(ctx, left, top, boxW, boxH, radius);
       ctx.clip();
       drawCoverImage(ctx, sourceCanvas, left, top, boxW, boxH);
       ctx.restore();
 
-      // 심플 보더가 설정된 경우 테두리 그리기
       if (config.frameStyle === 'simple' && config.borderWidth > 0) {
         ctx.strokeStyle = config.borderColor || '#000000';
         ctx.lineWidth = config.borderWidth * scale;
@@ -250,59 +598,7 @@ export const renderCollageToCanvas = async (
     ctx.restore();
   }
 
-  // 5. 하단 사용자 지정/감성 텍스트 표시
-  if (textToRender) {
-    ctx.save();
-    ctx.fillStyle = isLightColor(config.bgColor) ? '#4B5563' : '#E5E7EB';
-
-    // 텍스트 길이에 맞춘 폰트 크기 자동 조절
-    let fontSize = Math.round(18 * scale);
-    ctx.font = `600 ${fontSize}px sans-serif`;
-    const maxTextWidth = canvasW - outerPad * 2 - 20 * scale;
-    const textWidth = ctx.measureText(textToRender).width;
-    if (textWidth > maxTextWidth && textWidth > 0) {
-      fontSize = Math.max(10 * scale, Math.round(fontSize * (maxTextWidth / textWidth)));
-      ctx.font = `600 ${fontSize}px sans-serif`;
-    }
-
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(textToRender, canvasW / 2, canvasH - outerPad - dateAreaH / 2);
-    ctx.restore();
-  }
-};
-
-/**
- * 이미지를 지정 영역에 Cover 비율로 그리기
- */
-const drawCoverImage = (
-  ctx: CanvasRenderingContext2D,
-  img: HTMLCanvasElement,
-  dx: number,
-  dy: number,
-  dw: number,
-  dh: number
-) => {
-  const imgW = img.width;
-  const imgH = img.height;
-
-  const targetRatio = dw / dh;
-  const imgRatio = imgW / imgH;
-
-  let sx = 0;
-  let sy = 0;
-  let sw = imgW;
-  let sh = imgH;
-
-  if (imgRatio > targetRatio) {
-    sw = imgH * targetRatio;
-    sx = (imgW - sw) / 2;
-  } else {
-    sh = imgW / targetRatio;
-    sy = (imgH - sh) / 2;
-  }
-
-  ctx.drawImage(img, sx, sy, sw, sh, dx, dy, dw, dh);
+  drawBottomText(ctx, config, canvasW, canvasH, scale, outerPad, dateAreaH);
 };
 
 const isLightColor = (hex = '#FFFFFF') => {
@@ -314,9 +610,6 @@ const isLightColor = (hex = '#FFFFFF') => {
   return (r * 299 + g * 587 + b * 114) / 1000 > 128;
 };
 
-/**
- * 캔버스 이미지를 JPG/PNG로 다운로드
- */
 export const downloadCanvasImage = (
   canvas: HTMLCanvasElement,
   filename = 'sofia_collage.jpg',
