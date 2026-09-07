@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { Loader2, CheckCircle2, AlertCircle } from 'lucide-react';
 import { useUserSettings, type ImageTransition } from '@/shared/hooks/useUserSettings';
+import BgmAssetManager from './components/BgmAssetManager';
 
 const passwordSchema = z.object({
   currentPassword: z.string().min(1, '현재 비밀번호를 입력해 주세요.'),
@@ -64,9 +65,13 @@ const SettingsPage = () => {
   };
 
   return (
-    <div className="max-w-2xl mx-auto py-8 px-4">
+    <div className="w-[80%] min-w-[320px] mx-auto py-8 px-4 space-y-6">
+      {/* 1. 배경음악(BGM) 자산 관리 */}
+      <BgmAssetManager />
+
+      {/* 2. 사용자 설정 (전환 효과 & 비밀번호 변경) */}
       <div className="bg-white rounded-2xl shadow-sm border p-8">
-        <h2 className="text-2xl font-bold text-gray-800 mb-6">사용자 설정</h2>
+        <h2 className="text-2xl font-bold text-gray-800 mb-6">사용자 환경 설정</h2>
         
         <div className="space-y-6">
           {/* 이미지 전환 애니메이션 */}
@@ -108,7 +113,7 @@ const SettingsPage = () => {
               </div>
             )}
 
-            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 max-w-lg">
               <div>
                 <label className="block text-sm font-medium text-gray-600 mb-1">현재 비밀번호</label>
                 <input

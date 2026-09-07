@@ -16,6 +16,7 @@ import {
   Download,
   Sparkles,
   Wand2,
+  Film,
 } from 'lucide-react';
 import pdfIcon from '@/assets/icons/pdf.svg';
 import { useState, useRef, useEffect } from 'react';
@@ -37,6 +38,7 @@ interface ListToolbarProps {
   isDownloading: boolean;
   onOpenCollage: () => void;
   onOpenEffect?: () => void;
+  onOpenSlideShow?: () => void;
   viewMode: 'thumb' | 'smallThumb' | 'list';
   onViewModeChange: (mode: 'thumb' | 'smallThumb' | 'list') => void;
 }
@@ -57,6 +59,7 @@ export const ListToolbar = ({
   isDownloading,
   onOpenCollage,
   onOpenEffect,
+  onOpenSlideShow,
   viewMode,
   onViewModeChange,
 }: ListToolbarProps) => {
@@ -227,6 +230,17 @@ export const ListToolbar = ({
             <Wand2 size={16} />
             <span className="hidden lg:inline">효과</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={selectedCount < 2}
+            onClick={onOpenSlideShow}
+            className="h-9 px-2 gap-1 text-sky-600 hover:text-sky-700 hover:bg-sky-50"
+            title={selectedCount < 2 ? '슬라이드 쇼 (2장 이상 선택 필요)' : '슬라이드 쇼 동영상 만들기'}
+          >
+            <Film size={16} />
+            <span className="hidden lg:inline">슬라이드 쇼</span>
+          </Button>
           <div className="w-px h-4 bg-gray-300 mx-0.5" />
           <Button
             variant="ghost"
@@ -360,6 +374,16 @@ export const ListToolbar = ({
               >
                 <Wand2 size={16} />
                 이미지 효과 주기
+              </button>
+
+              {/* 슬라이드 쇼 */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-sky-600 hover:bg-sky-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedCount < 2}
+                onClick={() => { onOpenSlideShow?.(); closeMenu(); }}
+              >
+                <Film size={16} />
+                슬라이드 쇼 만들기
               </button>
 
               <div className="h-px bg-gray-100 mx-3 my-1" />

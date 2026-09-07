@@ -24,6 +24,7 @@ import type { MergeOptions } from './components/MergeOptionsModal';
 import { GridContextMenu } from './components/GridContextMenu';
 import { CollageModal } from './components/CollageModal';
 import { ImageEffectModal } from './components/ImageEffectModal';
+import { SlideShowModal } from './components/SlideShowModal';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -43,6 +44,7 @@ const ImageListPage = () => {
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [isCollageModalOpen, setIsCollageModalOpen] = useState(false);
   const [isEffectModalOpen, setIsEffectModalOpen] = useState(false);
+  const [isSlideShowModalOpen, setIsSlideShowModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -416,6 +418,7 @@ const ImageListPage = () => {
         isDownloading={isDownloading}
         onOpenCollage={() => setIsCollageModalOpen(true)}
         onOpenEffect={() => setIsEffectModalOpen(true)}
+        onOpenSlideShow={() => setIsSlideShowModalOpen(true)}
         viewMode={viewMode}
         onViewModeChange={(mode) => {
           setViewMode(mode);
@@ -485,6 +488,7 @@ const ImageListPage = () => {
           isDownloading={isDownloading}
           onOpenCollage={() => setIsCollageModalOpen(true)}
           onOpenEffect={() => setIsEffectModalOpen(true)}
+          onOpenSlideShow={() => setIsSlideShowModalOpen(true)}
           onClose={() => setContextMenu(null)}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
@@ -539,6 +543,14 @@ const ImageListPage = () => {
         isOpen={isEffectModalOpen}
         onClose={() => setIsEffectModalOpen(false)}
         selectedImages={selectedImageObjects}
+        folderName={folderName}
+      />
+
+      <SlideShowModal
+        isOpen={isSlideShowModalOpen}
+        onClose={() => setIsSlideShowModalOpen(false)}
+        selectedImages={selectedImageObjects}
+        folderId={folderId ? parseInt(folderId, 10) : undefined}
         folderName={folderName}
       />
     </div>

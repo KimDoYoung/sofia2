@@ -10,6 +10,7 @@ import {
   Download,
   Sparkles,
   Wand2,
+  Film,
 } from 'lucide-react';
 import pdfIcon from '@/assets/icons/pdf.svg';
 
@@ -23,6 +24,7 @@ interface GridContextMenuProps {
   isDownloading: boolean;
   onOpenCollage: () => void;
   onOpenEffect?: () => void;
+  onOpenSlideShow?: () => void;
   onClose: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -43,6 +45,7 @@ export const GridContextMenu = ({
   isDownloading,
   onOpenCollage,
   onOpenEffect,
+  onOpenSlideShow,
   onClose,
   onSelectAll,
   onDeselectAll,
@@ -215,6 +218,19 @@ export const GridContextMenu = ({
       >
         <Wand2 size={16} />
         <span>이미지 효과 주기</span>
+      </button>
+
+      {/* 슬라이드 쇼 */}
+      <button
+        className="w-full flex items-center gap-3 px-3.5 py-2 text-sm text-sky-600 hover:bg-sky-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled={selectedCount < 2}
+        onClick={() => {
+          onOpenSlideShow?.();
+          onClose();
+        }}
+      >
+        <Film size={16} />
+        <span>슬라이드 쇼 만들기</span>
       </button>
 
       <div className="h-px bg-gray-100 my-1" />

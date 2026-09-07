@@ -189,6 +189,13 @@ const TopBar = () => {
           {name}님
         </span>
         <button
+          onClick={() => navigate('/settings')}
+          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors cursor-pointer"
+          title="설정"
+        >
+          <Settings size={18} />
+        </button>
+        <button
           onClick={handleLogout}
           className="text-sm px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg transition-colors"
         >

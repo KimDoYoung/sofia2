@@ -84,6 +84,11 @@ public class WebSecurityConfig {
                                         .permitAll()
                                         .requestMatchers("/api/images/**")
                                         .permitAll()
+                                        .requestMatchers(
+                                                "/api/assets/bgm/stream/**",
+                                                "/api/slideshow/stream/**",
+                                                "/api/slideshow/download/**")
+                                        .permitAll()
                                         .anyRequest()
                                         .authenticated());
 
