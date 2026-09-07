@@ -17,6 +17,8 @@ import { ListToolbar } from './components/ListToolbar';
 import { ImageGridView } from './components/ImageGridView';
 import { ImageListView } from './components/ImageListView';
 import { ExportOptionsModal } from './components/ExportOptionsModal';
+import { MergeOptionsModal } from './components/MergeOptionsModal';
+import type { MergeOptions } from './components/MergeOptionsModal';
 import { GridContextMenu } from './components/GridContextMenu';
 
 // Register AG Grid modules
@@ -32,7 +34,8 @@ const ImageListPage = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
-  const [exportModalType, setExportModalType] = useState<'pdf' | 'merge' | null>(null);
+  const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
+  const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -231,32 +234,41 @@ const ImageListPage = () => {
     }
   };
 
-  const handleMergeImages = async (options: { mode?: string; cols?: number | null; gap?: number }) => {
+  const handleMergeImages = async (options: MergeOptions) => {
     if (selectedIds.length === 0) return;
     setIsMerging(true);
     try {
-      const response = await apiClient.post('/images/export/merge', { 
-        ids: selectedIds,
-        mode: options.mode,
-        cols: options.cols,
-        gap: options.gap
-      }, {
-        responseType: 'blob'
-      });
-      
+      const response = await apiClient.post(
+        '/images/export/merge',
+        {
+          ids: selectedIds,
+          border: options.border,
+          borderWidth: options.borderWidth,
+          borderColor: options.borderColor,
+          cols: options.cols,
+          widthMode: options.widthMode,
+          customWidth: options.customWidth,
+          gapX: options.gapX,
+          gapY: options.gapY,
+        },
+        {
+          responseType: 'blob',
+        }
+      );
+
       const url = window.URL.createObjectURL(new Blob([response.data]));
       const link = document.createElement('a');
       link.href = url;
-      
+
       const contentDisposition = response.headers['content-disposition'];
       let filename = `sofia_merged_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.jpg`;
       if (contentDisposition) {
-        const filenameMatch = contentDisposition.match(/filename="(.+)"/);
+        const filenameMatch = contentDisposition.match(/filename="?([^";]+)"?/);
         if (filenameMatch && filenameMatch.length > 1) {
           filename = filenameMatch[1];
         }
       }
-      
+
       link.setAttribute('download', filename);
       document.body.appendChild(link);
       link.click();
@@ -264,7 +276,11 @@ const ImageListPage = () => {
       window.URL.revokeObjectURL(url);
       toast({ title: '성공', description: '병합 이미지가 생성되었습니다.' });
     } catch {
-      toast({ title: '오류', description: '이미지 병합 중 오류가 발생했습니다.', variant: 'destructive' });
+      toast({
+        title: '오류',
+        description: '이미지 병합 중 오류가 발생했습니다.',
+        variant: 'destructive',
+      });
     } finally {
       setIsMerging(false);
     }
@@ -282,9 +298,9 @@ const ImageListPage = () => {
         onDeselectAll={handleDeselectAll}
         onBulkRotate={handleBulkRotate}
         onBulkDelete={handleBulkDelete}
-        onExportPdf={() => setExportModalType('pdf')}
+        onExportPdf={() => setIsPdfModalOpen(true)}
         isExporting={isExporting}
-        onExportMerge={() => setExportModalType('merge')}
+        onExportMerge={() => setIsMergeModalOpen(true)}
         isMerging={isMerging}
         viewMode={viewMode}
         onViewModeChange={(mode) => {
@@ -356,8 +372,8 @@ const ImageListPage = () => {
           onDeselectAll={handleDeselectAll}
           onBulkRotate={handleBulkRotate}
           onBulkDelete={handleBulkDelete}
-          onExportPdf={() => setExportModalType('pdf')}
-          onExportMerge={() => setExportModalType('merge')}
+          onExportPdf={() => setIsPdfModalOpen(true)}
+          onExportMerge={() => setIsMergeModalOpen(true)}
           onScrollToTop={scrollToTop}
         />
       )}
@@ -373,17 +389,24 @@ const ImageListPage = () => {
       )}
 
       <ExportOptionsModal
-        isOpen={exportModalType !== null}
-        onClose={() => setExportModalType(null)}
-        type={exportModalType || 'pdf'}
-        isProcessing={isExporting || isMerging}
+        isOpen={isPdfModalOpen}
+        onClose={() => setIsPdfModalOpen(false)}
+        type="pdf"
+        isProcessing={isExporting}
         onConfirm={async (options) => {
-          if (exportModalType === 'pdf') {
-            await handleExportPdf(options);
-          } else {
-            await handleMergeImages(options);
-          }
-          setExportModalType(null);
+          await handleExportPdf(options);
+          setIsPdfModalOpen(false);
+        }}
+      />
+
+      <MergeOptionsModal
+        isOpen={isMergeModalOpen}
+        onClose={() => setIsMergeModalOpen(false)}
+        selectedCount={selectedIds.length}
+        isProcessing={isMerging}
+        onConfirm={async (options) => {
+          await handleMergeImages(options);
+          setIsMergeModalOpen(false);
         }}
       />
     </div>

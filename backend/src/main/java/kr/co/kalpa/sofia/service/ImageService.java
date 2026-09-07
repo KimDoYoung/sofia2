@@ -14,6 +14,7 @@ import java.util.UUID;
 import javax.imageio.ImageIO;
 import kr.co.kalpa.sofia.domain.ImageFile;
 import kr.co.kalpa.sofia.domain.ImageFolder;
+import kr.co.kalpa.sofia.dto.ImageExportRequest;
 import kr.co.kalpa.sofia.dto.ImageUpdateRequest;
 import kr.co.kalpa.sofia.repository.ImageFileRepository;
 import kr.co.kalpa.sofia.repository.ImageFolderRepository;
@@ -402,11 +403,215 @@ public class ImageService {
         }
     }
 
+    private static class ImageMergeItem {
+        Long id;
+        Path path;
+        int rotAngle;
+        int origW;
+        int origH;
+        int slotW;
+        int scaledW;
+        int scaledH;
+        int drawX;
+        int drawY;
+    }
+
+    private java.awt.Dimension getImageDimension(Path imagePath, int rotAngle) {
+        try (javax.imageio.stream.ImageInputStream in =
+                ImageIO.createImageInputStream(imagePath.toFile())) {
+            if (in != null) {
+                java.util.Iterator<javax.imageio.ImageReader> readers = ImageIO.getImageReaders(in);
+                if (readers.hasNext()) {
+                    javax.imageio.ImageReader reader = readers.next();
+                    try {
+                        reader.setInput(in);
+                        int w = reader.getWidth(0);
+                        int h = reader.getHeight(0);
+                        if (rotAngle == 90 || rotAngle == 270) {
+                            return new java.awt.Dimension(h, w);
+                        } else {
+                            return new java.awt.Dimension(w, h);
+                        }
+                    } finally {
+                        reader.dispose();
+                    }
+                }
+            }
+        } catch (Exception e) {
+            log.warn(
+                    "ImageReader failed for {}, falling back to ImageIO.read: {}",
+                    imagePath,
+                    e.getMessage());
+        }
+
+        try {
+            BufferedImage bi = ImageIO.read(imagePath.toFile());
+            if (bi != null) {
+                int w = bi.getWidth();
+                int h = bi.getHeight();
+                bi.flush();
+                if (rotAngle == 90 || rotAngle == 270) {
+                    return new java.awt.Dimension(h, w);
+                } else {
+                    return new java.awt.Dimension(w, h);
+                }
+            }
+        } catch (Exception e) {
+            log.error("Failed to read image dimension for {}: {}", imagePath, e.getMessage());
+        }
+        return null;
+    }
+
     public Path exportAsMergedImage(
             List<Long> ids, String mode, Integer colsParam, Integer gapParam) {
-        if (ids == null || ids.isEmpty()) {
+        ImageExportRequest req = new ImageExportRequest();
+        req.setIds(ids);
+        req.setMode(mode);
+        req.setCols(colsParam);
+        req.setGapX(gapParam);
+        req.setGapY(gapParam);
+        return exportAsMergedImage(req);
+    }
+
+    public Path exportAsMergedImage(ImageExportRequest request) {
+        if (request == null || request.getIds() == null || request.getIds().isEmpty()) {
             throw new IllegalArgumentException("No images selected for merge");
         }
+
+        List<Long> ids = request.getIds();
+        int cols = request.getCols() != null ? Math.max(1, Math.min(4, request.getCols())) : 2;
+        int gapX =
+                request.getGapX() != null
+                        ? Math.max(0, request.getGapX())
+                        : (request.getGap() != null ? Math.max(0, request.getGap()) : 0);
+        int gapY =
+                request.getGapY() != null
+                        ? Math.max(0, request.getGapY())
+                        : (request.getGap() != null ? Math.max(0, request.getGap()) : 0);
+
+        // 1. 이미지 메타데이터 및 유효 이미지 로드
+        List<ImageMergeItem> items = new java.util.ArrayList<>();
+        for (Long id : ids) {
+            ImageFile imageFile = findImageOrThrow(id);
+            if (imageFile.getFolder() == null) continue;
+
+            Path imagePath =
+                    Paths.get(
+                            baseImageFolder,
+                            imageFile.getFolder().getFolderName(),
+                            imageFile.getOrgName());
+
+            if (!Files.exists(imagePath)) {
+                log.warn("Image file not found for merge: {}", imagePath);
+                continue;
+            }
+
+            int rotAngle = imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
+            java.awt.Dimension dim = getImageDimension(imagePath, rotAngle);
+            if (dim == null || dim.width <= 0 || dim.height <= 0) {
+                log.warn("Invalid dimensions for image: {}", imagePath);
+                continue;
+            }
+
+            ImageMergeItem item = new ImageMergeItem();
+            item.id = id;
+            item.path = imagePath;
+            item.rotAngle = rotAngle;
+            item.origW = dim.width;
+            item.origH = dim.height;
+            items.add(item);
+        }
+
+        if (items.isEmpty()) {
+            throw new IllegalArgumentException("No valid images found for merge");
+        }
+
+        // 2. Row 그룹화 (지정된 cols 개수만큼 행으로 묶음)
+        List<List<ImageMergeItem>> rows = new java.util.ArrayList<>();
+        for (int i = 0; i < items.size(); i += cols) {
+            int end = Math.min(i + cols, items.size());
+            rows.add(new java.util.ArrayList<>(items.subList(i, end)));
+        }
+
+        // 3. 기준 너비 W 결정
+        String widthMode = request.getWidthMode() != null ? request.getWidthMode() : "A4";
+        int canvasWidth;
+        if ("original".equalsIgnoreCase(widthMode)) {
+            int maxRowOrigW = 0;
+            for (List<ImageMergeItem> row : rows) {
+                int rowW = 0;
+                for (ImageMergeItem it : row) {
+                    rowW += it.origW;
+                }
+                rowW += (row.size() - 1) * gapX;
+                if (rowW > maxRowOrigW) {
+                    maxRowOrigW = rowW;
+                }
+            }
+            canvasWidth = Math.max(200, maxRowOrigW);
+        } else if ("1900".equalsIgnoreCase(widthMode)) {
+            canvasWidth = 1900;
+        } else if ("custom".equalsIgnoreCase(widthMode)) {
+            canvasWidth =
+                    (request.getCustomWidth() != null && request.getCustomWidth() > 0)
+                            ? request.getCustomWidth()
+                            : 2048;
+        } else {
+            // A4: 2048px (사용자 요구사항 명시)
+            canvasWidth = 2048;
+        }
+
+        // 4. 각 Row 및 각 이미지의 크기와 위치 계산
+        int currentY = 0;
+        for (List<ImageMergeItem> row : rows) {
+            int k = row.size();
+            int availW = Math.max(k, canvasWidth - (k - 1) * gapX);
+            int baseSlotW = availW / k;
+            int remainder = availW % k;
+
+            int rowH = 0;
+            // 1단계: 각 이미지의 리사이즈 크기 계산
+            for (int j = 0; j < k; j++) {
+                ImageMergeItem it = row.get(j);
+                int slotW = baseSlotW + (j < remainder ? 1 : 0);
+                it.slotW = slotW;
+
+                // 원본 너비가 슬롯 너비보다 크면 축소, 작거나 같으면 원본 유지
+                if (it.origW > slotW) {
+                    it.scaledW = slotW;
+                    it.scaledH =
+                            Math.max(1, (int) Math.round((double) it.origH * slotW / it.origW));
+                } else {
+                    it.scaledW = it.origW;
+                    it.scaledH = it.origH;
+                }
+                if (it.scaledH > rowH) {
+                    rowH = it.scaledH;
+                }
+            }
+
+            // 2단계: 각 이미지의 X, Y 좌표 계산
+            int currentSlotX = 0;
+            for (int j = 0; j < k; j++) {
+                ImageMergeItem it = row.get(j);
+                // 슬롯 내 가로 중앙 정렬 (원본 유지 시 slotW보다 작은 경우 가운데 배치)
+                it.drawX = currentSlotX + (it.slotW - it.scaledW) / 2;
+                // 행 높이 내 세로 중앙 정렬
+                it.drawY = currentY + (rowH - it.scaledH) / 2;
+
+                currentSlotX += it.slotW + gapX;
+            }
+
+            currentY += rowH + gapY;
+        }
+
+        // 전체 캔버스 높이 (마지막 row 뒤의 gapY 제외)
+        int canvasHeight = Math.max(10, currentY - (rows.isEmpty() ? 0 : gapY));
+
+        // 5. 캔버스 생성 및 렌더링
+        BufferedImage mergedImage =
+                new BufferedImage(canvasWidth, canvasHeight, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g2d = mergedImage.createGraphics();
 
         Path tempFile;
         try {
@@ -416,155 +621,70 @@ public class ImageService {
                     "Failed to create temporary file for merged image export", e);
         }
 
-        int N = ids.size();
-        String activeMode = mode != null ? mode : "fitPage";
-        int cols, rows;
-        int canvasWidth, canvasHeight;
-        int cellWidth, cellHeight;
-
-        if ("scroll".equals(activeMode)) {
-            cols = colsParam != null && colsParam > 0 ? colsParam : 1;
-            rows = (int) Math.ceil((double) N / cols);
-            cellWidth = 1240;
-            cellHeight = 1754;
-            canvasWidth = cols * cellWidth;
-            canvasHeight = rows * cellHeight;
-        } else {
-            // fitPage
-            canvasWidth = 2480;
-            canvasHeight = 3508;
-            if (colsParam != null && colsParam > 0) {
-                cols = colsParam;
-            } else {
-                if (N == 1) {
-                    cols = 1;
-                } else if (N == 2) {
-                    cols = 1;
-                } else if (N <= 4) {
-                    cols = 2;
-                } else if (N <= 6) {
-                    cols = 2;
-                } else if (N <= 9) {
-                    cols = 3;
-                } else if (N <= 12) {
-                    cols = 3;
-                } else if (N <= 16) {
-                    cols = 4;
-                } else if (N <= 20) {
-                    cols = 4;
-                } else if (N <= 25) {
-                    cols = 5;
-                } else if (N <= 30) {
-                    cols = 5;
-                } else {
-                    cols = (int) Math.ceil(Math.sqrt(N / 1.414));
-                }
-            }
-            rows = (int) Math.ceil((double) N / cols);
-            cellWidth = canvasWidth / cols;
-            cellHeight = rows > 0 ? canvasHeight / rows : canvasHeight;
-        }
-
-        int gap = gapParam != null ? gapParam : 2;
-        int padding = gap / 2;
-
-        BufferedImage mergedImage =
-                new BufferedImage(canvasWidth, canvasHeight, BufferedImage.TYPE_INT_RGB);
-        Graphics2D g2d = mergedImage.createGraphics();
-        List<Path> tempImages = new java.util.ArrayList<>();
-
         try {
-            // Fill background with white
             g2d.setColor(Color.WHITE);
             g2d.fillRect(0, 0, canvasWidth, canvasHeight);
 
-            // High-quality rendering settings
             g2d.setRenderingHint(
                     RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BILINEAR);
             g2d.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
             g2d.setRenderingHint(
                     RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
 
-            for (int i = 0; i < N; i++) {
-                Long id = ids.get(i);
-                ImageFile imageFile = findImageOrThrow(id);
-                if (imageFile.getFolder() == null) continue;
-
-                Path imagePath =
-                        Paths.get(
-                                baseImageFolder,
-                                imageFile.getFolder().getFolderName(),
-                                imageFile.getOrgName());
-
-                if (!Files.exists(imagePath)) {
-                    log.warn("Image file not found for merge: {}", imagePath);
-                    continue;
-                }
-
+            boolean applyBorder = Boolean.TRUE.equals(request.getBorder());
+            int bWidth =
+                    (request.getBorderWidth() != null
+                                    && request.getBorderWidth() >= 1
+                                    && request.getBorderWidth() <= 4)
+                            ? request.getBorderWidth()
+                            : 1;
+            Color bColor = Color.BLACK;
+            if (request.getBorderColor() != null
+                    && request.getBorderColor().trim().startsWith("#")) {
                 try {
-                    int colIdx = i % cols;
-                    int rowIdx = i / cols;
+                    bColor = Color.decode(request.getBorderColor().trim());
+                } catch (Exception ignored) {
+                }
+            }
 
-                    int x = colIdx * cellWidth + padding;
-                    int y = rowIdx * cellHeight + padding;
-                    int w = cellWidth - 2 * padding;
-                    int h = cellHeight - 2 * padding;
+            for (ImageMergeItem it : items) {
+                try {
+                    BufferedImage scaled =
+                            Thumbnails.of(it.path.toFile())
+                                    .rotate(it.rotAngle)
+                                    .forceSize(it.scaledW, it.scaledH)
+                                    .asBufferedImage();
 
-                    int rotAngle =
-                            imageFile.getRotationAngle() != null ? imageFile.getRotationAngle() : 0;
+                    g2d.drawImage(scaled, it.drawX, it.drawY, null);
+                    scaled.flush();
 
-                    // 1. Create a scaled temporary image file in tmp
-                    Path scaledTempFile = Files.createTempFile("sofia_scaled_merge_", ".jpg");
-                    tempImages.add(scaledTempFile);
-
-                    // Scale keeping aspect ratio (contain)
-                    Thumbnails.of(imagePath.toFile())
-                            .size(w, h)
-                            .rotate(rotAngle)
-                            .outputFormat("jpg")
-                            .toFile(scaledTempFile.toFile());
-
-                    // 2. Read the scaled temporary image
-                    BufferedImage img = ImageIO.read(scaledTempFile.toFile());
-                    if (img == null) {
-                        log.warn("Could not read scaled image for merge: {}", scaledTempFile);
-                        continue;
+                    if (applyBorder) {
+                        g2d.setColor(bColor);
+                        for (int b = 0; b < bWidth; b++) {
+                            g2d.drawRect(
+                                    it.drawX + b,
+                                    it.drawY + b,
+                                    it.scaledW - 1 - (2 * b),
+                                    it.scaledH - 1 - (2 * b));
+                        }
                     }
-
-                    // Draw centered inside the cell (no crop, no distortion)
-                    int drawX = x + (w - img.getWidth()) / 2;
-                    int drawY = y + (h - img.getHeight()) / 2;
-
-                    g2d.drawImage(img, drawX, drawY, null);
                 } catch (Exception e) {
-                    log.error(
-                            "Error drawing image {} to merged canvas: {}",
-                            imagePath,
-                            e.getMessage());
+                    log.error("Failed to render image {} to canvas: {}", it.path, e.getMessage());
                 }
             }
         } finally {
             g2d.dispose();
-            // Clean up temporary scaled images
-            for (Path p : tempImages) {
-                try {
-                    Files.deleteIfExists(p);
-                } catch (IOException ex) {
-                    log.warn("Failed to delete temporary scaled image: {}", p, ex);
-                }
-            }
         }
 
         try {
-            // Write output as JPEG
             ImageIO.write(mergedImage, "jpg", tempFile.toFile());
+            mergedImage.flush();
             return tempFile;
         } catch (IOException e) {
             log.error("Failed to save merged image: {}", e.getMessage());
             try {
                 Files.deleteIfExists(tempFile);
-            } catch (IOException ex) {
-                // Ignore
+            } catch (IOException ignored) {
             }
             throw new RuntimeException("Failed to generate merged image export", e);
         }

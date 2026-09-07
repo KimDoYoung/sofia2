@@ -153,9 +153,7 @@ public class ImageController {
     @PostMapping("/export/merge")
     public ResponseEntity<Resource> exportToMergedImage(@RequestBody ImageExportRequest request)
             throws IOException {
-        Path mergedImagePath =
-                imageService.exportAsMergedImage(
-                        request.getIds(), request.getMode(), request.getCols(), request.getGap());
+        Path mergedImagePath = imageService.exportAsMergedImage(request);
 
         String filename =
                 "sofia_merged_"
