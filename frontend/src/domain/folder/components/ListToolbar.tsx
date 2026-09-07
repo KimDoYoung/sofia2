@@ -15,6 +15,7 @@ import {
   Layers,
   Download,
   Sparkles,
+  Wand2,
 } from 'lucide-react';
 import pdfIcon from '@/assets/icons/pdf.svg';
 import { useState, useRef, useEffect } from 'react';
@@ -35,6 +36,7 @@ interface ListToolbarProps {
   onDownload: () => void;
   isDownloading: boolean;
   onOpenCollage: () => void;
+  onOpenEffect?: () => void;
   viewMode: 'thumb' | 'smallThumb' | 'list';
   onViewModeChange: (mode: 'thumb' | 'smallThumb' | 'list') => void;
 }
@@ -54,6 +56,7 @@ export const ListToolbar = ({
   onDownload,
   isDownloading,
   onOpenCollage,
+  onOpenEffect,
   viewMode,
   onViewModeChange,
 }: ListToolbarProps) => {
@@ -213,6 +216,17 @@ export const ListToolbar = ({
             <Sparkles size={16} />
             <span className="hidden lg:inline">콜라쥬</span>
           </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={selectedCount === 0}
+            onClick={onOpenEffect}
+            className="h-9 px-2 gap-1 text-fuchsia-600 hover:text-fuchsia-700 hover:bg-fuchsia-50"
+            title={selectedCount === 0 ? '효과 (이미지 선택 필요)' : '이미지 효과 적용 (15종)'}
+          >
+            <Wand2 size={16} />
+            <span className="hidden lg:inline">효과</span>
+          </Button>
           <div className="w-px h-4 bg-gray-300 mx-0.5" />
           <Button
             variant="ghost"
@@ -336,6 +350,16 @@ export const ListToolbar = ({
               >
                 <Sparkles size={16} />
                 콜라쥬 만들기
+              </button>
+
+              {/* 이미지 효과 */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-fuchsia-600 hover:bg-fuchsia-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedCount === 0}
+                onClick={() => { onOpenEffect?.(); closeMenu(); }}
+              >
+                <Wand2 size={16} />
+                이미지 효과 주기
               </button>
 
               <div className="h-px bg-gray-100 mx-3 my-1" />

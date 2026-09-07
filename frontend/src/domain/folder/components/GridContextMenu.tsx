@@ -9,6 +9,7 @@ import {
   ArrowUp,
   Download,
   Sparkles,
+  Wand2,
 } from 'lucide-react';
 import pdfIcon from '@/assets/icons/pdf.svg';
 
@@ -21,6 +22,7 @@ interface GridContextMenuProps {
   onDownload: () => void;
   isDownloading: boolean;
   onOpenCollage: () => void;
+  onOpenEffect?: () => void;
   onClose: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -40,6 +42,7 @@ export const GridContextMenu = ({
   onDownload,
   isDownloading,
   onOpenCollage,
+  onOpenEffect,
   onClose,
   onSelectAll,
   onDeselectAll,
@@ -199,6 +202,19 @@ export const GridContextMenu = ({
       >
         <Sparkles size={16} />
         <span>콜라쥬 만들기</span>
+      </button>
+
+      {/* 이미지 효과 */}
+      <button
+        className="w-full flex items-center gap-3 px-3.5 py-2 text-sm text-fuchsia-600 hover:bg-fuchsia-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled={!anySelected}
+        onClick={() => {
+          onOpenEffect?.();
+          onClose();
+        }}
+      >
+        <Wand2 size={16} />
+        <span>이미지 효과 주기</span>
       </button>
 
       <div className="h-px bg-gray-100 my-1" />

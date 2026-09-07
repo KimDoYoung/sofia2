@@ -23,6 +23,7 @@ import { MergeOptionsModal } from './components/MergeOptionsModal';
 import type { MergeOptions } from './components/MergeOptionsModal';
 import { GridContextMenu } from './components/GridContextMenu';
 import { CollageModal } from './components/CollageModal';
+import { ImageEffectModal } from './components/ImageEffectModal';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -41,6 +42,7 @@ const ImageListPage = () => {
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
   const [isCollageModalOpen, setIsCollageModalOpen] = useState(false);
+  const [isEffectModalOpen, setIsEffectModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -413,6 +415,7 @@ const ImageListPage = () => {
         onDownload={handleDownload}
         isDownloading={isDownloading}
         onOpenCollage={() => setIsCollageModalOpen(true)}
+        onOpenEffect={() => setIsEffectModalOpen(true)}
         viewMode={viewMode}
         onViewModeChange={(mode) => {
           setViewMode(mode);
@@ -481,6 +484,7 @@ const ImageListPage = () => {
           onDownload={handleDownload}
           isDownloading={isDownloading}
           onOpenCollage={() => setIsCollageModalOpen(true)}
+          onOpenEffect={() => setIsEffectModalOpen(true)}
           onClose={() => setContextMenu(null)}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
@@ -527,6 +531,13 @@ const ImageListPage = () => {
       <CollageModal
         isOpen={isCollageModalOpen}
         onClose={() => setIsCollageModalOpen(false)}
+        selectedImages={selectedImageObjects}
+        folderName={folderName}
+      />
+
+      <ImageEffectModal
+        isOpen={isEffectModalOpen}
+        onClose={() => setIsEffectModalOpen(false)}
         selectedImages={selectedImageObjects}
         folderName={folderName}
       />
