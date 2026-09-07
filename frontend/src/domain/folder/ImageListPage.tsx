@@ -1,5 +1,6 @@
 import { useParams, useNavigate } from 'react-router-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import axios from 'axios';
 import { apiClient } from '@/lib/api';
 import { useState, useRef, useEffect, useMemo } from 'react';
 
@@ -21,6 +22,7 @@ import type { PdfExportOptions } from './components/PdfOptionsModal';
 import { MergeOptionsModal } from './components/MergeOptionsModal';
 import type { MergeOptions } from './components/MergeOptionsModal';
 import { GridContextMenu } from './components/GridContextMenu';
+import { CollageModal } from './components/CollageModal';
 
 // Register AG Grid modules
 ModuleRegistry.registerModules([AllCommunityModule]);
@@ -35,8 +37,10 @@ const ImageListPage = () => {
   const [selectedIds, setSelectedIds] = useState<number[]>([]);
   const [isExporting, setIsExporting] = useState(false);
   const [isMerging, setIsMerging] = useState(false);
+  const [isDownloading, setIsDownloading] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [isCollageModalOpen, setIsCollageModalOpen] = useState(false);
   const [refreshKey, setRefreshKey] = useState(Date.now());
   const [showScrollTop, setShowScrollTop] = useState(false);
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null);
@@ -75,6 +79,12 @@ const ImageListPage = () => {
       img.orgName.toLowerCase().includes(searchQuery.toLowerCase())
     );
   }, [images, searchQuery]);
+
+  const selectedImageObjects = useMemo(() => {
+    if (!images) return [];
+    const map = new Map(images.map(img => [img.id, img]));
+    return selectedIds.map(id => map.get(id)).filter((img): img is ImageFile => !!img);
+  }, [images, selectedIds]);
 
   const { data: folders } = useQuery<{ id: number; folderName: string }[]>({
     queryKey: ['folders'],
@@ -301,6 +311,89 @@ const ImageListPage = () => {
     }
   };
 
+  const getFilenameFromContentDisposition = (disposition: string | undefined, defaultFilename: string) => {
+    if (!disposition) return defaultFilename;
+    const utf8Match = disposition.match(/filename\*=UTF-8''([^;]+)/i);
+    if (utf8Match && utf8Match[1]) {
+      try {
+        return decodeURIComponent(utf8Match[1]);
+      } catch {
+        // ignore
+      }
+    }
+    const regularMatch = disposition.match(/filename="?([^";]+)"?/);
+    if (regularMatch && regularMatch[1]) {
+      return regularMatch[1];
+    }
+    return defaultFilename;
+  };
+
+  const triggerBlobDownload = (blobData: BlobPart, filename: string) => {
+    const url = window.URL.createObjectURL(new Blob([blobData]));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', filename);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
+  };
+
+  const handleDownload = async () => {
+    if (selectedIds.length === 0) return;
+    setIsDownloading(true);
+    try {
+      if (selectedIds.length === 1) {
+        const id = selectedIds[0];
+        const currentImg = images?.find(img => img.id === id);
+        const fallbackName = currentImg?.orgName || `image_${id}.jpg`;
+
+        const response = await apiClient.get(`/images/${id}/download`, {
+          responseType: 'blob',
+        });
+
+        const disposition = response.headers['content-disposition'];
+        const filename = getFilenameFromContentDisposition(disposition, fallbackName);
+
+        triggerBlobDownload(response.data, filename);
+        toast({ title: '성공', description: `${filename} 다운로드가 완료되었습니다.` });
+      } else {
+        const response = await apiClient.post(
+          '/images/export/zip',
+          { ids: selectedIds },
+          { responseType: 'blob' }
+        );
+
+        const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_');
+        const fallbackZipName = `${folderName || 'sofia'}_images_${timestamp}.zip`;
+        const disposition = response.headers['content-disposition'];
+        const filename = getFilenameFromContentDisposition(disposition, fallbackZipName);
+
+        triggerBlobDownload(response.data, filename);
+        toast({ title: '성공', description: `${selectedIds.length}개의 이미지를 ZIP으로 다운로드했습니다.` });
+      }
+    } catch (error: unknown) {
+      console.error('Download failed:', error);
+      let errorMsg = '다운로드 중 오류가 발생했습니다.';
+      if (axios.isAxiosError(error) && error.response?.data instanceof Blob) {
+        try {
+          const text = await error.response.data.text();
+          const json = JSON.parse(text);
+          if (json.message) errorMsg = json.message;
+        } catch {
+          // ignore
+        }
+      }
+      toast({
+        title: '오류',
+        description: errorMsg,
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDownloading(false);
+    }
+  };
+
   if (isLoading) return <div className="p-8 text-center">Loading images...</div>;
 
   return (
@@ -317,6 +410,9 @@ const ImageListPage = () => {
         isExporting={isExporting}
         onExportMerge={() => setIsMergeModalOpen(true)}
         isMerging={isMerging}
+        onDownload={handleDownload}
+        isDownloading={isDownloading}
+        onOpenCollage={() => setIsCollageModalOpen(true)}
         viewMode={viewMode}
         onViewModeChange={(mode) => {
           setViewMode(mode);
@@ -382,6 +478,9 @@ const ImageListPage = () => {
           selectedCount={selectedIds.length}
           isExporting={isExporting}
           isMerging={isMerging}
+          onDownload={handleDownload}
+          isDownloading={isDownloading}
+          onOpenCollage={() => setIsCollageModalOpen(true)}
           onClose={() => setContextMenu(null)}
           onSelectAll={handleSelectAll}
           onDeselectAll={handleDeselectAll}
@@ -423,6 +522,13 @@ const ImageListPage = () => {
           await handleMergeImages(options);
           setIsMergeModalOpen(false);
         }}
+      />
+
+      <CollageModal
+        isOpen={isCollageModalOpen}
+        onClose={() => setIsCollageModalOpen(false)}
+        selectedImages={selectedImageObjects}
+        folderName={folderName}
       />
     </div>
   );

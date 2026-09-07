@@ -7,6 +7,8 @@ import {
   Trash2,
   Layers,
   ArrowUp,
+  Download,
+  Sparkles,
 } from 'lucide-react';
 import pdfIcon from '@/assets/icons/pdf.svg';
 
@@ -16,6 +18,9 @@ interface GridContextMenuProps {
   selectedCount: number;
   isExporting: boolean;
   isMerging: boolean;
+  onDownload: () => void;
+  isDownloading: boolean;
+  onOpenCollage: () => void;
   onClose: () => void;
   onSelectAll: () => void;
   onDeselectAll: () => void;
@@ -32,6 +37,9 @@ export const GridContextMenu = ({
   selectedCount,
   isExporting,
   isMerging,
+  onDownload,
+  isDownloading,
+  onOpenCollage,
   onClose,
   onSelectAll,
   onDeselectAll,
@@ -180,9 +188,47 @@ export const GridContextMenu = ({
         <span>{isMerging ? '병합 중...' : 'Merge 이미지'}</span>
       </button>
 
+      {/* 콜라쥬 */}
+      <button
+        className="w-full flex items-center gap-3 px-3.5 py-2 text-sm text-violet-600 hover:bg-violet-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled={selectedCount < 2}
+        onClick={() => {
+          onOpenCollage();
+          onClose();
+        }}
+      >
+        <Sparkles size={16} />
+        <span>콜라쥬 만들기</span>
+      </button>
+
       <div className="h-px bg-gray-100 my-1" />
 
-      {/* 7. 맨 위로 가기 */}
+      {/* 7. 다운로드 (단일 / ZIP) */}
+      <button
+        className="w-full flex items-center gap-3 px-3.5 py-2 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+        disabled={!anySelected || isDownloading}
+        onClick={() => {
+          onDownload();
+          onClose();
+        }}
+      >
+        {isDownloading ? (
+          <div className="h-4 w-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <Download size={16} />
+        )}
+        <span>
+          {isDownloading
+            ? '다운로드 중...'
+            : selectedCount > 1
+            ? `ZIP 다운로드 (${selectedCount})`
+            : '다운로드'}
+        </span>
+      </button>
+
+      <div className="h-px bg-gray-100 my-1" />
+
+      {/* 8. 맨 위로 가기 */}
       <button
         className="w-full flex items-center gap-3 px-3.5 py-2 text-sm text-gray-700 hover:bg-gray-100/80 transition-colors"
         onClick={() => {
@@ -196,3 +242,4 @@ export const GridContextMenu = ({
     </div>
   );
 };
+

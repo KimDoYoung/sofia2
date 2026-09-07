@@ -183,6 +183,89 @@ public class ImageController {
                 .body(resource);
     }
 
+    @GetMapping("/{id}/download")
+    public ResponseEntity<Resource> downloadImage(@PathVariable Long id) throws IOException {
+        ImageFile file = findImageOrThrow(id);
+
+        if (file.getFolder() == null) {
+            throw new RuntimeException("Image file has no associated folder: " + id);
+        }
+
+        Path path = Paths.get(baseImageFolder, file.getFolder().getFolderName(), file.getOrgName());
+
+        if (!Files.exists(path)) {
+            log.error("Image file not found on disk: {}", path);
+            return ResponseEntity.notFound().build();
+        }
+
+        String mimeType = Files.probeContentType(path);
+        MediaType contentType =
+                MediaType.parseMediaType(mimeType != null ? mimeType : "application/octet-stream");
+
+        org.springframework.http.ContentDisposition contentDisposition =
+                org.springframework.http.ContentDisposition.attachment()
+                        .filename(file.getOrgName(), java.nio.charset.StandardCharsets.UTF_8)
+                        .build();
+
+        if (file.getRotationAngle() != null && file.getRotationAngle() != 0) {
+            byte[] rotatedBytes = imageService.getRotatedImageBytes(file);
+            Resource resource = new org.springframework.core.io.ByteArrayResource(rotatedBytes);
+            return ResponseEntity.ok()
+                    .header(
+                            org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                            contentDisposition.toString())
+                    .contentType(contentType)
+                    .body(resource);
+        }
+
+        return ResponseEntity.ok()
+                .header(
+                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        contentDisposition.toString())
+                .contentType(contentType)
+                .body(new FileSystemResource(path));
+    }
+
+    @PostMapping("/export/zip")
+    public ResponseEntity<Resource> exportToZip(@RequestBody ImageExportRequest request)
+            throws IOException {
+        Path zipPath = imageService.exportAsZip(request);
+
+        String filename =
+                "sofia_images_"
+                        + LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
+                        + ".zip";
+
+        org.springframework.http.ContentDisposition contentDisposition =
+                org.springframework.http.ContentDisposition.attachment()
+                        .filename(filename, java.nio.charset.StandardCharsets.UTF_8)
+                        .build();
+
+        Resource resource =
+                new FileSystemResource(zipPath) {
+                    @Override
+                    public InputStream getInputStream() throws IOException {
+                        return new java.io.FileInputStream(zipPath.toFile()) {
+                            @Override
+                            public void close() throws IOException {
+                                try {
+                                    super.close();
+                                } finally {
+                                    Files.deleteIfExists(zipPath);
+                                }
+                            }
+                        };
+                    }
+                };
+
+        return ResponseEntity.ok()
+                .header(
+                        org.springframework.http.HttpHeaders.CONTENT_DISPOSITION,
+                        contentDisposition.toString())
+                .contentType(MediaType.parseMediaType("application/zip"))
+                .body(resource);
+    }
+
     private ImageFile findImageOrThrow(Long id) {
         return fileRepository
                 .findById(id)

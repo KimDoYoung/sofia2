@@ -13,6 +13,8 @@ import {
   Search,
   X,
   Layers,
+  Download,
+  Sparkles,
 } from 'lucide-react';
 import pdfIcon from '@/assets/icons/pdf.svg';
 import { useState, useRef, useEffect } from 'react';
@@ -30,6 +32,9 @@ interface ListToolbarProps {
   isExporting: boolean;
   onExportMerge: () => void;
   isMerging: boolean;
+  onDownload: () => void;
+  isDownloading: boolean;
+  onOpenCollage: () => void;
   viewMode: 'thumb' | 'smallThumb' | 'list';
   onViewModeChange: (mode: 'thumb' | 'smallThumb' | 'list') => void;
 }
@@ -46,6 +51,9 @@ export const ListToolbar = ({
   isExporting,
   onExportMerge,
   isMerging,
+  onDownload,
+  isDownloading,
+  onOpenCollage,
   viewMode,
   onViewModeChange,
 }: ListToolbarProps) => {
@@ -85,7 +93,7 @@ export const ListToolbar = ({
         <h2 className="text-2xl font-bold text-gray-800">{folderName ?? '이미지 목록'}</h2>
       </div>
 
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-2">
         {/* ── 검색바 ── */}
         <div className="relative hidden sm:flex items-center bg-gray-50 p-1 rounded-lg border shadow-sm">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
@@ -107,14 +115,14 @@ export const ListToolbar = ({
         </div>
 
         {/* ── Desktop: Control Box (md 이상에서만 표시) ── */}
-        <div className="hidden md:flex bg-gray-50 p-1 rounded-lg border items-center gap-1 shadow-sm">
+        <div className="hidden md:flex bg-gray-50 p-1 rounded-lg border items-center gap-0.5 shadow-sm">
           {/* 전체 선택 / 해제 토글 */}
-          <div className="flex items-center gap-1">
+          <div className="flex items-center gap-0.5">
             <Button
               variant="ghost"
               size="sm"
               onClick={anySelected ? onDeselectAll : onSelectAll}
-              className={`h-9 px-3 gap-2 ${anySelected
+              className={`h-9 px-2 gap-1.5 ${anySelected
                 ? 'text-green-600 hover:text-green-700 hover:bg-green-50'
                 : 'text-gray-500 hover:text-gray-700 hover:bg-gray-100'
                 }`}
@@ -123,19 +131,19 @@ export const ListToolbar = ({
               {anySelected ? <CheckSquare size={16} /> : <Square size={16} />}
             </Button>
             {anySelected && (
-              <span className="text-xs font-bold px-2.5 py-0.5 bg-green-100 text-green-700 rounded-full mr-1 shrink-0 animate-in fade-in zoom-in duration-150">
-                {selectedCount}개 선택
+              <span className="text-xs font-bold px-1.5 py-0.5 bg-green-100 text-green-700 rounded-full mr-0.5 shrink-0 animate-in fade-in zoom-in duration-150">
+                {selectedCount}개
               </span>
             )}
           </div>
-          <div className="w-px h-4 bg-gray-300 mx-1" />
+          <div className="w-px h-4 bg-gray-300 mx-0.5" />
 
           <Button
             variant="ghost"
             size="sm"
             disabled={viewMode === 'list' || selectedCount === 0}
             onClick={() => onBulkRotate(90)}
-            className="h-9 px-3 gap-2 text-gray-600"
+            className="h-9 px-2 gap-1 text-gray-600"
             title="90도 시계방향 회전"
           >
             <RotateCw size={16} />
@@ -146,30 +154,30 @@ export const ListToolbar = ({
             size="sm"
             disabled={viewMode === 'list' || selectedCount === 0}
             onClick={() => onBulkRotate(-90)}
-            className="h-9 px-3 gap-2 text-gray-600"
+            className="h-9 px-2 gap-1 text-gray-600"
             title="90도 반시계방향 회전"
           >
             <RotateCcw size={16} />
             <span className="hidden lg:inline">-90°</span>
           </Button>
-          <div className="w-px h-4 bg-gray-300 mx-1" />
+          <div className="w-px h-4 bg-gray-300 mx-0.5" />
           <Button
             variant="ghost"
             size="sm"
             disabled={selectedCount === 0}
             onClick={onBulkDelete}
-            className="h-9 px-3 gap-2 text-red-600 hover:text-red-700 hover:bg-red-50"
+            className="h-9 px-2 gap-1 text-red-600 hover:text-red-700 hover:bg-red-50"
             title="삭제"
           >
             <Trash2 size={16} />
           </Button>
-          <div className="w-px h-4 bg-gray-300 mx-1" />
+          <div className="w-px h-4 bg-gray-300 mx-0.5" />
           <Button
             variant="ghost"
             size="sm"
             disabled={selectedCount === 0 || isExporting}
             onClick={onExportPdf}
-            className="h-9 px-3 gap-2 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
+            className="h-9 px-2 gap-1 text-blue-600 hover:text-blue-700 hover:bg-blue-50"
             title="PDF로 다운로드"
           >
             {isExporting ? (
@@ -184,7 +192,7 @@ export const ListToolbar = ({
             size="sm"
             disabled={selectedCount === 0 || isMerging}
             onClick={onExportMerge}
-            className="h-9 px-3 gap-2 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
+            className="h-9 px-2 gap-1 text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50"
             title="한 장의 이미지로 병합 다운로드"
           >
             {isMerging ? (
@@ -193,6 +201,41 @@ export const ListToolbar = ({
               <Layers size={16} />
             )}
             <span className="hidden lg:inline">{isMerging ? '병합 중...' : 'Merge'}</span>
+          </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={selectedCount < 2}
+            onClick={onOpenCollage}
+            className="h-9 px-2 gap-1 text-violet-600 hover:text-violet-700 hover:bg-violet-50"
+            title={selectedCount < 2 ? '콜라쥬 (2장 이상 선택 필요)' : '감성 콜라쥬 만들기'}
+          >
+            <Sparkles size={16} />
+            <span className="hidden lg:inline">콜라쥬</span>
+          </Button>
+          <div className="w-px h-4 bg-gray-300 mx-0.5" />
+          <Button
+            variant="ghost"
+            size="sm"
+            disabled={selectedCount === 0 || isDownloading}
+            onClick={onDownload}
+            className="h-9 px-2 gap-1 text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+            title={
+              selectedCount === 0
+                ? '다운로드 (선택된 이미지 없음)'
+                : selectedCount === 1
+                ? '단일 이미지 다운로드'
+                : `${selectedCount}개 압축 다운로드 (ZIP)`
+            }
+          >
+            {isDownloading ? (
+              <div className="h-4 w-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+            ) : (
+              <Download size={16} />
+            )}
+            <span className="hidden lg:inline">
+              {isDownloading ? '다운 중...' : selectedCount > 1 ? 'ZIP' : '다운로드'}
+            </span>
           </Button>
         </div>
 
@@ -284,17 +327,47 @@ export const ListToolbar = ({
                 )}
                 {isMerging ? '병합 중...' : 'Merge 이미지'}
               </button>
+
+              {/* 콜라쥬 */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-violet-600 hover:bg-violet-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedCount < 2}
+                onClick={() => { onOpenCollage(); closeMenu(); }}
+              >
+                <Sparkles size={16} />
+                콜라쥬 만들기
+              </button>
+
+              <div className="h-px bg-gray-100 mx-3 my-1" />
+
+              {/* 다운로드 */}
+              <button
+                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-emerald-600 hover:bg-emerald-50 transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                disabled={selectedCount === 0 || isDownloading}
+                onClick={() => { onDownload(); closeMenu(); }}
+              >
+                {isDownloading ? (
+                  <div className="h-4 w-4 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                ) : (
+                  <Download size={16} />
+                )}
+                {isDownloading
+                  ? '다운로드 중...'
+                  : selectedCount > 1
+                  ? `ZIP 다운로드 (${selectedCount})`
+                  : '다운로드'}
+              </button>
             </div>
           )}
         </div>
 
         {/* ── 뷰 모드 (항상 표시) ── */}
-        <div className="flex bg-gray-100 p-1 rounded-lg border shadow-sm">
+        <div className="flex bg-gray-100 p-0.5 rounded-lg border gap-0.5 shadow-sm">
           <Button
             variant={viewMode === 'smallThumb' ? 'secondary' : 'ghost'}
             size="icon"
             onClick={() => onViewModeChange('smallThumb')}
-            className={viewMode === 'smallThumb' ? 'bg-white shadow-sm' : ''}
+            className={`h-8 w-8 ${viewMode === 'smallThumb' ? 'bg-white shadow-sm' : ''}`}
           >
             <LayoutGrid size={12} />
           </Button>
@@ -302,7 +375,7 @@ export const ListToolbar = ({
             variant={viewMode === 'thumb' ? 'secondary' : 'ghost'}
             size="icon"
             onClick={() => onViewModeChange('thumb')}
-            className={viewMode === 'thumb' ? 'bg-white shadow-sm' : ''}
+            className={`h-8 w-8 ${viewMode === 'thumb' ? 'bg-white shadow-sm' : ''}`}
           >
             <LayoutGrid size={20} />
           </Button>
@@ -310,7 +383,7 @@ export const ListToolbar = ({
             variant={viewMode === 'list' ? 'secondary' : 'ghost'}
             size="icon"
             onClick={() => onViewModeChange('list')}
-            className={viewMode === 'list' ? 'bg-white shadow-sm' : ''}
+            className={`h-8 w-8 ${viewMode === 'list' ? 'bg-white shadow-sm' : ''}`}
           >
             <ListIcon size={20} />
           </Button>

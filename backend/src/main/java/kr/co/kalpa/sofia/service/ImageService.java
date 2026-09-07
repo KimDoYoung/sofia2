@@ -867,4 +867,83 @@ public class ImageService {
         ImageIO.write(rotated, format, baos);
         return baos.toByteArray();
     }
+
+    public Path exportAsZip(ImageExportRequest request) throws IOException {
+        List<Long> ids = request.getIds();
+        if (ids == null || ids.isEmpty()) {
+            throw new IllegalArgumentException("No images selected for zip export");
+        }
+
+        List<ImageFile> files = imageFileRepository.findAllById(ids);
+        java.util.Map<Long, ImageFile> fileMap =
+                files.stream().collect(java.util.stream.Collectors.toMap(ImageFile::getId, f -> f));
+
+        Path tempZip = Files.createTempFile("sofia_export_", ".zip");
+
+        try (java.util.zip.ZipOutputStream zos =
+                new java.util.zip.ZipOutputStream(
+                        new java.io.BufferedOutputStream(Files.newOutputStream(tempZip)))) {
+
+            java.util.Set<String> usedNames = new java.util.HashSet<>();
+
+            for (Long id : ids) {
+                ImageFile file = fileMap.get(id);
+                if (file == null || file.getFolder() == null) {
+                    continue;
+                }
+
+                String baseName = file.getOrgName();
+                if (baseName == null || baseName.trim().isEmpty()) {
+                    baseName =
+                            "image_"
+                                    + file.getId()
+                                    + "."
+                                    + (file.getImageFormat() != null
+                                            ? file.getImageFormat()
+                                            : "jpg");
+                }
+
+                String entryName = baseName;
+                int counter = 1;
+                int dotIdx = baseName.lastIndexOf('.');
+                String nameOnly = (dotIdx != -1) ? baseName.substring(0, dotIdx) : baseName;
+                String extOnly = (dotIdx != -1) ? baseName.substring(dotIdx) : "";
+
+                while (usedNames.contains(entryName)) {
+                    entryName = nameOnly + " (" + counter + ")" + extOnly;
+                    counter++;
+                }
+                usedNames.add(entryName);
+
+                java.util.zip.ZipEntry entry = new java.util.zip.ZipEntry(entryName);
+                zos.putNextEntry(entry);
+
+                if (file.getRotationAngle() != null && file.getRotationAngle() != 0) {
+                    byte[] rotated = getRotatedImageBytes(file);
+                    zos.write(rotated);
+                } else {
+                    Path rawPath =
+                            Paths.get(
+                                    baseImageFolder,
+                                    file.getFolder().getFolderName(),
+                                    file.getOrgName());
+                    if (Files.exists(rawPath)) {
+                        Files.copy(rawPath, zos);
+                    } else {
+                        log.warn("Image file not found on disk for zip export: {}", rawPath);
+                    }
+                }
+                zos.closeEntry();
+            }
+        } catch (Exception e) {
+            log.error("Failed to generate zip export: {}", e.getMessage());
+            try {
+                Files.deleteIfExists(tempZip);
+            } catch (IOException ignored) {
+            }
+            throw new RuntimeException("Failed to generate zip export", e);
+        }
+
+        return tempZip;
+    }
 }

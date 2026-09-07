@@ -7,6 +7,7 @@ export interface ImageFile {
   captureDateTime: string;
   fileSize: number;
   note?: string;
+  rotationAngle?: number;
 }
 
 export interface ImageViewFile {
