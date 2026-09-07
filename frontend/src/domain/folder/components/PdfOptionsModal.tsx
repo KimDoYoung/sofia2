@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
-import { X, FileText, Check, Palette } from 'lucide-react';
+import { X, Check, Palette } from 'lucide-react';
+import pdfIcon from '@/assets/icons/pdf.svg';
 
 export interface PdfExportOptions {
   orientation: 'auto' | 'portrait' | 'landscape';
@@ -114,7 +115,7 @@ export const PdfOptionsModal = ({
         <div className="flex items-center justify-between p-4 px-6 border-b bg-gray-50/70">
           <div>
             <h2 className="text-lg font-bold text-gray-800 flex items-center gap-2">
-              <FileText className="text-blue-600" size={22} />
+              <img src={pdfIcon} className="w-5 h-5 object-contain" alt="PDF" />
               PDF 다운로드 설정
             </h2>
             <p className="text-xs text-gray-500 mt-0.5">

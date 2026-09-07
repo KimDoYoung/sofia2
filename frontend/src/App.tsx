@@ -7,6 +7,7 @@ import ImageListPage from '@/domain/folder/ImageListPage';
 import ImageViewPage from '@/domain/folder/ImageViewPage';
 import AddFolderPage from '@/domain/folder/AddFolderPage';
 import SettingsPage from '@/domain/user/SettingsPage';
+import AboutPage from '@/domain/about/AboutPage';
 
 const ProtectedLayout = () => {
   const { isAuthenticated } = useAuthStore();
@@ -38,6 +39,7 @@ function App() {
           <Route path="/folder/:folderId" element={<ImageListPage />} />
           <Route path="/image/:imageId" element={<ImageViewPage />} />
           <Route path="/settings" element={<SettingsPage />} />
+          <Route path="/about" element={<AboutPage />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -62,6 +62,7 @@ public class WebSecurityConfig {
                                                 "/folder/**",
                                                 "/image/**",
                                                 "/settings",
+                                                "/about",
                                                 "/index.html",
                                                 "/static/**",
                                                 "/assets/**",
@@ -71,7 +72,11 @@ public class WebSecurityConfig {
                                                 "/*.png",
                                                 "/*.svg")
                                         .permitAll()
-                                        .requestMatchers("/health")
+                                        .requestMatchers(
+                                                "/health",
+                                                "/history",
+                                                "/api/health",
+                                                "/api/history")
                                         .permitAll()
                                         .requestMatchers("/api/auth/**")
                                         .permitAll()

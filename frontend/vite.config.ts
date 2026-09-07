@@ -47,6 +47,10 @@ export default defineConfig({
       '/sofia/health': {
         target: 'http://localhost:9595',
         changeOrigin: true,
+      },
+      '/sofia/history': {
+        target: 'http://localhost:9595',
+        changeOrigin: true,
       }
     }
   },

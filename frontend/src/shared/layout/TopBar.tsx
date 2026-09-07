@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { apiClient } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronLeft, ChevronRight, Bookmark, Trash2, X, Menu, LogOut, Settings } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Bookmark, Trash2, X, Menu, LogOut, Settings, Info } from 'lucide-react';
 import axios from 'axios';
 import { useState, useRef, useEffect } from 'react';
 
@@ -113,7 +113,18 @@ const TopBar = () => {
           onClick={() => navigate('/')}
         >
           Sofia
-          {healthData?.version && <span className="text-[10px] sm:text-xs text-blue-400 font-medium tracking-wide">v{healthData.version}</span>}
+          {healthData?.version && (
+            <span
+              onClick={(e) => {
+                e.stopPropagation();
+                navigate('/about');
+              }}
+              className="text-[10px] sm:text-xs text-blue-400 hover:text-blue-600 hover:bg-blue-50 px-1 py-0.5 rounded font-medium tracking-wide transition-colors cursor-pointer"
+              title="시스템 소개 및 개정 이력"
+            >
+              v{healthData.version}
+            </span>
+          )}
           <span className="hidden md:inline text-xs text-gray-400 font-normal">view of images in folder</span>
         </h1>
       </div>
@@ -163,6 +174,14 @@ const TopBar = () => {
           <Plus size={18} />
           폴더 추가
         </button>
+        <button
+          onClick={() => navigate('/about')}
+          className="flex items-center gap-1.5 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium cursor-pointer"
+          title="Sofia 2 소개 및 버전별 개정 이력"
+        >
+          <Info size={18} />
+          About
+        </button>        
         <span
           className="text-sm text-gray-600 font-medium cursor-pointer hover:text-blue-600 hover:underline transition-all"
           onClick={() => navigate('/settings')}
@@ -226,6 +245,13 @@ const TopBar = () => {
             폴더 추가
           </button>
           <div className="h-px bg-gray-100 mx-3 my-1" />
+          <button
+            onClick={() => { navigate('/about'); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+          >
+            <Info size={18} className="text-blue-600" />
+            About (소개 및 이력)
+          </button>
           <button
             onClick={() => { navigate('/settings'); setIsMobileMenuOpen(false); }}
             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors"

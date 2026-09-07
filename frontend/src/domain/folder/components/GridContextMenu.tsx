@@ -5,10 +5,10 @@ import {
   RotateCw,
   RotateCcw,
   Trash2,
-  FileText,
   Layers,
   ArrowUp,
 } from 'lucide-react';
+import pdfIcon from '@/assets/icons/pdf.svg';
 
 interface GridContextMenuProps {
   x: number;
@@ -158,7 +158,7 @@ export const GridContextMenu = ({
         {isExporting ? (
           <div className="h-4 w-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin" />
         ) : (
-          <FileText size={16} />
+          <img src={pdfIcon} className="w-4 h-4 object-contain" alt="PDF" />
         )}
         <span>{isExporting ? '생성 중...' : 'PDF 다운로드'}</span>
       </button>
