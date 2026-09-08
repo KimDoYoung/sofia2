@@ -60,10 +60,10 @@ export const MergeOptionsModal = ({
   const [customWidth, setCustomWidth] = useState<number>(2048);
 
   // 이미지 간격 (X, Y)
-  const [gapX, setGapX] = useState<number>(0);
+  const [gapX, setGapX] = useState<number>(3);
   const [isGapXCustom, setIsGapXCustom] = useState<boolean>(false);
 
-  const [gapY, setGapY] = useState<number>(0);
+  const [gapY, setGapY] = useState<number>(3);
   const [isGapYCustom, setIsGapYCustom] = useState<boolean>(false);
 
   // 모달 열릴 때 초기화
@@ -75,9 +75,9 @@ export const MergeOptionsModal = ({
       setCols(2);
       setWidthMode('A4');
       setCustomWidth(2048);
-      setGapX(0);
+      setGapX(3);
       setIsGapXCustom(false);
-      setGapY(0);
+      setGapY(3);
       setIsGapYCustom(false);
     }
   }, [isOpen]);
@@ -455,7 +455,7 @@ export const MergeOptionsModal = ({
                 <span>병합 중...</span>
               </div>
             ) : (
-              '병합 및 다운로드'
+              '병합 실행'
             )}
           </Button>
         </div>

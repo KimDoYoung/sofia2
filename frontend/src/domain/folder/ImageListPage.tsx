@@ -21,6 +21,7 @@ import { PdfOptionsModal } from './components/PdfOptionsModal';
 import type { PdfExportOptions } from './components/PdfOptionsModal';
 import { MergeOptionsModal } from './components/MergeOptionsModal';
 import type { MergeOptions } from './components/MergeOptionsModal';
+import { MergePreviewModal } from './components/MergePreviewModal';
 import { GridContextMenu } from './components/GridContextMenu';
 import { CollageModal } from './components/CollageModal';
 import { ImageEffectModal } from './components/ImageEffectModal';
@@ -42,6 +43,9 @@ const ImageListPage = () => {
   const [isDownloading, setIsDownloading] = useState(false);
   const [isPdfModalOpen, setIsPdfModalOpen] = useState(false);
   const [isMergeModalOpen, setIsMergeModalOpen] = useState(false);
+  const [isMergePreviewOpen, setIsMergePreviewOpen] = useState(false);
+  const [mergeResultBlob, setMergeResultBlob] = useState<Blob | null>(null);
+  const [mergeResultFilename, setMergeResultFilename] = useState('');
   const [isCollageModalOpen, setIsCollageModalOpen] = useState(false);
   const [isEffectModalOpen, setIsEffectModalOpen] = useState(false);
   const [isSlideShowModalOpen, setIsSlideShowModalOpen] = useState(false);
@@ -285,10 +289,6 @@ const ImageListPage = () => {
         }
       );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-
       const contentDisposition = response.headers['content-disposition'];
       let filename = `sofia_merged_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.jpg`;
       if (contentDisposition) {
@@ -298,12 +298,9 @@ const ImageListPage = () => {
         }
       }
 
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast({ title: '성공', description: '병합 이미지가 생성되었습니다.' });
+      setMergeResultBlob(new Blob([response.data]));
+      setMergeResultFilename(filename);
+      setIsMergePreviewOpen(true);
     } catch {
       toast({
         title: '오류',
@@ -530,6 +527,16 @@ const ImageListPage = () => {
           await handleMergeImages(options);
           setIsMergeModalOpen(false);
         }}
+      />
+
+      <MergePreviewModal
+        isOpen={isMergePreviewOpen}
+        onClose={() => {
+          setIsMergePreviewOpen(false);
+          setMergeResultBlob(null);
+        }}
+        blob={mergeResultBlob}
+        filename={mergeResultFilename}
       />
 
       <CollageModal
