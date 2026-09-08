@@ -169,7 +169,6 @@ const drawPolaroidFrame = (
   boxW: number,
   boxH: number,
   scale: number,
-  config: CollageConfig,
   showCaption = false,
   captionText = '',
 ) => {
@@ -332,7 +331,7 @@ const renderScatter = (
         ctx.shadowOffsetY = 9 * scale;
       }
       drawPolaroidFrame(
-        ctx, src, photoW, photoH, scale, config,
+        ctx, src, photoW, photoH, scale,
         config.showText,
         config.customText,
       );
@@ -571,7 +570,7 @@ export const renderCollageToCanvas = async (
 
     if (config.frameStyle === 'polaroid') {
       // Grid/tilt/photobooth: no per-card caption; bottom text rendered at canvas level
-      drawPolaroidFrame(ctx, sourceCanvas, boxW, boxH, scale, config, false, '');
+      drawPolaroidFrame(ctx, sourceCanvas, boxW, boxH, scale, false, '');
     } else {
       const left = -boxW / 2;
       const top = -boxH / 2;
