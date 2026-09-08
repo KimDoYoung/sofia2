@@ -241,8 +241,11 @@ export const CollageModal = ({
   };
 
   const COLLAGE_MODE_LABELS: Record<string, string> = {
-    mosaic: '모자이크', tilt: '감성틸트', scatter: '흩뿌리기',
-    grid: '모던그리드', filmstrip: '필름스트립', photobooth: '인생네컷',
+    mosaic: '모자이크', tilt: '감성 틸트', scatter: '흩뿌리기',
+    grid: '모던 그리드', filmstrip: '필름 스트립', photobooth: '인생네컷',
+  };
+  const COLLAGE_FRAME_LABELS: Record<string, string> = {
+    none: '프레임없음', polaroid: '폴라로이드', shadow: '그림자',
   };
 
   const handleArchive = async (andDownload = false) => {
@@ -258,7 +261,7 @@ export const CollageModal = ({
         exportCanvas.toBlob(b => b ? resolve(b) : reject(new Error('blob null')), 'image/jpeg', 0.95);
       });
 
-      const autoNote = `콜라쥬-${photoItems.length}장, ${COLLAGE_MODE_LABELS[config.mode] || config.mode}, ${config.aspectRatio}`;
+      const autoNote = `제작방법: 이미지 ${photoItems.length}장, 스타일-${COLLAGE_MODE_LABELS[config.mode] || config.mode}, 비율-${config.aspectRatio}, 프레임-${COLLAGE_FRAME_LABELS[config.frameStyle] || config.frameStyle}`;
 
       const formData = new FormData();
       formData.append('file', blob, filename);

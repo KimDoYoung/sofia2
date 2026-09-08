@@ -274,7 +274,7 @@ export const ImageEffectModal = ({
       const blob = await canvasToBlob(outCanvas);
 
       const effectName = EFFECT_METAS.find(m => m.id === selectedEffect)?.name || selectedEffect;
-      const autoNote = `효과-${effectName}, 블렌드${blend}%`;
+      const autoNote = `제작방법: 이미지 1장, 효과-${effectName}, 블렌드-${blend}%`;
 
       const formData = new FormData();
       formData.append('file', blob, filename);
@@ -313,7 +313,7 @@ export const ImageEffectModal = ({
         const blob = await canvasToBlob(outCanvas);
 
         const effectName = EFFECT_METAS.find(m => m.id === selectedEffect)?.name || selectedEffect;
-        const autoNote = `효과(일괄)-${selectedImages.length}장, ${effectName}, 블렌드${blend}%`;
+        const autoNote = `제작방법: 이미지 ${selectedImages.length}장(일괄적용), 효과-${effectName}, 블렌드-${blend}%`;
 
         const formData = new FormData();
         formData.append('file', blob, filename);

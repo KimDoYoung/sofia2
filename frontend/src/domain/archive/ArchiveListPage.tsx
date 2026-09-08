@@ -1,4 +1,4 @@
-import { useMemo, useCallback, useRef } from 'react';
+import { useMemo, useCallback, useRef, useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
 import { formatDate, formatFileSize } from '@/lib/utils';
@@ -13,7 +13,7 @@ import type {
   ValueFormatterParams,
   GetRowIdParams,
 } from 'ag-grid-community';
-import { Trash2, Download, RefreshCw, Archive } from 'lucide-react';
+import { Trash2, Download, RefreshCw, Archive, Search } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { formatElapsed } from '@/shared/utils/elapsedTime';
 
@@ -32,6 +32,15 @@ interface ArchivedOutput {
   createdAt: string;
 }
 
+const TYPE_OPTIONS = [
+  { value: '', label: '전체' },
+  { value: 'PDF', label: '📄 PDF' },
+  { value: 'MERGE', label: '🖼️ 병합' },
+  { value: 'COLLAGE', label: '✨ 콜라쥬' },
+  { value: 'EFFECT', label: '🎨 효과' },
+  { value: 'SLIDESHOW', label: '🎬 슬라이드쇼' },
+];
+
 const TYPE_LABELS: Record<string, string> = {
   PDF: '📄 PDF',
   MERGE: '🖼️ 병합',
@@ -45,6 +54,8 @@ const ArchiveListPage = () => {
   const queryClient = useQueryClient();
   const { toast } = useToast();
   const gridRef = useRef<AgGridReact>(null);
+  const [typeFilter, setTypeFilter] = useState('');
+  const [searchText, setSearchText] = useState('');
 
   const { data: items, isLoading, refetch, isRefetching } = useQuery<ArchivedOutput[]>({
     queryKey: ['archive'],
@@ -53,6 +64,20 @@ const ArchiveListPage = () => {
       return res.data;
     },
   });
+
+  const filteredItems = useMemo(() => {
+    if (!items) return [];
+    let result = items;
+    if (typeFilter) result = result.filter(item => item.type === typeFilter);
+    if (searchText.trim()) {
+      const q = searchText.trim().toLowerCase();
+      result = result.filter(item =>
+        item.displayFilename.toLowerCase().includes(q) ||
+        (item.note?.toLowerCase().includes(q) ?? false)
+      );
+    }
+    return result;
+  }, [items, typeFilter, searchText]);
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, note, displayFilename }: { id: number; note?: string | null; displayFilename?: string }) => {
@@ -130,7 +155,7 @@ const ArchiveListPage = () => {
       field: 'type',
       headerName: '종류',
       width: 120,
-      filter: true,
+      filter: false,
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => TYPE_LABELS[p.value] ?? p.value,
     },
     {
@@ -139,7 +164,7 @@ const ArchiveListPage = () => {
       flex: 1.5,
       editable: true,
       cellEditor: 'agTextCellEditor',
-      filter: true,
+      filter: false,
     },
     {
       field: 'note',
@@ -147,12 +172,14 @@ const ArchiveListPage = () => {
       flex: 1,
       editable: true,
       cellEditor: 'agTextCellEditor',
+      filter: false,
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => p.value ?? '',
     },
     {
       field: 'sourceFolderId',
       headerName: '원본 폴더',
       width: 130,
+      filter: false,
       cellRenderer: (params: ICellRendererParams<ArchivedOutput>) =>
         params.value ? (
           <button
@@ -169,18 +196,21 @@ const ArchiveListPage = () => {
       field: 'createdAt',
       headerName: '생성일시',
       width: 160,
+      filter: false,
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => formatDate(p.value),
     },
     {
       field: 'fileSize',
       headerName: '크기',
       width: 100,
+      filter: false,
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => formatFileSize(p.value),
     },
     {
       field: 'elapsedMs',
       headerName: '소요 시간',
       width: 110,
+      filter: false,
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => p.value ? formatElapsed(p.value) : '-',
     },
     {
@@ -255,7 +285,8 @@ const ArchiveListPage = () => {
   }
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto py-2">
+    <div className="space-y-4 max-w-7xl mx-auto py-2">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h2 className="text-2xl font-extrabold text-gray-950 tracking-tight flex items-center gap-2">
@@ -263,7 +294,7 @@ const ArchiveListPage = () => {
             보관소
             {items && (
               <span className="text-sm font-normal text-gray-500 bg-gray-100 px-2.5 py-0.5 rounded-full">
-                총 {items.length}개
+                총 {items.length}개 {filteredItems.length !== items.length && `(필터: ${filteredItems.length}개)`}
               </span>
             )}
           </h2>
@@ -294,11 +325,58 @@ const ArchiveListPage = () => {
         </div>
       </div>
 
-      <div className="w-full h-[600px] shadow-sm rounded-lg overflow-hidden border border-gray-200">
+      {/* Filter bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4 p-4 bg-gray-50 rounded-xl border border-gray-200">
+        {/* Type radio */}
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+          <span className="text-xs font-bold text-gray-600 uppercase tracking-wider shrink-0">종류</span>
+          {TYPE_OPTIONS.map(opt => (
+            <label key={opt.value} className="flex items-center gap-1.5 cursor-pointer select-none">
+              <input
+                type="radio"
+                name="archiveType"
+                value={opt.value}
+                checked={typeFilter === opt.value}
+                onChange={() => setTypeFilter(opt.value)}
+                className="accent-emerald-600 cursor-pointer"
+              />
+              <span className={`text-sm font-medium ${typeFilter === opt.value ? 'text-emerald-700' : 'text-gray-600'}`}>
+                {opt.label}
+              </span>
+            </label>
+          ))}
+        </div>
+
+        {/* Divider */}
+        <div className="hidden sm:block w-px h-6 bg-gray-300 mx-2" />
+
+        {/* Search */}
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          <Search size={14} className="text-gray-400 shrink-0" />
+          <input
+            type="text"
+            value={searchText}
+            onChange={e => setSearchText(e.target.value)}
+            placeholder="파일명 또는 메모로 검색..."
+            className="flex-1 text-sm bg-white border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:border-emerald-400 focus:ring-1 focus:ring-emerald-400 min-w-0"
+          />
+          {searchText && (
+            <button
+              onClick={() => setSearchText('')}
+              className="text-xs text-gray-400 hover:text-gray-600 shrink-0"
+            >
+              지우기
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* Grid */}
+      <div className="w-full h-[560px] shadow-sm rounded-lg overflow-hidden border border-gray-200">
         <AgGridReact
           ref={gridRef}
           theme={themeQuartz}
-          rowData={items}
+          rowData={filteredItems}
           columnDefs={columnDefs}
           defaultColDef={{
             sortable: true,

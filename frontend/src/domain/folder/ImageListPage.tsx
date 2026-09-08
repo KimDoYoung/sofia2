@@ -257,13 +257,13 @@ const ImageListPage = () => {
       }
 
       const PDF_LAYOUT_LABELS: Record<string, string> = {
-        '1': '1장', '2-v': '2장(상하분할)', '2-h': '2장(좌우분할)',
-        '3': '3장', '4': '4장', '6': '6장',
+        '1': '1장 전체', '2-v': '2장(상하분할)', '2-h': '2장(좌우분할)',
+        '3': '3장 분할', '4': '4장 분할', '6': '6장 분할',
       };
       const PDF_ORI_LABELS: Record<string, string> = {
-        'auto': '자동방향', 'portrait': '세로', 'landscape': '가로',
+        'auto': '스마트자동', 'portrait': '세로(Portrait)', 'landscape': '가로(Landscape)',
       };
-      const autoNote = `PDF-${selectedIds.length}장, ${PDF_LAYOUT_LABELS[options.pdfLayout] || options.pdfLayout}, ${PDF_ORI_LABELS[options.orientation] || options.orientation}, ${options.fitMode === 'contain' ? '맞추기' : '채우���'}`;
+      const autoNote = `제작방법: 이미지 ${selectedIds.length}장, 방향-${PDF_ORI_LABELS[options.orientation] || options.orientation}, 레이아웃-${PDF_LAYOUT_LABELS[options.pdfLayout] || options.pdfLayout}, 맞추기-${options.fitMode === 'contain' ? '영역맞춤(Contain)' : '영역채움(Cover)'}`;
       setPdfAutoNote(autoNote);
       setPdfResultBlob(new Blob([response.data], { type: 'application/pdf' }));
       setPdfResultFilename(filename);
@@ -314,9 +314,9 @@ const ImageListPage = () => {
       }
 
       const WIDTH_LABELS: Record<string, string> = {
-        'A4': 'A4폭', 'original': '원본폭', '1900': '1900px', 'custom': '사용자지정',
+        'A4': 'A4 용지폭', 'original': '원본 크기', '1900': '1900px 고정', 'custom': '사용자 지정',
       };
-      const mergeNote = `병합-${selectedIds.length}장, ${options.cols}열, ${WIDTH_LABELS[options.widthMode] || options.widthMode}${options.border ? `, 테두리${options.borderWidth}px` : ''}`;
+      const mergeNote = `제작방법: 이미지 ${selectedIds.length}장, 열수-${options.cols}열, 출력폭-${WIDTH_LABELS[options.widthMode] || options.widthMode}, 간격-${options.gapX}px${options.border ? `, 테두리-있음(${options.borderWidth}px)` : ', 테두리-없음'}`;
       setMergeAutoNote(mergeNote);
       setMergeResultBlob(new Blob([response.data]));
       setMergeResultFilename(filename);

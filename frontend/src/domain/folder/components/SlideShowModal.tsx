@@ -241,17 +241,20 @@ export const SlideShowModal = ({
   };
 
   const SLIDE_TRANS_LABELS: Record<string, string> = {
-    random: '랜덤전환', fade: '크로스디졸브', circlecrop: '서클아이리스',
-    slideleft: '슬라이드좌측', pixelize: '픽셀모자이크', hblur: '블러디졸브',
+    random: '랜덤(컷마다 다름)', fade: '크로스 디졸브', circlecrop: '서클 아이리스',
+    slideleft: '슬라이드 좌측', pixelize: '픽셀 모자이크', hblur: '블러 디졸브',
   };
   const SLIDE_EFFECT_LABELS: Record<string, string> = {
-    random: '랜덤효과', oldstyle: '옛날스타일', none: '효과없음',
+    random: '랜덤(자동선택)', oldstyle: '옛날 스타일(세피아·흑백)', none: '없음',
   };
   const SLIDE_DURATION_LABELS: Record<string | number, string> = {
-    random: '랜덤', 2: '2초', 3: '3초', 4: '4초',
+    random: '랜덤', 2: '2초(빠르게)', 3: '3초(기본)', 4: '4초(여유)',
+  };
+  const SLIDE_RATIO_LABELS: Record<string, string> = {
+    '16:9': '16:9 와이드(PC·유튜브)', '9:16': '9:16 세로(스마트폰)', '1:1': '1:1 정사각(인스타)',
   };
   const slideAutoNote = taskStatus?.status === 'COMPLETED'
-    ? `슬라이드쇼-${images.length}장, ${aspectRatio}, ${SLIDE_TRANS_LABELS[transition] || transition}, ${SLIDE_EFFECT_LABELS[effectMode] || effectMode}, ${SLIDE_DURATION_LABELS[durationPerImage] || `${durationPerImage}초`}`
+    ? `제작방법: 이미지 ${images.length}장, 화면비율-${SLIDE_RATIO_LABELS[aspectRatio] || aspectRatio}, 전환효과-${SLIDE_TRANS_LABELS[transition] || transition}, 이미지효과-${SLIDE_EFFECT_LABELS[effectMode] || effectMode}, 장당지속-${SLIDE_DURATION_LABELS[durationPerImage] || `${durationPerImage}초`}`
     : '';
 
   const handleArchiveSlideshow = async (meta: ArchiveMetaInput) => {
