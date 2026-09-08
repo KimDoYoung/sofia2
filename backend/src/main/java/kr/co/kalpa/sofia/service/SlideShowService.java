@@ -520,7 +520,7 @@ public class SlideShowService {
                 cmd.add("-c:v");
                 cmd.add("libx264");
                 cmd.add("-preset");
-                cmd.add("veryfast");
+                cmd.add("ultrafast");
             }
 
             cmd.add("-pix_fmt");
