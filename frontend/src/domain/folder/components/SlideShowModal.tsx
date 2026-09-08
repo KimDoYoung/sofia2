@@ -7,7 +7,6 @@ import {
   Play,
   Pause,
   Download,
-  FolderDown,
   RotateCcw,
   CheckCircle2,
   AlertCircle,
@@ -21,7 +20,6 @@ import {
   Square,
   Music,
   Shuffle,
-  Sun,
 } from 'lucide-react';
 import type { ImageFile } from '../types';
 import type { BgmAssetDto } from '@/domain/user/components/BgmAssetManager';
@@ -59,7 +57,13 @@ const DURATIONS = [
   { value: 'random' as const, label: '랜덤' },
   { value: 2.0, label: '2초 (빠르게)' },
   { value: 3.0, label: '3초 (기본)' },
-  { value: 4.0, label: '4초 (여유롭게)' },
+  { value: 4.0, label: '4초 (여유)' },
+];
+
+const EFFECT_MODES = [
+  { id: 'random' as const, name: '랜덤 효과', desc: '햇살·보케·빛샘·그레인·눈송이·빈티지·흑백 중 무작위' },
+  { id: 'oldstyle' as const, name: '옛날 스타일', desc: '세피아(빈티지)·흑백 중 무작위' },
+  { id: 'none' as const, name: '효과 없음', desc: '원본 그대로 슬라이드' },
 ];
 
 const RATIOS = [
@@ -77,7 +81,7 @@ export const SlideShowModal = ({
   const [images, setImages] = useState<ImageFile[]>([]);
   const [durationPerImage, setDurationPerImage] = useState<number | 'random'>('random');
   const [transition, setTransition] = useState<string>('random');
-  const [sunlightOverlay, setSunlightOverlay] = useState<boolean>(false);
+  const [effectMode, setEffectMode] = useState<'random' | 'oldstyle' | 'none'>('none');
   const [aspectRatio, setAspectRatio] = useState<string>('16:9');
   const [selectedBgm, setSelectedBgm] = useState<string>('');
 
@@ -86,11 +90,9 @@ export const SlideShowModal = ({
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // 비디오 생성 작업 상태
-  const [taskId, setTaskId] = useState<string | null>(null);
+  const [, setTaskId] = useState<string | null>(null);
   const [taskStatus, setTaskStatus] = useState<SlideShowTaskStatus | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
-  const [isSavingToFolder, setIsSavingToFolder] = useState<boolean>(false);
-  const [savedFolderSuccess, setSavedFolderSuccess] = useState<string | null>(null);
   const [generationError, setGenerationError] = useState<string | null>(null);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -120,7 +122,6 @@ export const SlideShowModal = ({
       setTaskId(null);
       setTaskStatus(null);
       setIsGenerating(false);
-      setSavedFolderSuccess(null);
       setGenerationError(null);
       stopBgm();
       // BGM 기본값 설정 (첫 번째 곡 또는 빈 값)
@@ -179,7 +180,6 @@ export const SlideShowModal = ({
     stopBgm();
     setIsGenerating(true);
     setGenerationError(null);
-    setSavedFolderSuccess(null);
 
     try {
       const payload = {
@@ -189,7 +189,7 @@ export const SlideShowModal = ({
         transition,
         aspectRatio,
         bgmFilename: selectedBgm || null,
-        sunlightOverlay,
+        effectMode,
       };
 
       const res = await apiClient.post('/slideshow/generate', payload);
@@ -221,22 +221,6 @@ export const SlideShowModal = ({
       console.error('Failed to start slideshow generation:', err);
       setIsGenerating(false);
       setGenerationError('슬라이드 쇼 생성 요청 중 오류가 발생했습니다.');
-    }
-  };
-
-  // 현재 폴더에 저장
-  const handleSaveToFolder = async () => {
-    if (!taskId) return;
-    setIsSavingToFolder(true);
-    setSavedFolderSuccess(null);
-    try {
-      const res = await apiClient.post(`/slideshow/save/${taskId}`, { folderId });
-      setSavedFolderSuccess(res.data.filename || '저장 완료');
-    } catch (err) {
-      console.error('Save to folder error:', err);
-      alert('폴더에 저장하는 중 오류가 발생했습니다.');
-    } finally {
-      setIsSavingToFolder(false);
     }
   };
 
@@ -350,32 +334,14 @@ export const SlideShowModal = ({
                   <span>다시 설정하기</span>
                 </Button>
 
-                <div className="flex items-center gap-2">
-                  <Button
-                    variant="outline"
-                    onClick={handleSaveToFolder}
-                    disabled={isSavingToFolder || !!savedFolderSuccess}
-                    className="gap-2 border-indigo-200 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-800"
-                  >
-                    <FolderDown size={16} />
-                    <span>
-                      {savedFolderSuccess
-                        ? `폴더 저장 완료 (${savedFolderSuccess})`
-                        : isSavingToFolder
-                        ? '저장 중...'
-                        : '현재 폴더에 저장'}
-                    </span>
-                  </Button>
-
-                  <a
-                    href={taskStatus.downloadUrl}
-                    download
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                  >
-                    <Download size={16} />
-                    <span>MP4 다운로드</span>
-                  </a>
-                </div>
+                <a
+                  href={taskStatus.downloadUrl}
+                  download
+                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
+                >
+                  <Download size={16} />
+                  <span>MP4 다운로드</span>
+                </a>
               </div>
             </div>
           )}
@@ -483,59 +449,60 @@ export const SlideShowModal = ({
                       <Sparkles size={15} className="text-indigo-600" />
                       화면 전환 효과
                     </label>
-                    <div className="space-y-1.5">
+                    <div className="grid grid-cols-2 gap-1.5">
                       {TRANSITIONS.map((trans) => (
                         <div
                           key={trans.id}
                           onClick={() => setTransition(trans.id)}
-                          className={`flex items-center justify-between p-2.5 rounded-lg border cursor-pointer transition-all ${
+                          className={`flex items-center justify-between gap-1.5 p-2.5 rounded-lg border cursor-pointer transition-all ${
                             transition === trans.id
                               ? 'bg-indigo-50/80 border-indigo-400 text-indigo-900 shadow-xs'
                               : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'
                           }`}
                         >
-                          <div>
+                          <div className="min-w-0">
                             <div className="text-xs font-bold flex items-center gap-1">
-                              {trans.id === 'random' && <Shuffle size={12} />}
-                              {trans.name}
+                              {trans.id === 'random' && <Shuffle size={12} className="shrink-0" />}
+                              <span className="truncate">{trans.name}</span>
                             </div>
-                            <div className="text-[11px] text-gray-400">{trans.desc}</div>
+                            <div className="text-[11px] text-gray-400 truncate">{trans.desc}</div>
                           </div>
                           <input
                             type="radio"
                             name="transition"
                             checked={transition === trans.id}
                             onChange={() => setTransition(trans.id)}
-                            className="text-indigo-600"
+                            className="text-indigo-600 shrink-0"
                           />
                         </div>
                       ))}
                     </div>
                   </div>
 
-                  <div className="flex items-center justify-between p-2.5 rounded-lg border bg-white">
-                    <div className="flex items-center gap-1.5">
-                      <Sun size={15} className="text-amber-500" />
-                      <div>
-                        <div className="text-xs font-bold text-gray-700">햇살 효과</div>
-                        <div className="text-[11px] text-gray-400">따뜻한 빛줄기를 은은하게 추가합니다</div>
-                      </div>
+                  <div>
+                    <label className="block text-xs font-bold text-gray-700 mb-2 flex items-center gap-1.5">
+                      <Sparkles size={15} className="text-amber-500" />
+                      효과
+                    </label>
+                    <div className="grid grid-cols-3 gap-2">
+                      {EFFECT_MODES.map((mode) => (
+                        <button
+                          key={mode.id}
+                          type="button"
+                          onClick={() => setEffectMode(mode.id)}
+                          className={`px-2 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                            effectMode === mode.id
+                              ? 'bg-amber-500 text-white border-amber-500 shadow-sm'
+                              : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
+                          }`}
+                        >
+                          {mode.name}
+                        </button>
+                      ))}
                     </div>
-                    <button
-                      type="button"
-                      role="switch"
-                      aria-checked={sunlightOverlay}
-                      onClick={() => setSunlightOverlay((v) => !v)}
-                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
-                        sunlightOverlay ? 'bg-amber-500' : 'bg-gray-300'
-                      }`}
-                    >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          sunlightOverlay ? 'translate-x-4' : 'translate-x-1'
-                        }`}
-                      />
-                    </button>
+                    <p className="text-[11px] text-gray-400 mt-1.5">
+                      {EFFECT_MODES.find((m) => m.id === effectMode)?.desc}
+                    </p>
                   </div>
                 </div>
 

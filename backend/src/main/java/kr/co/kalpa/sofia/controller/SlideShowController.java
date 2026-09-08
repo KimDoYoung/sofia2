@@ -1,6 +1,5 @@
 package kr.co.kalpa.sofia.controller;
 
-import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -73,25 +72,5 @@ public class SlideShowController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .contentType(MediaType.parseMediaType("video/mp4"))
                 .body(resource);
-    }
-
-    @PostMapping("/save/{taskId}")
-    public ResponseEntity<Map<String, String>> saveVideoToFolder(
-            @PathVariable String taskId, @RequestBody(required = false) Map<String, Object> body)
-            throws IOException {
-        Long folderId = null;
-        String customName = null;
-
-        if (body != null) {
-            if (body.get("folderId") != null) {
-                folderId = Long.valueOf(body.get("folderId").toString());
-            }
-            if (body.get("customName") != null) {
-                customName = body.get("customName").toString();
-            }
-        }
-
-        String savedFilename = slideShowService.saveToFolder(taskId, folderId, customName);
-        return ResponseEntity.ok(Collections.singletonMap("filename", savedFilename));
     }
 }

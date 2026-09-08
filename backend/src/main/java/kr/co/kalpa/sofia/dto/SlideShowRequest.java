@@ -20,5 +20,6 @@ public class SlideShowRequest {
     @Builder.Default private String aspectRatio = "16:9"; // "16:9", "9:16", "1:1"
     private String bgmFilename;
     private String videoTitle;
-    @Builder.Default private Boolean sunlightOverlay = false;
+    // "random"(전체 효과 중 무작위) / "oldstyle"(세피아·흑백 중 무작위) / "none"(효과 없음)
+    @Builder.Default private String effectMode = "none";
 }
