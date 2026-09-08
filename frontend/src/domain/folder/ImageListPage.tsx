@@ -52,6 +52,8 @@ const ImageListPage = () => {
   const [pdfResultBlob, setPdfResultBlob] = useState<Blob | null>(null);
   const [pdfResultFilename, setPdfResultFilename] = useState('');
   const [pdfElapsedMs, setPdfElapsedMs] = useState<number | null>(null);
+  const [pdfAutoNote, setPdfAutoNote] = useState('');
+  const [mergeAutoNote, setMergeAutoNote] = useState('');
   const [isCollageModalOpen, setIsCollageModalOpen] = useState(false);
   const [isEffectModalOpen, setIsEffectModalOpen] = useState(false);
   const [isSlideShowModalOpen, setIsSlideShowModalOpen] = useState(false);
@@ -254,6 +256,15 @@ const ImageListPage = () => {
         }
       }
 
+      const PDF_LAYOUT_LABELS: Record<string, string> = {
+        '1': '1장', '2-v': '2장(상하분할)', '2-h': '2장(좌우분할)',
+        '3': '3장', '4': '4장', '6': '6장',
+      };
+      const PDF_ORI_LABELS: Record<string, string> = {
+        'auto': '자동방향', 'portrait': '세로', 'landscape': '가로',
+      };
+      const autoNote = `PDF-${selectedIds.length}장, ${PDF_LAYOUT_LABELS[options.pdfLayout] || options.pdfLayout}, ${PDF_ORI_LABELS[options.orientation] || options.orientation}, ${options.fitMode === 'contain' ? '맞추기' : '채우���'}`;
+      setPdfAutoNote(autoNote);
       setPdfResultBlob(new Blob([response.data], { type: 'application/pdf' }));
       setPdfResultFilename(filename);
       setPdfElapsedMs(elapsed);
@@ -302,6 +313,11 @@ const ImageListPage = () => {
         }
       }
 
+      const WIDTH_LABELS: Record<string, string> = {
+        'A4': 'A4폭', 'original': '원본폭', '1900': '1900px', 'custom': '사용자지정',
+      };
+      const mergeNote = `병합-${selectedIds.length}장, ${options.cols}열, ${WIDTH_LABELS[options.widthMode] || options.widthMode}${options.border ? `, 테두리${options.borderWidth}px` : ''}`;
+      setMergeAutoNote(mergeNote);
       setMergeResultBlob(new Blob([response.data]));
       setMergeResultFilename(filename);
       setMergeElapsedMs(elapsed);
@@ -544,6 +560,7 @@ const ImageListPage = () => {
         filename={mergeResultFilename}
         elapsedMs={mergeElapsedMs}
         sourceFolderId={folderId ? Number(folderId) : null}
+        autoNote={mergeAutoNote}
       />
 
       <PdfResultModal
@@ -556,6 +573,7 @@ const ImageListPage = () => {
         filename={pdfResultFilename}
         elapsedMs={pdfElapsedMs}
         sourceFolderId={folderId ? Number(folderId) : null}
+        autoNote={pdfAutoNote}
       />
 
       <CollageModal

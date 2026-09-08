@@ -15,6 +15,7 @@ interface OutputActionsPanelProps {
   onSaveThenDownload: (meta: ArchiveMetaInput) => Promise<void>;
   onCopyToClipboard?: () => Promise<void>;
   defaultFilename: string;
+  initialNote?: string;
 }
 
 export const OutputActionsPanel = ({
@@ -24,9 +25,10 @@ export const OutputActionsPanel = ({
   onSaveThenDownload,
   onCopyToClipboard,
   defaultFilename,
+  initialNote = '',
 }: OutputActionsPanelProps) => {
   const [displayFilename, setDisplayFilename] = useState(defaultFilename);
-  const [note, setNote] = useState('');
+  const [note, setNote] = useState(initialNote);
   const [isMetaOpen, setIsMetaOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);

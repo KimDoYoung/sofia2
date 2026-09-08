@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react';
-import { Button } from '@/shared/components/ui/button';
 import { X, ImageIcon } from 'lucide-react';
 import { apiClient } from '@/lib/api';
 import { OutputActionsPanel } from '@/shared/components/OutputActionsPanel';
@@ -13,6 +12,7 @@ interface MergePreviewModalProps {
   filename: string;
   elapsedMs?: number | null;
   sourceFolderId?: number | null;
+  autoNote?: string;
 }
 
 // 클립보드 이미지 복사는 브라우저 호환성상 image/png 타입만 안정적으로 지원되므로
@@ -49,7 +49,7 @@ const convertBlobToPng = (blob: Blob): Promise<Blob> => {
   });
 };
 
-export const MergePreviewModal = ({ isOpen, onClose, blob, filename, elapsedMs, sourceFolderId }: MergePreviewModalProps) => {
+export const MergePreviewModal = ({ isOpen, onClose, blob, filename, elapsedMs, sourceFolderId, autoNote }: MergePreviewModalProps) => {
   const { toast } = useToast();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
@@ -141,14 +141,10 @@ export const MergePreviewModal = ({ isOpen, onClose, blob, filename, elapsedMs, 
         {/* Footer */}
         <div className="p-4 px-6 border-t bg-gray-50/70 shrink-0 space-y-3">
           {copyError && <p className="text-xs text-red-600 text-right">{copyError}</p>}
-          <div className="flex justify-start">
-            <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-500 hover:bg-gray-100">
-              닫기
-            </Button>
-          </div>
           <OutputActionsPanel
             elapsedMs={elapsedMs ?? null}
             defaultFilename={filename}
+            initialNote={autoNote}
             onDownload={handleDownload}
             onCopyToClipboard={handleCopy}
             onSaveToArchive={uploadToArchive}

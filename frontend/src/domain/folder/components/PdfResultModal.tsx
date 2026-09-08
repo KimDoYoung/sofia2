@@ -12,6 +12,7 @@ interface PdfResultModalProps {
   filename: string;
   elapsedMs: number | null;
   sourceFolderId?: number | null;
+  autoNote?: string;
 }
 
 export const PdfResultModal = ({
@@ -21,6 +22,7 @@ export const PdfResultModal = ({
   filename,
   elapsedMs,
   sourceFolderId,
+  autoNote,
 }: PdfResultModalProps) => {
   const { toast } = useToast();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
@@ -88,6 +90,7 @@ export const PdfResultModal = ({
           <OutputActionsPanel
             elapsedMs={elapsedMs}
             defaultFilename={filename}
+            initialNote={autoNote}
             onDownload={handleDownload}
             onSaveToArchive={uploadToArchive}
             onSaveThenDownload={async (meta) => {

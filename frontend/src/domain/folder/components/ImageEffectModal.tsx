@@ -273,10 +273,14 @@ export const ImageEffectModal = ({
       const filename = buildEffectFilename(activeImage);
       const blob = await canvasToBlob(outCanvas);
 
+      const effectName = EFFECT_METAS.find(m => m.id === selectedEffect)?.name || selectedEffect;
+      const autoNote = `효과-${effectName}, 블렌드${blend}%`;
+
       const formData = new FormData();
       formData.append('file', blob, filename);
       formData.append('type', 'EFFECT');
       formData.append('displayFilename', filename);
+      formData.append('note', autoNote);
       if (folderId != null) formData.append('sourceFolderId', String(folderId));
       formData.append('elapsedMs', String(elapsed));
 
@@ -308,10 +312,14 @@ export const ImageEffectModal = ({
         const filename = buildEffectFilename(item);
         const blob = await canvasToBlob(outCanvas);
 
+        const effectName = EFFECT_METAS.find(m => m.id === selectedEffect)?.name || selectedEffect;
+        const autoNote = `효과(일괄)-${selectedImages.length}장, ${effectName}, 블렌드${blend}%`;
+
         const formData = new FormData();
         formData.append('file', blob, filename);
         formData.append('type', 'EFFECT');
         formData.append('displayFilename', filename);
+        formData.append('note', autoNote);
         if (folderId != null) formData.append('sourceFolderId', String(folderId));
         formData.append('elapsedMs', String(Math.round(performance.now() - batchStart)));
 

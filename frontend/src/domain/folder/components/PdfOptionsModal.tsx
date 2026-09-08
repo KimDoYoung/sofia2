@@ -424,7 +424,7 @@ export const PdfOptionsModal = ({
                 <span>생성 중...</span>
               </div>
             ) : (
-              'PDF 다운로드'
+              'PDF 생성'
             )}
           </Button>
         </div>

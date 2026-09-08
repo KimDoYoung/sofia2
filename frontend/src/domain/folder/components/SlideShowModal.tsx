@@ -240,6 +240,20 @@ export const SlideShowModal = ({
     return `${folderName || 'sofia'}_slideshow_${timestamp}.mp4`;
   };
 
+  const SLIDE_TRANS_LABELS: Record<string, string> = {
+    random: '랜덤전환', fade: '크로스디졸브', circlecrop: '서클아이리스',
+    slideleft: '슬라이드좌측', pixelize: '픽셀모자이크', hblur: '블러디졸브',
+  };
+  const SLIDE_EFFECT_LABELS: Record<string, string> = {
+    random: '랜덤효과', oldstyle: '옛날스타일', none: '효과없음',
+  };
+  const SLIDE_DURATION_LABELS: Record<string | number, string> = {
+    random: '랜덤', 2: '2초', 3: '3초', 4: '4초',
+  };
+  const slideAutoNote = taskStatus?.status === 'COMPLETED'
+    ? `슬라이드쇼-${images.length}장, ${aspectRatio}, ${SLIDE_TRANS_LABELS[transition] || transition}, ${SLIDE_EFFECT_LABELS[effectMode] || effectMode}, ${SLIDE_DURATION_LABELS[durationPerImage] || `${durationPerImage}초`}`
+    : '';
+
   const handleArchiveSlideshow = async (meta: ArchiveMetaInput) => {
     if (!taskId) throw new Error('taskId 없음');
     const dfn = meta.displayFilename || buildSlideFilename();
@@ -376,6 +390,7 @@ export const SlideShowModal = ({
                 <OutputActionsPanel
                   elapsedMs={slideElapsedMs}
                   defaultFilename={buildSlideFilename()}
+                  initialNote={slideAutoNote}
                   onDownload={handleDownloadSlideshow}
                   onSaveToArchive={handleArchiveSlideshow}
                   onSaveThenDownload={async (meta) => {

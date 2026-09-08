@@ -240,6 +240,11 @@ export const CollageModal = ({
     }
   };
 
+  const COLLAGE_MODE_LABELS: Record<string, string> = {
+    mosaic: '모자이크', tilt: '감성틸트', scatter: '흩뿌리기',
+    grid: '모던그리드', filmstrip: '필름스트립', photobooth: '인생네컷',
+  };
+
   const handleArchive = async (andDownload = false) => {
     setIsExporting(true);
     const start = performance.now();
@@ -253,10 +258,13 @@ export const CollageModal = ({
         exportCanvas.toBlob(b => b ? resolve(b) : reject(new Error('blob null')), 'image/jpeg', 0.95);
       });
 
+      const autoNote = `콜라쥬-${photoItems.length}장, ${COLLAGE_MODE_LABELS[config.mode] || config.mode}, ${config.aspectRatio}`;
+
       const formData = new FormData();
       formData.append('file', blob, filename);
       formData.append('type', 'COLLAGE');
       formData.append('displayFilename', filename);
+      formData.append('note', autoNote);
       if (folderId != null) formData.append('sourceFolderId', String(folderId));
       formData.append('elapsedMs', String(elapsed));
 
@@ -643,46 +651,41 @@ export const CollageModal = ({
             </div>
 
             {/* ── 하단 액션 버튼 ── */}
-            <div className="p-4 border-t bg-gray-50/80 space-y-2">
-              <div className="flex items-center justify-between">
-                <Button variant="outline" size="sm" onClick={onClose} disabled={isExporting} className="cursor-pointer">
-                  닫기
+            <div className="p-4 border-t bg-gray-50/80">
+              <div className="flex justify-end gap-2">
+                <Button
+                  size="sm"
+                  onClick={handleDownload}
+                  disabled={isExporting || isRendering}
+                  className="bg-violet-600 hover:bg-violet-700 text-white gap-2 cursor-pointer shadow-sm"
+                >
+                  {isExporting ? (
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  ) : (
+                    <Download size={15} />
+                  )}
+                  <span>{isExporting ? '생성 중...' : '다운로드'}</span>
                 </Button>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleDownload}
-                    disabled={isExporting || isRendering}
-                    className="bg-violet-600 hover:bg-violet-700 text-white gap-2 cursor-pointer shadow-sm"
-                  >
-                    {isExporting ? (
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                    ) : (
-                      <Download size={15} />
-                    )}
-                    <span>{isExporting ? '생성 중...' : '다운로드'}</span>
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleArchive(false)}
-                    disabled={isExporting || isRendering}
-                    className="gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 cursor-pointer"
-                  >
-                    <Archive size={14} />
-                    보관소에 저장
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleArchive(true)}
-                    disabled={isExporting || isRendering}
-                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
-                  >
-                    <Archive size={14} />
-                    저장 후 다운로드
-                  </Button>
-                </div>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleArchive(false)}
+                  disabled={isExporting || isRendering}
+                  className="gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 cursor-pointer"
+                >
+                  <Archive size={14} />
+                  보관소에 저장
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleArchive(true)}
+                  disabled={isExporting || isRendering}
+                  className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
+                >
+                  <Archive size={14} />
+                  저장 후 다운로드
+                </Button>
               </div>
             </div>
           </div>
