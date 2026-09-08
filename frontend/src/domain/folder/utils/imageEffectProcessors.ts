@@ -956,6 +956,12 @@ const fastBoxBlur1D = (
   }
 };
 
+// 종이 결(그레인) 표현을 위한 결정론적 의사난수 (좌표 기반 해시)
+const grainNoise = (x: number, y: number): number => {
+  const v = Math.sin(x * 12.9898 + y * 78.233) * 43758.5453;
+  return v - Math.floor(v); // 0..1
+};
+
 export const applyPencilSketch = (
   srcData: ImageData,
   params: SketchParams
@@ -980,18 +986,37 @@ export const applyPencilSketch = (
     invGray[i] = 255 - g;
   }
 
-  // 2. Multi-pass Separable Box Blur on inverted grayscale
-  const blurred1 = new Uint8Array(numPixels);
-  const blurred2 = new Uint8Array(numPixels);
-  fastBoxBlur1D(invGray, blurred1, w, h, r);
-  fastBoxBlur1D(blurred1, blurred2, w, h, r);
+  // 2. Multi-pass(3회) Separable Box Blur: 박스블러를 여러 번 겹치면 가우시안에
+  //    가까워져 톤 그라데이션의 계단/블록 현상이 줄어든다.
+  const bufA = new Uint8Array(numPixels);
+  const bufB = new Uint8Array(numPixels);
+  fastBoxBlur1D(invGray, bufA, w, h, r);
+  fastBoxBlur1D(bufA, bufB, w, h, r);
+  fastBoxBlur1D(bufB, bufA, w, h, r);
+  const blurred = bufA;
 
-  // 3. Color Dodge Blend & Tone Map
+  // 3. 원본 명암 경계(에지) 검출: 연필 스케치 특유의 "윤곽선"을 살리기 위해
+  //    단순 색조 다지(dodge)만으로는 뭉개지는 눈/코/머리카락 등 경계를 보강한다.
+  const edge = new Uint8Array(numPixels);
+  for (let y = 0; y < h; y++) {
+    const yUp = clamp(y - 1, 0, h - 1) * w;
+    const yDown = clamp(y + 1, 0, h - 1) * w;
+    const yRow = y * w;
+    for (let x = 0; x < w; x++) {
+      const xL = clamp(x - 1, 0, w - 1);
+      const xR = clamp(x + 1, 0, w - 1);
+      const gx = gray[yRow + xR] - gray[yRow + xL];
+      const gy = gray[yDown + x] - gray[yUp + x];
+      edge[yRow + x] = clamp(Math.round(Math.sqrt(gx * gx + gy * gy) * 1.4), 0, 255);
+    }
+  }
+
+  // 4. Color Dodge Blend & Tone Map
   const contrastFactor = intensity / 100;
 
   for (let i = 0; i < numPixels; i++) {
     const g = gray[i];
-    const b = blurred2[i];
+    const b = blurred[i];
 
     // Color Dodge: min(255, (g * 256) / (255 - b + 1))
     let dodge = Math.floor((g * 256) / (255 - b + 1));
@@ -1002,6 +1027,21 @@ export const applyPencilSketch = (
     if (contrastFactor !== 1) {
       sketchVal = clamp(Math.round(255 - (255 - dodge) * contrastFactor), 0, 255);
     }
+
+    // 4-1. 윤곽선 보강: 경계가 뚜렷한 픽셀은 실제 연필로 눌러 그린 외곽선처럼 추가로 짙게
+    const edgeVal = edge[i];
+    if (edgeVal > 35) {
+      const edgeDark = clamp(Math.round((edgeVal - 35) * 1.3), 0, 255);
+      sketchVal = Math.min(sketchVal, 255 - edgeDark);
+    }
+
+    // 4-2. 종이 그레인: 중간톤에서만 은은한 노이즈를 섞어 매끈한 디지털 그라데이션 대신
+    //      실제 종이에 흑연을 문지른 듯한 질감을 더한다 (하이라이트/완전한 검정선은 유지).
+    const x = i % w;
+    const y = (i / w) | 0;
+    const midtoneWeight = Math.sin((Math.PI * clamp(sketchVal, 0, 255)) / 255);
+    const grain = (grainNoise(x, y) - 0.5) * 16 * midtoneWeight;
+    sketchVal = clamp(Math.round(sketchVal + grain), 0, 255);
 
     const dIdx = i * 4;
     if (tone === 'color') {

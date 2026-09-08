@@ -20,6 +20,8 @@ import {
   Smartphone,
   Square,
   Music,
+  Shuffle,
+  Sun,
 } from 'lucide-react';
 import type { ImageFile } from '../types';
 import type { BgmAssetDto } from '@/domain/user/components/BgmAssetManager';
@@ -45,6 +47,7 @@ interface SlideShowTaskStatus {
 }
 
 const TRANSITIONS = [
+  { id: 'random', name: '랜덤', desc: '컷마다 다른 전환 효과가 무작위로 적용됩니다' },
   { id: 'fade', name: '크로스 디졸브', desc: '부드럽고 자연스럽게 겹치며 전환' },
   { id: 'circlecrop', name: '서클 아이리스', desc: '원형으로 열리고 닫히는 감성 효과' },
   { id: 'slideleft', name: '슬라이드 좌측', desc: '왼쪽으로 밀어내며 다음 사진 등장' },
@@ -53,10 +56,10 @@ const TRANSITIONS = [
 ];
 
 const DURATIONS = [
+  { value: 'random' as const, label: '랜덤' },
   { value: 2.0, label: '2초 (빠르게)' },
   { value: 3.0, label: '3초 (기본)' },
   { value: 4.0, label: '4초 (여유롭게)' },
-  { value: 5.0, label: '5초 (천천히)' },
 ];
 
 const RATIOS = [
@@ -72,8 +75,9 @@ export const SlideShowModal = ({
   folderId,
 }: SlideShowModalProps) => {
   const [images, setImages] = useState<ImageFile[]>([]);
-  const [durationPerImage, setDurationPerImage] = useState<number>(3.0);
-  const [transition, setTransition] = useState<string>('fade');
+  const [durationPerImage, setDurationPerImage] = useState<number | 'random'>('random');
+  const [transition, setTransition] = useState<string>('random');
+  const [sunlightOverlay, setSunlightOverlay] = useState<boolean>(false);
   const [aspectRatio, setAspectRatio] = useState<string>('16:9');
   const [selectedBgm, setSelectedBgm] = useState<string>('');
 
@@ -181,10 +185,11 @@ export const SlideShowModal = ({
       const payload = {
         imageIds: images.map((img) => img.id),
         folderId,
-        durationPerImage,
+        durationPerImage: durationPerImage === 'random' ? 'random' : String(durationPerImage),
         transition,
         aspectRatio,
         bgmFilename: selectedBgm || null,
+        sunlightOverlay,
       };
 
       const res = await apiClient.post('/slideshow/generate', payload);
@@ -460,12 +465,13 @@ export const SlideShowModal = ({
                         <button
                           key={dur.value}
                           onClick={() => setDurationPerImage(dur.value)}
-                          className={`px-2.5 py-2 text-xs font-semibold rounded-lg border transition-all ${
+                          className={`px-2.5 py-2 text-xs font-semibold rounded-lg border transition-all flex items-center justify-center gap-1 ${
                             durationPerImage === dur.value
                               ? 'bg-blue-600 text-white border-blue-600 shadow-sm'
                               : 'bg-white text-gray-700 border-gray-200 hover:bg-gray-100'
                           }`}
                         >
+                          {dur.value === 'random' && <Shuffle size={12} />}
                           {dur.label}
                         </button>
                       ))}
@@ -489,7 +495,10 @@ export const SlideShowModal = ({
                           }`}
                         >
                           <div>
-                            <div className="text-xs font-bold">{trans.name}</div>
+                            <div className="text-xs font-bold flex items-center gap-1">
+                              {trans.id === 'random' && <Shuffle size={12} />}
+                              {trans.name}
+                            </div>
                             <div className="text-[11px] text-gray-400">{trans.desc}</div>
                           </div>
                           <input
@@ -502,6 +511,31 @@ export const SlideShowModal = ({
                         </div>
                       ))}
                     </div>
+                  </div>
+
+                  <div className="flex items-center justify-between p-2.5 rounded-lg border bg-white">
+                    <div className="flex items-center gap-1.5">
+                      <Sun size={15} className="text-amber-500" />
+                      <div>
+                        <div className="text-xs font-bold text-gray-700">햇살 효과</div>
+                        <div className="text-[11px] text-gray-400">따뜻한 빛줄기를 은은하게 추가합니다</div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      role="switch"
+                      aria-checked={sunlightOverlay}
+                      onClick={() => setSunlightOverlay((v) => !v)}
+                      className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors cursor-pointer ${
+                        sunlightOverlay ? 'bg-amber-500' : 'bg-gray-300'
+                      }`}
+                    >
+                      <span
+                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                          sunlightOverlay ? 'translate-x-4' : 'translate-x-1'
+                        }`}
+                      />
+                    </button>
                   </div>
                 </div>
 
@@ -636,10 +670,27 @@ export const SlideShowModal = ({
         {!isGenerating && taskStatus?.status !== 'COMPLETED' && (
           <div className="px-6 py-4 border-t bg-gray-50 flex items-center justify-between">
             <div className="text-xs text-gray-500">
-              예상 영상 길이: 약{' '}
-              <span className="font-bold text-gray-700">
-                {Math.round((images.length * durationPerImage - (images.length - 1) * 0.8) * 10) / 10}초
-              </span>
+              {(() => {
+                const n = images.length;
+                const estimate = (perImage: number) =>
+                  Math.round((n * perImage - Math.max(0, n - 1) * 0.8) * 10) / 10;
+                if (durationPerImage === 'random') {
+                  return (
+                    <>
+                      예상 영상 길이: 약{' '}
+                      <span className="font-bold text-gray-700">
+                        {estimate(2.0)}초 ~ {estimate(4.0)}초
+                      </span>
+                    </>
+                  );
+                }
+                return (
+                  <>
+                    예상 영상 길이: 약{' '}
+                    <span className="font-bold text-gray-700">{estimate(durationPerImage)}초</span>
+                  </>
+                );
+              })()}
             </div>
             <div className="flex items-center gap-2">
               <Button variant="ghost" onClick={onClose}>

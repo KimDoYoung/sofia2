@@ -16,7 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
-import java.util.Set;
+import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
@@ -54,6 +54,19 @@ public class SlideShowService {
     private final Map<String, SlideShowTaskStatus> tasks = new ConcurrentHashMap<>();
 
     private Path tempVideoDir;
+
+    private static final List<Double> RANDOM_DURATION_POOL = List.of(2.0, 3.0, 4.0);
+    private static final List<String> ALL_TRANSITIONS =
+            List.of(
+                    "fade",
+                    "circlecrop",
+                    "slideleft",
+                    "slideright",
+                    "pixelize",
+                    "hblur",
+                    "dissolve",
+                    "wipeleft");
+    private static final Random RANDOM = new Random();
 
     @PostConstruct
     public void init() {
@@ -218,36 +231,60 @@ public class SlideShowService {
             }
 
             int n = imagePaths.size();
-            double duration =
-                    (request.getDurationPerImage() != null && request.getDurationPerImage() >= 1.0)
-                            ? request.getDurationPerImage()
-                            : 3.0;
+
+            // 사진별 재생시간: "random"이면 각 사진마다 남은 프리셋(2/3/4초) 중 하나를 독립적으로 무작위 선택
+            List<Double> durations = new ArrayList<>(n);
+            String rawDuration = request.getDurationPerImage();
+            boolean randomDuration =
+                    "random".equalsIgnoreCase(rawDuration == null ? "" : rawDuration.trim());
+            if (randomDuration) {
+                for (int i = 0; i < n; i++) {
+                    durations.add(
+                            RANDOM_DURATION_POOL.get(RANDOM.nextInt(RANDOM_DURATION_POOL.size())));
+                }
+            } else {
+                double fixedDuration = 3.0;
+                try {
+                    if (StringUtils.hasText(rawDuration)) {
+                        double parsed = Double.parseDouble(rawDuration.trim());
+                        if (parsed >= 1.0) {
+                            fixedDuration = parsed;
+                        }
+                    }
+                } catch (NumberFormatException ignored) {
+                    // 파싱 실패 시 기본값(3.0초) 유지
+                }
+                for (int i = 0; i < n; i++) {
+                    durations.add(fixedDuration);
+                }
+            }
+
+            // 크로스페이드 길이: 가장 짧은 슬라이드보다 짧아야 하므로 그 기준으로 클램프
+            double minDuration =
+                    durations.stream().mapToDouble(Double::doubleValue).min().orElse(3.0);
             double transDuration =
                     (request.getTransitionDuration() != null
                                     && request.getTransitionDuration() >= 0.2)
                             ? request.getTransitionDuration()
                             : 0.8;
-            if (transDuration >= duration) {
-                transDuration = duration * 0.4;
+            if (transDuration >= minDuration) {
+                transDuration = minDuration * 0.4;
             }
 
-            String transType =
+            // 컷별 전환 효과(n-1개): "random"이면 컷마다 8개 전환효과 중 하나를 독립적으로 무작위 선택
+            String rawTransition =
                     StringUtils.hasText(request.getTransition())
                             ? request.getTransition().toLowerCase().trim()
                             : "fade";
-            // 허용된 전환 효과 검증
-            Set<String> validTransitions =
-                    Set.of(
-                            "fade",
-                            "circlecrop",
-                            "slideleft",
-                            "slideright",
-                            "pixelize",
-                            "hblur",
-                            "dissolve",
-                            "wipeleft");
-            if (!validTransitions.contains(transType)) {
-                transType = "fade";
+            boolean randomTransition = "random".equals(rawTransition);
+            List<String> transitions = new ArrayList<>(Math.max(0, n - 1));
+            for (int i = 0; i < n - 1; i++) {
+                if (randomTransition) {
+                    transitions.add(ALL_TRANSITIONS.get(RANDOM.nextInt(ALL_TRANSITIONS.size())));
+                } else {
+                    transitions.add(
+                            ALL_TRANSITIONS.contains(rawTransition) ? rawTransition : "fade");
+                }
             }
 
             // 해상도 결정
@@ -269,13 +306,20 @@ public class SlideShowService {
                 blurH = 120;
             }
 
-            double totalDuration = (n * duration) - ((n - 1) * transDuration);
+            double totalDuration =
+                    durations.stream().mapToDouble(Double::doubleValue).sum()
+                            - ((n - 1) * transDuration);
 
             // BGM 확인
             Path bgmPath = null;
             if (StringUtils.hasText(request.getBgmFilename())) {
                 bgmPath = bgmAssetService.getBgmFilePath(request.getBgmFilename());
             }
+            boolean hasAudio = (bgmPath != null && Files.exists(bgmPath));
+
+            // 햇살 오버레이 입력 인덱스: 이미지들 다음, (있다면) 오디오 다음에 위치
+            boolean sunlightOverlay = Boolean.TRUE.equals(request.getSunlightOverlay());
+            int sunlightInputIndex = n + (hasAudio ? 1 : 0);
 
             // Filter script 생성
             StringBuilder filter = new StringBuilder();
@@ -307,9 +351,11 @@ public class SlideShowService {
                                 i, i, i));
             }
 
-            // xfade transition chain
+            // xfade transition chain (가변 재생시간에 맞춰 누적 오프셋 계산)
+            double cumulativeOffset = 0.0;
             for (int i = 1; i < n; i++) {
-                double offset = i * (duration - transDuration);
+                cumulativeOffset += (durations.get(i - 1) - transDuration);
+                String cutTransition = transitions.get(i - 1);
                 String in1 = (i == 1) ? "[v0]" : String.format("[vx%d]", i - 1);
                 String in2 = String.format("[v%d]", i);
                 String out = (i == n - 1) ? "[vout]" : String.format("[vx%d]", i);
@@ -319,10 +365,25 @@ public class SlideShowService {
                                 "%s%sxfade=transition=%s:duration=%.2f:offset=%.2f%s;\n",
                                 in1,
                                 in2,
-                                transType,
+                                cutTransition,
                                 transDuration,
-                                offset,
+                                cumulativeOffset,
                                 out));
+            }
+
+            // 햇살(빛무리) 오버레이: 저해상도로 회전하는 광선 패턴을 만든 뒤 확대하여
+            // screen 블렌드로 합성 (screen은 항상 밝게만 만들어 원본을 어둡게 하지 않는다)
+            String finalLabel = "[vout]";
+            if (sunlightOverlay) {
+                finalLabel = "[vfinal]";
+                filter.append(
+                        String.format(
+                                Locale.US,
+                                "[%d:v]geq=r='200+55*sin(6*atan2(Y-H/2,X-W/2)+T*0.6)*exp(-((X-W/2)*(X-W/2)+(Y-H/2)*(Y-H/2))/(2*(W*0.35)*(W*0.35)))':g='170+40*sin(6*atan2(Y-H/2,X-W/2)+T*0.6)*exp(-((X-W/2)*(X-W/2)+(Y-H/2)*(Y-H/2))/(2*(W*0.35)*(W*0.35)))':b='90+20*sin(6*atan2(Y-H/2,X-W/2)+T*0.6)*exp(-((X-W/2)*(X-W/2)+(Y-H/2)*(Y-H/2))/(2*(W*0.35)*(W*0.35)))',gblur=sigma=6,scale=%d:%d[sunlight];\n"
+                                    + "[vout][sunlight]blend=all_mode=screen:all_opacity=0.35,format=yuv420p[vfinal];\n",
+                                sunlightInputIndex,
+                                width,
+                                height));
             }
 
             String filterString = filter.toString();
@@ -331,6 +392,8 @@ public class SlideShowService {
             updateStatus(taskId, "PROCESSING", 15, "비디오 인코딩 시작 중...");
 
             // FFmpeg 실행 (1차: NVENC GPU 가속, 2차 실패 시: CPU libx264 fallback)
+            // GPU->CPU 재시도 시에도 동일한 durations/transitions/finalLabel을 재사용해야
+            // 재시도마다 다른 랜덤 결과가 나오지 않는다.
             boolean success =
                     executeFfmpeg(
                             taskId,
@@ -338,9 +401,13 @@ public class SlideShowService {
                             bgmPath,
                             filterString,
                             outputPath,
-                            duration,
+                            durations,
                             totalDuration,
-                            true);
+                            true,
+                            sunlightOverlay,
+                            finalLabel,
+                            blurW,
+                            blurH);
 
             if (!success) {
                 log.warn(
@@ -354,9 +421,13 @@ public class SlideShowService {
                                 bgmPath,
                                 filterString,
                                 outputPath,
-                                duration,
+                                durations,
                                 totalDuration,
-                                false);
+                                false,
+                                sunlightOverlay,
+                                finalLabel,
+                                blurW,
+                                blurH);
             }
 
             if (success && Files.exists(outputPath) && Files.size(outputPath) > 0) {
@@ -384,22 +455,26 @@ public class SlideShowService {
             Path bgmPath,
             String filterString,
             Path outputPath,
-            double imageDuration,
+            List<Double> imageDurations,
             double totalDuration,
-            boolean useGpu) {
+            boolean useGpu,
+            boolean sunlightOverlay,
+            String finalLabel,
+            int sunlightSourceWidth,
+            int sunlightSourceHeight) {
         try {
             List<String> cmd = new ArrayList<>();
             cmd.add("ffmpeg");
             cmd.add("-y");
 
-            // 이미지 입력들
-            for (Path imgPath : imagePaths) {
+            // 이미지 입력들 (사진별로 다른 재생시간 적용)
+            for (int i = 0; i < imagePaths.size(); i++) {
                 cmd.add("-loop");
                 cmd.add("1");
                 cmd.add("-t");
-                cmd.add(String.format(Locale.US, "%.2f", imageDuration));
+                cmd.add(String.format(Locale.US, "%.2f", imageDurations.get(i)));
                 cmd.add("-i");
-                cmd.add(imgPath.toAbsolutePath().toString());
+                cmd.add(imagePaths.get(i).toAbsolutePath().toString());
             }
 
             // 오디오 입력
@@ -411,13 +486,27 @@ public class SlideShowService {
                 cmd.add(bgmPath.toAbsolutePath().toString());
             }
 
+            // 햇살 오버레이 입력 (반드시 오디오 "다음"에 추가 — imagePaths.size():a 오디오 매핑을 건드리지 않기 위함)
+            if (sunlightOverlay) {
+                cmd.add("-f");
+                cmd.add("lavfi");
+                cmd.add("-i");
+                cmd.add(
+                        String.format(
+                                Locale.US,
+                                "nullsrc=size=%dx%d:rate=30:duration=%.2f",
+                                sunlightSourceWidth,
+                                sunlightSourceHeight,
+                                totalDuration));
+            }
+
             // 필터 지정 (-filter_complex 직접 전달, FFmpeg 9 호환)
             cmd.add("-filter_complex");
             cmd.add(filterString);
 
             // 비디오 맵
             cmd.add("-map");
-            cmd.add("[vout]");
+            cmd.add(finalLabel);
 
             // 비디오 코덱
             if (useGpu) {
