@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { apiClient } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronLeft, ChevronRight, Bookmark, Trash2, X, Menu, LogOut, Settings, Info } from 'lucide-react';
+import { Plus, ChevronLeft, ChevronRight, Bookmark, Trash2, X, Menu, LogOut, Settings, Info, Archive } from 'lucide-react';
 import axios from 'axios';
 import { useState, useRef, useEffect } from 'react';
 
@@ -175,13 +175,21 @@ const TopBar = () => {
           폴더 추가
         </button>
         <button
+          onClick={() => navigate('/archive')}
+          className="flex items-center gap-1.5 px-3 py-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors text-sm font-medium cursor-pointer"
+          title="보관소 — 생성된 PDF, 병합, 콜라쥬, 효과, 슬라이드쇼 파일 관리"
+        >
+          <Archive size={18} />
+          보관소
+        </button>
+        <button
           onClick={() => navigate('/about')}
           className="flex items-center gap-1.5 px-3 py-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors text-sm font-medium cursor-pointer"
           title="Sofia 2 소개 및 버전별 개정 이력"
         >
           <Info size={18} />
           About
-        </button>        
+        </button>
         <span
           className="text-sm text-gray-600 font-medium cursor-pointer hover:text-blue-600 hover:underline transition-all"
           onClick={() => navigate('/settings')}
@@ -252,6 +260,13 @@ const TopBar = () => {
             폴더 추가
           </button>
           <div className="h-px bg-gray-100 mx-3 my-1" />
+          <button
+            onClick={() => { navigate('/archive'); setIsMobileMenuOpen(false); }}
+            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-emerald-50 transition-colors"
+          >
+            <Archive size={18} className="text-emerald-600" />
+            보관소
+          </button>
           <button
             onClick={() => { navigate('/about'); setIsMobileMenuOpen(false); }}
             className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"

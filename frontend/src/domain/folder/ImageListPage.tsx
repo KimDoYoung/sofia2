@@ -22,6 +22,7 @@ import type { PdfExportOptions } from './components/PdfOptionsModal';
 import { MergeOptionsModal } from './components/MergeOptionsModal';
 import type { MergeOptions } from './components/MergeOptionsModal';
 import { MergePreviewModal } from './components/MergePreviewModal';
+import { PdfResultModal } from './components/PdfResultModal';
 import { GridContextMenu } from './components/GridContextMenu';
 import { CollageModal } from './components/CollageModal';
 import { ImageEffectModal } from './components/ImageEffectModal';
@@ -46,6 +47,11 @@ const ImageListPage = () => {
   const [isMergePreviewOpen, setIsMergePreviewOpen] = useState(false);
   const [mergeResultBlob, setMergeResultBlob] = useState<Blob | null>(null);
   const [mergeResultFilename, setMergeResultFilename] = useState('');
+  const [mergeElapsedMs, setMergeElapsedMs] = useState<number | null>(null);
+  const [isPdfResultOpen, setIsPdfResultOpen] = useState(false);
+  const [pdfResultBlob, setPdfResultBlob] = useState<Blob | null>(null);
+  const [pdfResultFilename, setPdfResultFilename] = useState('');
+  const [pdfElapsedMs, setPdfElapsedMs] = useState<number | null>(null);
   const [isCollageModalOpen, setIsCollageModalOpen] = useState(false);
   const [isEffectModalOpen, setIsEffectModalOpen] = useState(false);
   const [isSlideShowModalOpen, setIsSlideShowModalOpen] = useState(false);
@@ -218,6 +224,7 @@ const ImageListPage = () => {
   const handleExportPdf = async (options: PdfExportOptions) => {
     if (selectedIds.length === 0) return;
     setIsExporting(true);
+    const startTime = performance.now();
     try {
       const response = await apiClient.post(
         '/images/export/pdf',
@@ -237,10 +244,7 @@ const ImageListPage = () => {
         }
       );
 
-      const url = window.URL.createObjectURL(new Blob([response.data]));
-      const link = document.createElement('a');
-      link.href = url;
-
+      const elapsed = Math.round(performance.now() - startTime);
       const contentDisposition = response.headers['content-disposition'];
       let filename = `sofia_images_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.pdf`;
       if (contentDisposition) {
@@ -250,12 +254,10 @@ const ImageListPage = () => {
         }
       }
 
-      link.setAttribute('download', filename);
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.URL.revokeObjectURL(url);
-      toast({ title: '성공', description: 'PDF 파일이 생성되었습니다.' });
+      setPdfResultBlob(new Blob([response.data], { type: 'application/pdf' }));
+      setPdfResultFilename(filename);
+      setPdfElapsedMs(elapsed);
+      setIsPdfResultOpen(true);
     } catch {
       toast({
         title: '오류',
@@ -270,6 +272,7 @@ const ImageListPage = () => {
   const handleMergeImages = async (options: MergeOptions) => {
     if (selectedIds.length === 0) return;
     setIsMerging(true);
+    const startTime = performance.now();
     try {
       const response = await apiClient.post(
         '/images/export/merge',
@@ -289,6 +292,7 @@ const ImageListPage = () => {
         }
       );
 
+      const elapsed = Math.round(performance.now() - startTime);
       const contentDisposition = response.headers['content-disposition'];
       let filename = `sofia_merged_${new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_')}.jpg`;
       if (contentDisposition) {
@@ -300,6 +304,7 @@ const ImageListPage = () => {
 
       setMergeResultBlob(new Blob([response.data]));
       setMergeResultFilename(filename);
+      setMergeElapsedMs(elapsed);
       setIsMergePreviewOpen(true);
     } catch {
       toast({
@@ -537,6 +542,20 @@ const ImageListPage = () => {
         }}
         blob={mergeResultBlob}
         filename={mergeResultFilename}
+        elapsedMs={mergeElapsedMs}
+        sourceFolderId={folderId ? Number(folderId) : null}
+      />
+
+      <PdfResultModal
+        isOpen={isPdfResultOpen}
+        onClose={() => {
+          setIsPdfResultOpen(false);
+          setPdfResultBlob(null);
+        }}
+        blob={pdfResultBlob}
+        filename={pdfResultFilename}
+        elapsedMs={pdfElapsedMs}
+        sourceFolderId={folderId ? Number(folderId) : null}
       />
 
       <CollageModal
@@ -544,6 +563,7 @@ const ImageListPage = () => {
         onClose={() => setIsCollageModalOpen(false)}
         selectedImages={selectedImageObjects}
         folderName={folderName}
+        folderId={folderId ? Number(folderId) : undefined}
       />
 
       <ImageEffectModal
@@ -551,6 +571,7 @@ const ImageListPage = () => {
         onClose={() => setIsEffectModalOpen(false)}
         selectedImages={selectedImageObjects}
         folderName={folderName}
+        folderId={folderId ? Number(folderId) : undefined}
       />
 
       <SlideShowModal

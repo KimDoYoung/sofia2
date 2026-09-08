@@ -1,12 +1,14 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '@/lib/api';
+import { OutputActionsPanel } from '@/shared/components/OutputActionsPanel';
+import type { ArchiveMetaInput } from '@/shared/components/OutputActionsPanel';
+import { useToast } from '@/shared/components/ui/use-toast';
 import {
   X,
   Film,
   Play,
   Pause,
-  Download,
   RotateCcw,
   CheckCircle2,
   AlertCircle,
@@ -77,7 +79,9 @@ export const SlideShowModal = ({
   onClose,
   selectedImages,
   folderId,
+  folderName,
 }: SlideShowModalProps) => {
+  const { toast } = useToast();
   const [images, setImages] = useState<ImageFile[]>([]);
   const [durationPerImage, setDurationPerImage] = useState<number | 'random'>('random');
   const [transition, setTransition] = useState<string>('random');
@@ -90,12 +94,14 @@ export const SlideShowModal = ({
   const previewAudioRef = useRef<HTMLAudioElement | null>(null);
 
   // 비디오 생성 작업 상태
-  const [, setTaskId] = useState<string | null>(null);
+  const [taskId, setTaskId] = useState<string | null>(null);
   const [taskStatus, setTaskStatus] = useState<SlideShowTaskStatus | null>(null);
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
+  const [slideElapsedMs, setSlideElapsedMs] = useState<number | null>(null);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const generationStartRef = useRef<number | null>(null);
 
   const stopBgm = useCallback(() => {
     if (previewAudioRef.current) {
@@ -123,6 +129,7 @@ export const SlideShowModal = ({
       setTaskStatus(null);
       setIsGenerating(false);
       setGenerationError(null);
+      setSlideElapsedMs(null);
       stopBgm();
       // BGM 기본값 설정 (첫 번째 곡 또는 빈 값)
       if (bgmAssets && bgmAssets.length > 0) {
@@ -180,6 +187,7 @@ export const SlideShowModal = ({
     stopBgm();
     setIsGenerating(true);
     setGenerationError(null);
+    generationStartRef.current = performance.now();
 
     try {
       const payload = {
@@ -208,6 +216,9 @@ export const SlideShowModal = ({
           if (status.status === 'COMPLETED') {
             if (pollingRef.current) clearInterval(pollingRef.current);
             setIsGenerating(false);
+            if (generationStartRef.current != null) {
+              setSlideElapsedMs(Math.round(performance.now() - generationStartRef.current));
+            }
           } else if (status.status === 'FAILED') {
             if (pollingRef.current) clearInterval(pollingRef.current);
             setIsGenerating(false);
@@ -222,6 +233,32 @@ export const SlideShowModal = ({
       setIsGenerating(false);
       setGenerationError('슬라이드 쇼 생성 요청 중 오류가 발생했습니다.');
     }
+  };
+
+  const buildSlideFilename = () => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_');
+    return `${folderName || 'sofia'}_slideshow_${timestamp}.mp4`;
+  };
+
+  const handleArchiveSlideshow = async (meta: ArchiveMetaInput) => {
+    if (!taskId) throw new Error('taskId 없음');
+    const dfn = meta.displayFilename || buildSlideFilename();
+    await apiClient.post(`/archive/from-slideshow/${taskId}`, {
+      displayFilename: dfn,
+      note: meta.note ?? null,
+      elapsedMs: slideElapsedMs,
+    });
+    toast({ title: '슬라이드쇼 보관 완료', description: '보관소에 저장되었습니다.' });
+  };
+
+  const handleDownloadSlideshow = () => {
+    if (!taskStatus?.downloadUrl) return;
+    const link = document.createElement('a');
+    link.href = taskStatus.downloadUrl;
+    link.setAttribute('download', '');
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
   };
 
   if (!isOpen) return null;
@@ -321,27 +358,31 @@ export const SlideShowModal = ({
               </div>
 
               {/* 완료 후 액션 버튼 */}
-              <div className="flex flex-wrap items-center justify-between gap-3 pt-2">
-                <Button
-                  variant="outline"
-                  onClick={() => {
-                    setTaskStatus(null);
-                    setTaskId(null);
+              <div className="space-y-3 pt-2">
+                <div>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setTaskStatus(null);
+                      setTaskId(null);
+                      setSlideElapsedMs(null);
+                    }}
+                    className="gap-2"
+                  >
+                    <RotateCcw size={16} />
+                    <span>다시 설정하기</span>
+                  </Button>
+                </div>
+                <OutputActionsPanel
+                  elapsedMs={slideElapsedMs}
+                  defaultFilename={buildSlideFilename()}
+                  onDownload={handleDownloadSlideshow}
+                  onSaveToArchive={handleArchiveSlideshow}
+                  onSaveThenDownload={async (meta) => {
+                    await handleArchiveSlideshow(meta);
+                    handleDownloadSlideshow();
                   }}
-                  className="gap-2"
-                >
-                  <RotateCcw size={16} />
-                  <span>다시 설정하기</span>
-                </Button>
-
-                <a
-                  href={taskStatus.downloadUrl}
-                  download
-                  className="inline-flex items-center justify-center gap-2 px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-sm font-medium transition-colors shadow-sm"
-                >
-                  <Download size={16} />
-                  <span>MP4 다운로드</span>
-                </a>
+                />
               </div>
             </div>
           )}

@@ -1,12 +1,18 @@
 import { useEffect, useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
-import { X, Copy, Download, Check, ImageIcon } from 'lucide-react';
+import { X, ImageIcon } from 'lucide-react';
+import { apiClient } from '@/lib/api';
+import { OutputActionsPanel } from '@/shared/components/OutputActionsPanel';
+import type { ArchiveMetaInput } from '@/shared/components/OutputActionsPanel';
+import { useToast } from '@/shared/components/ui/use-toast';
 
 interface MergePreviewModalProps {
   isOpen: boolean;
   onClose: () => void;
   blob: Blob | null;
   filename: string;
+  elapsedMs?: number | null;
+  sourceFolderId?: number | null;
 }
 
 // 클립보드 이미지 복사는 브라우저 호환성상 image/png 타입만 안정적으로 지원되므로
@@ -43,17 +49,15 @@ const convertBlobToPng = (blob: Blob): Promise<Blob> => {
   });
 };
 
-export const MergePreviewModal = ({ isOpen, onClose, blob, filename }: MergePreviewModalProps) => {
+export const MergePreviewModal = ({ isOpen, onClose, blob, filename, elapsedMs, sourceFolderId }: MergePreviewModalProps) => {
+  const { toast } = useToast();
   const [imageUrl, setImageUrl] = useState<string | null>(null);
-  const [isCopying, setIsCopying] = useState(false);
-  const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen && blob) {
       const url = URL.createObjectURL(blob);
       setImageUrl(url);
-      setCopied(false);
       setCopyError(null);
       return () => URL.revokeObjectURL(url);
     }
@@ -72,23 +76,34 @@ export const MergePreviewModal = ({ isOpen, onClose, blob, filename }: MergePrev
     link.remove();
   };
 
+  const uploadToArchive = async (meta: ArchiveMetaInput) => {
+    if (!blob) return;
+    const dfn = meta.displayFilename || filename;
+    const formData = new FormData();
+    formData.append('file', blob, dfn);
+    formData.append('type', 'MERGE');
+    formData.append('displayFilename', dfn);
+    if (meta.note) formData.append('note', meta.note);
+    if (sourceFolderId != null) formData.append('sourceFolderId', String(sourceFolderId));
+    if (elapsedMs != null) formData.append('elapsedMs', String(elapsedMs));
+    await apiClient.post('/archive/upload', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    });
+    toast({ title: '성공', description: '병합 이미지가 보관소에 저장되었습니다.' });
+  };
+
   const handleCopy = async () => {
     if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
       setCopyError('이 브라우저에서는 이미지 클립보드 복사를 지원하지 않습니다. 다운로드를 이용해주세요.');
       return;
     }
-    setIsCopying(true);
     setCopyError(null);
     try {
       const pngBlob = await convertBlobToPng(blob);
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
     } catch (err) {
       console.error('Clipboard copy failed:', err);
       setCopyError('클립보드 복사에 실패했습니다. 다운로드를 이용해주세요.');
-    } finally {
-      setIsCopying(false);
     }
   };
 
@@ -124,35 +139,24 @@ export const MergePreviewModal = ({ isOpen, onClose, blob, filename }: MergePrev
         </div>
 
         {/* Footer */}
-        <div className="p-4 px-6 border-t bg-gray-50/70 shrink-0 space-y-2">
+        <div className="p-4 px-6 border-t bg-gray-50/70 shrink-0 space-y-3">
           {copyError && <p className="text-xs text-red-600 text-right">{copyError}</p>}
-          <div className="flex gap-2 justify-end">
-            <Button variant="ghost" onClick={onClose} className="text-gray-500 hover:bg-gray-100">
+          <div className="flex justify-start">
+            <Button variant="ghost" size="sm" onClick={onClose} className="text-gray-500 hover:bg-gray-100">
               닫기
             </Button>
-            <Button
-              variant="outline"
-              onClick={handleDownload}
-              className="flex items-center gap-1.5"
-            >
-              <Download size={16} />
-              다운로드
-            </Button>
-            <Button
-              onClick={handleCopy}
-              disabled={isCopying}
-              className="bg-indigo-600 hover:bg-indigo-700 text-white font-semibold min-w-[150px] shadow-sm flex items-center gap-1.5"
-            >
-              {isCopying ? (
-                <div className="h-4 w-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : copied ? (
-                <Check size={16} />
-              ) : (
-                <Copy size={16} />
-              )}
-              {isCopying ? '복사 중...' : copied ? '복사됨' : '클립보드로 복사'}
-            </Button>
           </div>
+          <OutputActionsPanel
+            elapsedMs={elapsedMs ?? null}
+            defaultFilename={filename}
+            onDownload={handleDownload}
+            onCopyToClipboard={handleCopy}
+            onSaveToArchive={uploadToArchive}
+            onSaveThenDownload={async (meta) => {
+              await uploadToArchive(meta);
+              handleDownload();
+            }}
+          />
         </div>
       </div>
     </div>

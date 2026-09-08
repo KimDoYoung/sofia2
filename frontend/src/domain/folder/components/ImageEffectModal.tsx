@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
+import { apiClient } from '@/lib/api';
 import { Button } from '@/shared/components/ui/button';
 import {
   X,
@@ -22,6 +23,7 @@ import {
   Focus,
   Film,
   SlidersHorizontal,
+  Archive,
 } from 'lucide-react';
 import type { ImageFile } from '../types';
 import type {
@@ -44,6 +46,7 @@ interface ImageEffectModalProps {
   onClose: () => void;
   selectedImages: ImageFile[];
   folderName?: string;
+  folderId?: number;
 }
 
 const CATEGORIES: { id: EffectCategory; label: string; icon: typeof Paintbrush }[] = [
@@ -57,6 +60,7 @@ export const ImageEffectModal = ({
   onClose,
   selectedImages,
   folderName,
+  folderId,
 }: ImageEffectModalProps) => {
   const { toast } = useToast();
 
@@ -76,6 +80,8 @@ export const ImageEffectModal = ({
   const [isRendering, setIsRendering] = useState(false);
   const [isDownloading, setIsDownloading] = useState(false);
   const [batchProgress, setBatchProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isArchiving, setIsArchiving] = useState(false);
+  const [batchArchiveProgress, setBatchArchiveProgress] = useState<{ current: number; total: number } | null>(null);
 
   const activeImage: ImageFile | undefined = selectedImages[activeImageIndex];
 
@@ -240,6 +246,87 @@ export const ImageEffectModal = ({
     } finally {
       setIsDownloading(false);
       setBatchProgress(null);
+    }
+  };
+
+  const buildEffectFilename = (imgFile: ImageFile) => {
+    const baseName = imgFile.orgName.replace(/\.[^/.]+$/, '');
+    const prefix = folderName ? `${folderName}_` : '';
+    return `${prefix}${baseName}_${selectedEffect}.jpg`;
+  };
+
+  const canvasToBlob = (canvas: HTMLCanvasElement): Promise<Blob> =>
+    new Promise((resolve, reject) => {
+      canvas.toBlob(b => b ? resolve(b) : reject(new Error('blob null')), 'image/jpeg', 0.95);
+    });
+
+  const handleArchiveSingle = async () => {
+    if (!activeImage) return;
+    setIsArchiving(true);
+    const start = performance.now();
+    try {
+      const img = await loadSourceImage(activeImage);
+      const sourceCanvas = createOrientedCanvas(img, activeImage.rotationAngle || 0, 2560);
+      const outCanvas = document.createElement('canvas');
+      applyImageEffect(outCanvas, sourceCanvas, selectedEffect, params, blend);
+      const elapsed = Math.round(performance.now() - start);
+      const filename = buildEffectFilename(activeImage);
+      const blob = await canvasToBlob(outCanvas);
+
+      const formData = new FormData();
+      formData.append('file', blob, filename);
+      formData.append('type', 'EFFECT');
+      formData.append('displayFilename', filename);
+      if (folderId != null) formData.append('sourceFolderId', String(folderId));
+      formData.append('elapsedMs', String(elapsed));
+
+      await apiClient.post('/archive/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast({ title: '효과 보관 완료', description: '보관소에 저장되었습니다.' });
+    } catch (err) {
+      console.error('Archive single effect failed:', err);
+      toast({ title: '저장 실패', description: '보관소 저장 중 오류가 발생했습니다.', variant: 'destructive' });
+    } finally {
+      setIsArchiving(false);
+    }
+  };
+
+  const handleArchiveBatch = async () => {
+    if (selectedImages.length === 0) return;
+    setIsArchiving(true);
+    setBatchArchiveProgress({ current: 0, total: selectedImages.length });
+    const batchStart = performance.now();
+    try {
+      for (let i = 0; i < selectedImages.length; i++) {
+        const item = selectedImages[i];
+        setBatchArchiveProgress({ current: i + 1, total: selectedImages.length });
+        const img = await loadSourceImage(item);
+        const sourceCanvas = createOrientedCanvas(img, item.rotationAngle || 0, 2560);
+        const outCanvas = document.createElement('canvas');
+        applyImageEffect(outCanvas, sourceCanvas, selectedEffect, params, blend);
+        const filename = buildEffectFilename(item);
+        const blob = await canvasToBlob(outCanvas);
+
+        const formData = new FormData();
+        formData.append('file', blob, filename);
+        formData.append('type', 'EFFECT');
+        formData.append('displayFilename', filename);
+        if (folderId != null) formData.append('sourceFolderId', String(folderId));
+        formData.append('elapsedMs', String(Math.round(performance.now() - batchStart)));
+
+        await apiClient.post('/archive/upload', formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        await new Promise(res => setTimeout(res, 100));
+      }
+      toast({ title: '일괄 보관 완료', description: `${selectedImages.length}개 이미지가 보관소에 저장되었습니다.` });
+    } catch (err) {
+      console.error('Archive batch effect failed:', err);
+      toast({ title: '일괄 저장 실패', description: '보관소 저장 중 오류가 발생했습니다.', variant: 'destructive' });
+    } finally {
+      setIsArchiving(false);
+      setBatchArchiveProgress(null);
     }
   };
 
@@ -1428,30 +1515,59 @@ export const ImageEffectModal = ({
                   닫기
                 </Button>
 
-                <div className="flex items-center gap-2">
+                <div className="flex flex-wrap items-center gap-2">
                   {selectedImages.length > 1 && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={handleDownloadBatch}
-                      disabled={isDownloading || isRendering}
-                      className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 text-xs cursor-pointer"
-                      title="선택된 모든 이미지에 현재 효과를 적용하여 순차 다운로드합니다"
-                    >
-                      {batchProgress ? (
-                        <span>
-                          {batchProgress.current} / {batchProgress.total} 저장 중...
-                        </span>
-                      ) : (
-                        <span>{selectedImages.length}장 일괄 다운로드</span>
-                      )}
-                    </Button>
+                    <>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleDownloadBatch}
+                        disabled={isDownloading || isRendering || isArchiving}
+                        className="text-indigo-600 border-indigo-200 hover:bg-indigo-50 text-xs cursor-pointer"
+                        title="선택된 모든 이미지에 현재 효과를 적용하여 순차 다운로드합니다"
+                      >
+                        {batchProgress ? (
+                          <span>{batchProgress.current} / {batchProgress.total} 다운로드 중...</span>
+                        ) : (
+                          <span>{selectedImages.length}장 일괄 다운로드</span>
+                        )}
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={handleArchiveBatch}
+                        disabled={isDownloading || isRendering || isArchiving}
+                        className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs gap-1 cursor-pointer"
+                        title="선택된 모든 이미지를 보관소에 저장합니다"
+                      >
+                        {batchArchiveProgress ? (
+                          <span>{batchArchiveProgress.current} / {batchArchiveProgress.total} 저장 중...</span>
+                        ) : (
+                          <span>{selectedImages.length}장 일괄 보관</span>
+                        )}
+                      </Button>
+                    </>
                   )}
+
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={handleArchiveSingle}
+                    disabled={isDownloading || isRendering || isArchiving}
+                    className="text-emerald-700 border-emerald-300 hover:bg-emerald-50 text-xs gap-1 cursor-pointer"
+                  >
+                    {isArchiving && !batchArchiveProgress ? (
+                      <div className="w-3.5 h-3.5 border-2 border-emerald-600 border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Archive size={14} />
+                    )}
+                    <span>보관소에 저장</span>
+                  </Button>
 
                   <Button
                     size="sm"
                     onClick={handleDownloadSingle}
-                    disabled={isDownloading || isRendering}
+                    disabled={isDownloading || isRendering || isArchiving}
                     className="bg-indigo-600 hover:bg-indigo-700 text-white text-xs gap-1.5 cursor-pointer shadow-sm"
                   >
                     {isDownloading && !batchProgress ? (

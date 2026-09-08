@@ -11,7 +11,9 @@ import {
   Layers,
   Palette,
   RotateCw,
+  Archive,
 } from 'lucide-react';
+import { apiClient } from '@/lib/api';
 import type { ImageFile } from '../types';
 import type {
   CollageConfig,
@@ -33,6 +35,7 @@ interface CollageModalProps {
   onClose: () => void;
   selectedImages: ImageFile[];
   folderName?: string;
+  folderId?: number;
 }
 
 const BG_PRESETS = [
@@ -59,6 +62,7 @@ export const CollageModal = ({
   onClose,
   selectedImages,
   folderName,
+  folderId,
 }: CollageModalProps) => {
   const { toast } = useToast();
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -214,35 +218,59 @@ export const CollageModal = ({
     });
   };
 
+  const buildExportFilename = () => {
+    const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_');
+    return `${folderName || 'sofia'}_collage_${timestamp}.jpg`;
+  };
+
   // 고화질 다운로드 핸들러
   const handleDownload = async () => {
     setIsExporting(true);
     try {
-      // 고해상도 오프스크린 캔버스에 렌더링 (2400px, 캐시 재활용)
       const exportCanvas = document.createElement('canvas');
-      await renderCollageToCanvas(
-        exportCanvas,
-        photoItems,
-        config,
-        2400,
-        cachedCanvasesRef.current
-      );
-
-      const timestamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '_');
-      const filename = `${folderName || 'sofia'}_collage_${timestamp}.jpg`;
+      await renderCollageToCanvas(exportCanvas, photoItems, config, 2400, cachedCanvasesRef.current);
+      const filename = buildExportFilename();
       downloadCanvasImage(exportCanvas, filename, 0.95);
-
-      toast({
-        title: '콜라쥬 저장 완료',
-        description: `${filename} 파일로 다운로드되었습니다.`,
-      });
+      toast({ title: '콜라쥬 저장 완료', description: `${filename} 파일로 다운로드되었습니다.` });
     } catch (err) {
       console.error('Export collage error:', err);
-      toast({
-        title: '다운로드 실패',
-        description: '콜라쥬 생성 중 오류가 발생했습니다.',
-        variant: 'destructive',
+      toast({ title: '다운로드 실패', description: '콜라쥬 생성 중 오류가 발생했습니다.', variant: 'destructive' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleArchive = async (andDownload = false) => {
+    setIsExporting(true);
+    const start = performance.now();
+    try {
+      const exportCanvas = document.createElement('canvas');
+      await renderCollageToCanvas(exportCanvas, photoItems, config, 2400, cachedCanvasesRef.current);
+      const elapsed = Math.round(performance.now() - start);
+      const filename = buildExportFilename();
+
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        exportCanvas.toBlob(b => b ? resolve(b) : reject(new Error('blob null')), 'image/jpeg', 0.95);
       });
+
+      const formData = new FormData();
+      formData.append('file', blob, filename);
+      formData.append('type', 'COLLAGE');
+      formData.append('displayFilename', filename);
+      if (folderId != null) formData.append('sourceFolderId', String(folderId));
+      formData.append('elapsedMs', String(elapsed));
+
+      await apiClient.post('/archive/upload', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      toast({ title: '콜라쥬 보관 완료', description: '보관소에 저장되었습니다.' });
+
+      if (andDownload) {
+        downloadCanvasImage(exportCanvas, filename, 0.95);
+      }
+    } catch (err) {
+      console.error('Archive collage error:', err);
+      toast({ title: '저장 실패', description: '보관소 저장 중 오류가 발생했습니다.', variant: 'destructive' });
     } finally {
       setIsExporting(false);
     }
@@ -615,29 +643,47 @@ export const CollageModal = ({
             </div>
 
             {/* ── 하단 액션 버튼 ── */}
-            <div className="p-4 border-t bg-gray-50/80 flex items-center justify-end gap-2.5">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={onClose}
-                disabled={isExporting}
-                className="cursor-pointer"
-              >
-                닫기
-              </Button>
-              <Button
-                size="sm"
-                onClick={handleDownload}
-                disabled={isExporting || isRendering}
-                className="bg-violet-600 hover:bg-violet-700 text-white gap-2 cursor-pointer shadow-sm"
-              >
-                {isExporting ? (
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                ) : (
-                  <Download size={15} />
-                )}
-                <span>{isExporting ? '생성 중...' : '고화질 다운로드 (JPG)'}</span>
-              </Button>
+            <div className="p-4 border-t bg-gray-50/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <Button variant="outline" size="sm" onClick={onClose} disabled={isExporting} className="cursor-pointer">
+                  닫기
+                </Button>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleDownload}
+                    disabled={isExporting || isRendering}
+                    className="bg-violet-600 hover:bg-violet-700 text-white gap-2 cursor-pointer shadow-sm"
+                  >
+                    {isExporting ? (
+                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    ) : (
+                      <Download size={15} />
+                    )}
+                    <span>{isExporting ? '생성 중...' : '다운로드'}</span>
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleArchive(false)}
+                    disabled={isExporting || isRendering}
+                    className="gap-1.5 text-emerald-700 border-emerald-300 hover:bg-emerald-50 cursor-pointer"
+                  >
+                    <Archive size={14} />
+                    보관소에 저장
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => handleArchive(true)}
+                    disabled={isExporting || isRendering}
+                    className="gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white cursor-pointer shadow-sm"
+                  >
+                    <Archive size={14} />
+                    저장 후 다운로드
+                  </Button>
+                </div>
+              </div>
             </div>
           </div>
         </div>
