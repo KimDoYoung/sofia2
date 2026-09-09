@@ -17,6 +17,7 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.core.io.Resource;
+import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 import org.springframework.web.multipart.MultipartFile;
@@ -47,25 +48,42 @@ public class ArchivedOutputService {
         }
     }
 
-    public ArchivedOutput saveUpload(MultipartFile file, OutputType type, String displayFilename,
-                                     String note, Long sourceFolderId, Integer elapsedMs) throws IOException {
+    public ArchivedOutput saveUpload(
+            MultipartFile file,
+            OutputType type,
+            String displayFilename,
+            String note,
+            Long sourceFolderId,
+            Integer elapsedMs)
+            throws IOException {
         String extension = resolveExtension(type);
         String storedFilename = UUID.randomUUID() + "." + extension;
         Path target = archiveDir.resolve(storedFilename);
         Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
 
-        String finalName = normalizeDisplayFilename(
-                StringUtils.hasText(displayFilename) ? displayFilename : file.getOriginalFilename(), extension);
+        String finalName =
+                normalizeDisplayFilename(
+                        StringUtils.hasText(displayFilename)
+                                ? displayFilename
+                                : file.getOriginalFilename(),
+                        extension);
 
-        return archivedOutputRepository.save(ArchivedOutput.builder()
-                .type(type).storedFilename(storedFilename).displayFilename(finalName)
-                .note(note).sourceFolderId(sourceFolderId)
-                .fileSize(Files.size(target)).fileExtension(extension).elapsedMs(elapsedMs)
-                .build());
+        return archivedOutputRepository.save(
+                ArchivedOutput.builder()
+                        .type(type)
+                        .storedFilename(storedFilename)
+                        .displayFilename(finalName)
+                        .note(note)
+                        .sourceFolderId(sourceFolderId)
+                        .fileSize(Files.size(target))
+                        .fileExtension(extension)
+                        .elapsedMs(elapsedMs)
+                        .build());
     }
 
-    public ArchivedOutput saveFromSlideshowTask(String taskId, String displayFilename,
-                                                String note, Integer elapsedMs) throws IOException {
+    public ArchivedOutput saveFromSlideshowTask(
+            String taskId, String displayFilename, String note, Integer elapsedMs)
+            throws IOException {
         Path source = slideShowService.getVideoPath(taskId);
         if (source == null) throw new IllegalStateException("완료된 슬라이드 쇼 동영상을 찾을 수 없습니다.");
 
@@ -73,16 +91,24 @@ public class ArchivedOutputService {
         Path target = archiveDir.resolve(storedFilename);
         Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING);
 
-        String finalName = normalizeDisplayFilename(
-                StringUtils.hasText(displayFilename) ? displayFilename : "slideshow", "mp4");
+        String finalName =
+                normalizeDisplayFilename(
+                        StringUtils.hasText(displayFilename) ? displayFilename : "slideshow",
+                        "mp4");
 
         SlideShowTaskStatus status = slideShowService.getTaskStatus(taskId);
 
-        return archivedOutputRepository.save(ArchivedOutput.builder()
-                .type(OutputType.SLIDESHOW).storedFilename(storedFilename).displayFilename(finalName)
-                .note(note).sourceFolderId(status != null ? status.getFolderId() : null)
-                .fileSize(Files.size(target)).fileExtension("mp4").elapsedMs(elapsedMs)
-                .build());
+        return archivedOutputRepository.save(
+                ArchivedOutput.builder()
+                        .type(OutputType.SLIDESHOW)
+                        .storedFilename(storedFilename)
+                        .displayFilename(finalName)
+                        .note(note)
+                        .sourceFolderId(status != null ? status.getFolderId() : null)
+                        .fileSize(Files.size(target))
+                        .fileExtension("mp4")
+                        .elapsedMs(elapsedMs)
+                        .build());
     }
 
     public List<ArchivedOutput> list(OutputType typeFilter) {
@@ -95,7 +121,8 @@ public class ArchivedOutputService {
         ArchivedOutput item = getMeta(id);
         if (note != null) item.setNote(note);
         if (StringUtils.hasText(displayFilename)) {
-            item.setDisplayFilename(normalizeDisplayFilename(displayFilename, item.getFileExtension()));
+            item.setDisplayFilename(
+                    normalizeDisplayFilename(displayFilename, item.getFileExtension()));
         }
         return archivedOutputRepository.save(item);
     }
@@ -116,7 +143,8 @@ public class ArchivedOutputService {
     }
 
     public ArchivedOutput getMeta(Long id) {
-        return archivedOutputRepository.findById(id)
+        return archivedOutputRepository
+                .findById(id)
                 .orElseThrow(() -> new IllegalArgumentException("항목을 찾을 수 없습니다: " + id));
     }
 
@@ -125,6 +153,14 @@ public class ArchivedOutputService {
             case PDF -> "pdf";
             case MERGE, COLLAGE, EFFECT -> "jpg";
             case SLIDESHOW -> "mp4";
+        };
+    }
+
+    public MediaType resolveMediaType(OutputType type) {
+        return switch (type) {
+            case PDF -> MediaType.APPLICATION_PDF;
+            case MERGE, COLLAGE, EFFECT -> MediaType.IMAGE_JPEG;
+            case SLIDESHOW -> MediaType.parseMediaType("video/mp4");
         };
     }
 

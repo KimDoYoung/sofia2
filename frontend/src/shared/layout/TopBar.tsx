@@ -2,7 +2,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '@/store/authStore';
 import { apiClient } from '@/lib/api';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
-import { Plus, ChevronLeft, ChevronRight, Bookmark, Trash2, X, Menu, LogOut, Settings, Info, Archive } from 'lucide-react';
+import { Plus, FolderOpen, ChevronLeft, ChevronRight, Bookmark, Trash2, X, Menu, LogOut, Settings, Info, Archive } from 'lucide-react';
 import axios from 'axios';
 import { useState, useRef, useEffect } from 'react';
 
@@ -28,6 +28,7 @@ const TopBar = () => {
   // Extract folderId from pathname (e.g., /folder/12)
   const folderMatch = location.pathname.match(/\/folder\/(\d+)/);
   const currentFolderId = folderMatch ? parseInt(folderMatch[1], 10) : null;
+  const isHome = location.pathname === '/';
 
   const { data: healthData } = useQuery({
     queryKey: ['health'],
@@ -167,13 +168,23 @@ const TopBar = () => {
           <Bookmark size={18} />
           북마크
         </button>
-        <button
-          onClick={() => navigate('/folder/add')}
-          className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
-        >
-          <Plus size={18} />
-          폴더 추가
-        </button>
+        {isHome ? (
+          <button
+            onClick={() => navigate('/folder/add')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            <Plus size={18} />
+            폴더 추가
+          </button>
+        ) : (
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-2 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg transition-colors text-sm font-medium"
+          >
+            <FolderOpen size={18} />
+            폴더 선택
+          </button>
+        )}
         <button
           onClick={() => navigate('/archive')}
           className="flex items-center gap-1.5 px-3 py-2 text-gray-600 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors text-sm font-medium cursor-pointer"
@@ -252,13 +263,23 @@ const TopBar = () => {
             <Bookmark size={18} className="text-amber-500" />
             북마크 목록
           </button>
-          <button
-            onClick={() => { navigate('/folder/add'); setIsMobileMenuOpen(false); }}
-            className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-          >
-            <Plus size={18} className="text-blue-600" />
-            폴더 추가
-          </button>
+          {isHome ? (
+            <button
+              onClick={() => { navigate('/folder/add'); setIsMobileMenuOpen(false); }}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+            >
+              <Plus size={18} className="text-blue-600" />
+              폴더 추가
+            </button>
+          ) : (
+            <button
+              onClick={() => { navigate('/'); setIsMobileMenuOpen(false); }}
+              className="flex items-center gap-3 px-4 py-2.5 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
+            >
+              <FolderOpen size={18} className="text-blue-600" />
+              폴더 선택
+            </button>
+          )}
           <div className="h-px bg-gray-100 mx-3 my-1" />
           <button
             onClick={() => { navigate('/archive'); setIsMobileMenuOpen(false); }}

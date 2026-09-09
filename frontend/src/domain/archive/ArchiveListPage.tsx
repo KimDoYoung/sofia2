@@ -13,9 +13,10 @@ import type {
   ValueFormatterParams,
   GetRowIdParams,
 } from 'ag-grid-community';
-import { Trash2, Download, RefreshCw, Archive, Search } from 'lucide-react';
+import { Trash2, Download, RefreshCw, Archive, Search, Eye } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { formatElapsed } from '@/shared/utils/elapsedTime';
+import { ArchivePreviewModal } from './ArchivePreviewModal';
 
 ModuleRegistry.registerModules([AllCommunityModule]);
 
@@ -56,6 +57,7 @@ const ArchiveListPage = () => {
   const gridRef = useRef<AgGridReact>(null);
   const [typeFilter, setTypeFilter] = useState('');
   const [searchText, setSearchText] = useState('');
+  const [previewItem, setPreviewItem] = useState<ArchivedOutput | null>(null);
 
   const { data: items, isLoading, refetch, isRefetching } = useQuery<ArchivedOutput[]>({
     queryKey: ['archive'],
@@ -212,6 +214,35 @@ const ArchiveListPage = () => {
       width: 110,
       filter: false,
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => p.value ? formatElapsed(p.value) : '-',
+    },
+    {
+      headerName: '미리보기',
+      width: 90,
+      sortable: false,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      cellRenderer: (params: ICellRendererParams<ArchivedOutput>) => (
+        <button
+          title="미리보기"
+          onClick={() => params.data && setPreviewItem(params.data)}
+          style={{
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            width: 32, height: 32, borderRadius: 8,
+            border: '1px solid #6ee7b7', background: 'transparent', color: '#059669',
+            cursor: 'pointer', transition: 'all 0.15s ease',
+          }}
+          onMouseEnter={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = '#059669';
+            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
+          }}
+          onMouseLeave={e => {
+            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
+            (e.currentTarget as HTMLButtonElement).style.color = '#059669';
+          }}
+        >
+          <Eye size={16} strokeWidth={2} />
+        </button>
+      ),
     },
     {
       headerName: '다운로드',
@@ -391,6 +422,12 @@ const ArchiveListPage = () => {
           getRowId={(params: GetRowIdParams<ArchivedOutput>) => String(params.data.id)}
         />
       </div>
+
+      <ArchivePreviewModal
+        isOpen={!!previewItem}
+        item={previewItem}
+        onClose={() => setPreviewItem(null)}
+      />
     </div>
   );
 };

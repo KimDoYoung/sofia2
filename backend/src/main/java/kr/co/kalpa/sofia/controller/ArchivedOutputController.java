@@ -30,17 +30,23 @@ public class ArchivedOutputController {
             @RequestParam(required = false) String displayFilename,
             @RequestParam(required = false) String note,
             @RequestParam(required = false) Long sourceFolderId,
-            @RequestParam(required = false) Integer elapsedMs) throws IOException {
-        return ResponseEntity.ok(archivedOutputService.saveUpload(
-                file, type, displayFilename, note, sourceFolderId, elapsedMs));
+            @RequestParam(required = false) Integer elapsedMs)
+            throws IOException {
+        return ResponseEntity.ok(
+                archivedOutputService.saveUpload(
+                        file, type, displayFilename, note, sourceFolderId, elapsedMs));
     }
 
     @PostMapping("/from-slideshow/{taskId}")
     public ResponseEntity<ArchivedOutput> fromSlideshow(
-            @PathVariable String taskId,
-            @RequestBody SlideshowArchiveRequest request) throws IOException {
-        return ResponseEntity.ok(archivedOutputService.saveFromSlideshowTask(
-                taskId, request.getDisplayFilename(), request.getNote(), request.getElapsedMs()));
+            @PathVariable String taskId, @RequestBody SlideshowArchiveRequest request)
+            throws IOException {
+        return ResponseEntity.ok(
+                archivedOutputService.saveFromSlideshowTask(
+                        taskId,
+                        request.getDisplayFilename(),
+                        request.getNote(),
+                        request.getElapsedMs()));
     }
 
     @GetMapping
@@ -51,10 +57,10 @@ public class ArchivedOutputController {
 
     @PatchMapping("/{id}")
     public ResponseEntity<ArchivedOutput> updateMeta(
-            @PathVariable Long id,
-            @RequestBody ArchivedOutputUpdateRequest request) {
-        return ResponseEntity.ok(archivedOutputService.updateMeta(
-                id, request.getNote(), request.getDisplayFilename()));
+            @PathVariable Long id, @RequestBody ArchivedOutputUpdateRequest request) {
+        return ResponseEntity.ok(
+                archivedOutputService.updateMeta(
+                        id, request.getNote(), request.getDisplayFilename()));
     }
 
     @DeleteMapping("/{id}")
@@ -68,10 +74,28 @@ public class ArchivedOutputController {
         ArchivedOutput meta = archivedOutputService.getMeta(id);
         Resource resource = archivedOutputService.getFileForDownload(id);
         if (resource == null) return ResponseEntity.notFound().build();
-        ContentDisposition disposition = ContentDisposition.attachment()
-                .filename(meta.getDisplayFilename(), StandardCharsets.UTF_8).build();
+        ContentDisposition disposition =
+                ContentDisposition.attachment()
+                        .filename(meta.getDisplayFilename(), StandardCharsets.UTF_8)
+                        .build();
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .body(resource);
+    }
+
+    @GetMapping("/{id}/view")
+    public ResponseEntity<Resource> view(@PathVariable Long id) {
+        ArchivedOutput meta = archivedOutputService.getMeta(id);
+        Resource resource = archivedOutputService.getFileForDownload(id);
+        if (resource == null) return ResponseEntity.notFound().build();
+        ContentDisposition disposition =
+                ContentDisposition.inline()
+                        .filename(meta.getDisplayFilename(), StandardCharsets.UTF_8)
+                        .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .contentType(archivedOutputService.resolveMediaType(meta.getType()))
                 .body(resource);
     }
 }
