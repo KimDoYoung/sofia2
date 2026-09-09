@@ -1,14 +1,17 @@
 package kr.co.kalpa.sofia.service;
 
 import jakarta.annotation.PostConstruct;
+import java.awt.AlphaComposite;
 import java.awt.BasicStroke;
 import java.awt.Color;
+import java.awt.Composite;
 import java.awt.Font;
 import java.awt.FontMetrics;
 import java.awt.Graphics2D;
 import java.awt.GraphicsEnvironment;
 import java.awt.LinearGradientPaint;
 import java.awt.RenderingHints;
+import java.awt.geom.AffineTransform;
 import java.awt.geom.Point2D;
 import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
@@ -19,6 +22,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -51,6 +55,7 @@ public class SlideShowService {
 
     private final ImageFileRepository imageFileRepository;
     private final BgmAssetService bgmAssetService;
+    private final DecorationAssetService decorationAssetService;
 
     @Value("${sofia.base.folder:./data}")
     private String baseFolder;
@@ -858,6 +863,7 @@ public class SlideShowService {
         drawTitleCardBackground(g, theme, width, height);
         drawTitleCardFrame(g, theme, width, height);
         drawTitleCardText(g, title, subtitle, theme, width, height);
+        drawDecorations(g, width, height);
 
         g.dispose();
 
@@ -1043,5 +1049,79 @@ public class SlideShowService {
                     new Color(textColor.getRed(), textColor.getGreen(), textColor.getBlue(), 220));
             g.drawString(subtitle, sx, subY);
         }
+    }
+
+    private void drawDecorations(Graphics2D g, int width, int height) {
+        List<Path> allPaths = decorationAssetService.getDecorationPaths();
+        if (allPaths.isEmpty()) {
+            return;
+        }
+
+        List<Path> shuffled = new ArrayList<>(allPaths);
+        Collections.shuffle(shuffled, RANDOM);
+        List<Path> picked = shuffled.subList(0, Math.min(5, shuffled.size()));
+
+        int unit = Math.min(width, height);
+        int decoSize = (int) (unit * 0.10);
+
+        // 8 candidate positions (corners + edge midpoints), avoiding center 40%
+        int[][] positions = {
+            {width / 8, height / 8},
+            {7 * width / 8, height / 8},
+            {width / 8, 7 * height / 8},
+            {7 * width / 8, 7 * height / 8},
+            {width / 2, height / 8},
+            {width / 2, 7 * height / 8},
+            {width / 8, height / 2},
+            {7 * width / 8, height / 2}
+        };
+        Collections.shuffle(Arrays.asList(positions), RANDOM);
+
+        AffineTransform savedTransform = g.getTransform();
+        Composite savedComposite = g.getComposite();
+
+        for (int i = 0; i < picked.size(); i++) {
+            try {
+                BufferedImage decoImg = ImageIO.read(picked.get(i).toFile());
+                if (decoImg == null) continue;
+
+                BufferedImage scaled = scaleDecoImage(decoImg, decoSize);
+                int[] pos = positions[i % positions.length];
+                int cx = pos[0];
+                int cy = pos[1];
+
+                double angle = RANDOM.nextDouble() * 2 * Math.PI;
+                float alpha = 0.55f + RANDOM.nextFloat() * 0.30f;
+
+                AffineTransform t =
+                        AffineTransform.getTranslateInstance(
+                                cx - scaled.getWidth() / 2.0, cy - scaled.getHeight() / 2.0);
+                t.rotate(angle, scaled.getWidth() / 2.0, scaled.getHeight() / 2.0);
+
+                g.setComposite(AlphaComposite.getInstance(AlphaComposite.SRC_OVER, alpha));
+                g.drawImage(scaled, t, null);
+            } catch (IOException e) {
+                log.warn("Failed to read decoration image: {}", picked.get(i), e);
+            }
+        }
+
+        g.setTransform(savedTransform);
+        g.setComposite(savedComposite);
+    }
+
+    private BufferedImage scaleDecoImage(BufferedImage src, int targetSize) {
+        int sw = src.getWidth();
+        int sh = src.getHeight();
+        double scale = (double) targetSize / Math.max(sw, sh);
+        int nw = Math.max(1, (int) (sw * scale));
+        int nh = Math.max(1, (int) (sh * scale));
+
+        BufferedImage out = new BufferedImage(nw, nh, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D g2 = out.createGraphics();
+        g2.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g2.drawImage(src, 0, 0, nw, nh, null);
+        g2.dispose();
+        return out;
     }
 }

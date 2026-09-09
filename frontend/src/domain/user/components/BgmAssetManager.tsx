@@ -272,7 +272,7 @@ const BgmAssetManager = () => {
   };
 
   return (
-    <section className="bg-white rounded-2xl shadow-sm border p-6">
+    <div>
       {/* 상단 타이틀 및 툴바 */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b pb-4 mb-4">
         <div>
@@ -636,7 +636,7 @@ const BgmAssetManager = () => {
           </div>
         </div>
       )}
-    </section>
+    </div>
   );
 };
 
