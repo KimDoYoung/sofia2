@@ -64,6 +64,8 @@ public class WebSecurityConfig {
                                                 "/image/**",
                                                 "/settings",
                                                 "/about",
+                                                "/archive",
+                                                "/archive/**",
                                                 "/index.html",
                                                 "/static/**",
                                                 "/assets/**",

@@ -103,7 +103,7 @@ public class ArchivedOutputController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                .contentType(archivedOutputService.resolveMediaType(meta.getType()))
+                .contentType(archivedOutputService.resolveMediaType(meta))
                 .body(resource);
     }
 
@@ -124,7 +124,7 @@ public class ArchivedOutputController {
         return ResponseEntity.ok()
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
-                .contentType(archivedOutputService.resolveMediaType(meta.getType()))
+                .contentType(archivedOutputService.resolveMediaType(meta))
                 .body(resource);
     }
 

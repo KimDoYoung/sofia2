@@ -83,16 +83,16 @@ public class ArchivedOutputService {
             Long sourceFolderId,
             Integer elapsedMs)
             throws IOException {
-        String extension = resolveExtension(type);
+        String originalName = file.getOriginalFilename();
+        String extension =
+                resolveExtension(type, displayFilename, originalName, file.getContentType());
         String storedFilename = UUID.randomUUID() + "." + extension;
         Path target = archiveDir.resolve(storedFilename);
         Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
 
         String finalName =
                 normalizeDisplayFilename(
-                        StringUtils.hasText(displayFilename)
-                                ? displayFilename
-                                : file.getOriginalFilename(),
+                        StringUtils.hasText(displayFilename) ? displayFilename : originalName,
                         extension);
 
         return archivedOutputRepository.save(
@@ -200,12 +200,61 @@ public class ArchivedOutputService {
                 .orElseThrow(() -> new IllegalArgumentException("항목을 찾을 수 없습니다: " + id));
     }
 
-    private String resolveExtension(OutputType type) {
-        return switch (type) {
-            case PDF -> "pdf";
-            case MERGE, COLLAGE, EFFECT -> "jpg";
-            case SLIDESHOW -> "mp4";
-        };
+    private String resolveExtension(
+            OutputType type, String displayFilename, String originalFilename, String contentType) {
+        if (type == OutputType.PDF) return "pdf";
+        if (type == OutputType.SLIDESHOW) return "mp4";
+
+        String candidate =
+                StringUtils.hasText(displayFilename) ? displayFilename : originalFilename;
+        if (StringUtils.hasText(candidate)) {
+            int dot = candidate.lastIndexOf('.');
+            if (dot > 0 && dot < candidate.length() - 1) {
+                String ext = candidate.substring(dot + 1).toLowerCase();
+                if (ext.equals("png")
+                        || ext.equals("jpg")
+                        || ext.equals("jpeg")
+                        || ext.equals("webp")) {
+                    return ext.equals("jpeg") ? "jpg" : ext;
+                }
+            }
+        }
+        if (StringUtils.hasText(contentType)) {
+            if (contentType.equalsIgnoreCase("image/png")) return "png";
+            if (contentType.equalsIgnoreCase("image/webp")) return "webp";
+        }
+        return "jpg";
+    }
+
+    public MediaType resolveMediaType(ArchivedOutput meta) {
+        if (meta == null) return MediaType.APPLICATION_OCTET_STREAM;
+        String ext = meta.getFileExtension();
+        if (ext == null && meta.getStoredFilename() != null) {
+            int dot = meta.getStoredFilename().lastIndexOf('.');
+            if (dot >= 0) ext = meta.getStoredFilename().substring(dot + 1);
+        }
+        if (ext == null && meta.getDisplayFilename() != null) {
+            int dot = meta.getDisplayFilename().lastIndexOf('.');
+            if (dot >= 0) ext = meta.getDisplayFilename().substring(dot + 1);
+        }
+        if (ext != null) {
+            switch (ext.toLowerCase()) {
+                case "png":
+                    return MediaType.IMAGE_PNG;
+                case "jpg":
+                case "jpeg":
+                    return MediaType.IMAGE_JPEG;
+                case "gif":
+                    return MediaType.IMAGE_GIF;
+                case "webp":
+                    return MediaType.parseMediaType("image/webp");
+                case "mp4":
+                    return MediaType.parseMediaType("video/mp4");
+                case "pdf":
+                    return MediaType.APPLICATION_PDF;
+            }
+        }
+        return resolveMediaType(meta.getType());
     }
 
     public MediaType resolveMediaType(OutputType type) {

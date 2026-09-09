@@ -12,6 +12,7 @@ import {
   HardDrive,
   Clock,
   RefreshCw,
+  ExternalLink,
 } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { formatDate, formatFileSize } from '@/lib/utils';
@@ -157,6 +158,16 @@ export const SharedArchivePage = () => {
           </div>
 
           <div className="flex items-center gap-2 shrink-0">
+            <a
+              href={viewUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hidden sm:inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-200 rounded-lg transition-colors cursor-pointer shadow-2xs"
+              title="새 탭에서 원본 미디어 보기"
+            >
+              <ExternalLink size={13} />
+              <span>새 탭에서 열기</span>
+            </a>
             <Button
               size="sm"
               onClick={handleDownload}
@@ -178,27 +189,55 @@ export const SharedArchivePage = () => {
       <main className="flex-1 max-w-6xl w-full mx-auto p-4 sm:p-6 space-y-6">
         {/* Viewer Box */}
         <div className="bg-white rounded-2xl border border-gray-200 shadow-sm overflow-hidden p-4 sm:p-6 flex items-center justify-center bg-gray-100/50 min-h-[450px]">
-          {item.type === 'SLIDESHOW' ? (
-            <video
-              src={viewUrl}
-              controls
-              autoPlay
-              playsInline
-              className="max-w-full max-h-[75vh] rounded-xl shadow-md bg-black"
-            />
-          ) : item.type === 'PDF' ? (
-            <iframe
-              src={viewUrl}
-              className="w-full h-[75vh] rounded-xl border border-gray-200 bg-white shadow-sm"
-              title={item.displayFilename}
-            />
-          ) : (
-            <img
-              src={viewUrl}
-              alt={item.displayFilename}
-              className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-md bg-white border border-gray-200"
-            />
-          )}
+          {(() => {
+            const ext = (item.fileExtension || item.displayFilename.split('.').pop() || '').toLowerCase();
+            const isVideo = item.type === 'SLIDESHOW' || ext === 'mp4';
+            const isPdf = item.type === 'PDF' || ext === 'pdf';
+
+            if (isVideo) {
+              return (
+                <video
+                  src={viewUrl}
+                  controls
+                  autoPlay
+                  playsInline
+                  preload="metadata"
+                  className="max-w-full max-h-[75vh] rounded-xl shadow-md bg-black"
+                />
+              );
+            }
+
+            if (isPdf) {
+              return (
+                <div className="w-full h-full flex flex-col items-center">
+                  <iframe
+                    src={viewUrl}
+                    className="w-full h-[75vh] rounded-xl border border-gray-200 bg-white shadow-sm"
+                    title={item.displayFilename}
+                  />
+                  <div className="mt-2.5 flex items-center justify-between w-full px-2 text-xs text-gray-500">
+                    <span>PDF가 브라우저에서 바로 열리지 않을 경우:</span>
+                    <a
+                      href={viewUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-emerald-600 hover:underline inline-flex items-center gap-1 font-medium"
+                    >
+                      <ExternalLink size={11} /> 새 탭에서 열기
+                    </a>
+                  </div>
+                </div>
+              );
+            }
+
+            return (
+              <img
+                src={viewUrl}
+                alt={item.displayFilename}
+                className="max-w-full max-h-[75vh] object-contain rounded-xl shadow-md bg-white border border-gray-200"
+              />
+            );
+          })()}
         </div>
 
         {/* File Metadata Card */}
