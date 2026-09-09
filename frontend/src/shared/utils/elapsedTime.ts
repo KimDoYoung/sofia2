@@ -7,4 +7,4 @@ export const useElapsedTimer = () => {
   return { start, stop };
 };
 
-export const formatElapsed = (ms: number) => `${(ms / 1000).toFixed(1)}초 소요`;
+export const formatElapsed = (ms: number) => `${(ms / 1000).toFixed(1)}초`;

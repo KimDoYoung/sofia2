@@ -43,8 +43,19 @@ public class ArchivedOutput {
     @Column(nullable = false)
     private LocalDateTime createdAt;
 
+    @Column(name = "is_public", nullable = false, columnDefinition = "boolean default false")
+    @Builder.Default
+    private Boolean isPublic = false;
+
+    @Column(name = "share_key", length = 32, unique = true)
+    private String shareKey;
+
     @PrePersist
     void prePersist() {
         if (createdAt == null) createdAt = LocalDateTime.now();
+        if (isPublic == null) isPublic = false;
+        if (shareKey == null || shareKey.isBlank()) {
+            shareKey = java.util.UUID.randomUUID().toString().replace("-", "");
+        }
     }
 }

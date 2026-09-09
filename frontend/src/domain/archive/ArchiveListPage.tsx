@@ -13,7 +13,7 @@ import type {
   ValueFormatterParams,
   GetRowIdParams,
 } from 'ag-grid-community';
-import { Trash2, Download, RefreshCw, Archive, Search, Eye } from 'lucide-react';
+import { Trash2, Download, RefreshCw, Archive, Search, Eye, Globe, Lock, Link2, RotateCw } from 'lucide-react';
 import { Button } from '@/shared/components/ui/button';
 import { formatElapsed } from '@/shared/utils/elapsedTime';
 import { ArchivePreviewModal } from './ArchivePreviewModal';
@@ -31,6 +31,8 @@ interface ArchivedOutput {
   fileExtension: string;
   elapsedMs: number | null;
   createdAt: string;
+  isPublic: boolean;
+  shareKey: string;
 }
 
 const TYPE_OPTIONS = [
@@ -82,8 +84,8 @@ const ArchiveListPage = () => {
   }, [items, typeFilter, searchText]);
 
   const updateMutation = useMutation({
-    mutationFn: async ({ id, note, displayFilename }: { id: number; note?: string | null; displayFilename?: string }) => {
-      await apiClient.patch(`/archive/${id}`, { note, displayFilename });
+    mutationFn: async ({ id, note, displayFilename, isPublic }: { id: number; note?: string | null; displayFilename?: string; isPublic?: boolean }) => {
+      await apiClient.patch(`/archive/${id}`, { note, displayFilename, isPublic });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['archive'] });
@@ -92,6 +94,64 @@ const ArchiveListPage = () => {
       toast({ title: '오류', description: '수정 중 오류가 발생했습니다.', variant: 'destructive' });
     },
   });
+
+  const reissueMutation = useMutation({
+    mutationFn: async (id: number) => {
+      await apiClient.post(`/archive/${id}/reissue-share-key`);
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['archive'] });
+      toast({ title: '성공', description: '새로운 공유 링크가 발급되었습니다. 이전 링크는 무효화됩니다.' });
+    },
+    onError: () => {
+      toast({ title: '오류', description: '링크 재발급 중 오류가 발생했습니다.', variant: 'destructive' });
+    },
+  });
+
+  const handleTogglePublic = useCallback((item: ArchivedOutput) => {
+    const nextPublic = !item.isPublic;
+    updateMutation.mutate(
+      { id: item.id, isPublic: nextPublic },
+      {
+        onSuccess: () => {
+          toast({
+            title: nextPublic ? '공개 설정 완료' : '비공개 설정 완료',
+            description: nextPublic
+              ? `'${item.displayFilename}' 외부 공유 링크가 활성화되었습니다.`
+              : `'${item.displayFilename}' 외부 공유 링크가 비활성화되었습니다.`,
+          });
+        },
+      }
+    );
+  }, [updateMutation, toast]);
+
+  const handleCopyShareLink = useCallback(async (shareKey: string) => {
+    const url = `${window.location.origin}/sofia/archive/share/${shareKey}`;
+    try {
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(url);
+      } else {
+        const ta = document.createElement('textarea');
+        ta.value = url;
+        ta.style.position = 'fixed';
+        ta.style.opacity = '0';
+        document.body.appendChild(ta);
+        ta.focus();
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      toast({ title: '복사 완료', description: '공유 링크가 클립보드에 복사되었습니다.' });
+    } catch {
+      toast({ title: '오류', description: '링크 복사에 실패했습니다.', variant: 'destructive' });
+    }
+  }, [toast]);
+
+  const handleReissueShareKey = useCallback((item: ArchivedOutput) => {
+    if (window.confirm(`'${item.displayFilename}'의 공유 링크를 새로 발급하시겠습니까?\n기존에 공유된 링크는 즉시 무효화됩니다.`)) {
+      reissueMutation.mutate(item.id);
+    }
+  }, [reissueMutation]);
 
   const deleteMutation = useMutation({
     mutationFn: async (id: number) => {
@@ -143,16 +203,17 @@ const ArchiveListPage = () => {
     }
   };
 
-  const columnDefs: ColDef<ArchivedOutput>[] = useMemo(() => [
-    {
-      headerCheckboxSelection: true,
-      checkboxSelection: true,
-      width: 50,
-      pinned: 'left',
-      resizable: false,
-      sortable: false,
-      filter: false,
-    },
+  const columnDefs: ColDef<ArchivedOutput>[] = useMemo(() => {
+    const cols: ColDef<ArchivedOutput>[] = [
+      {
+        headerCheckboxSelection: true,
+        checkboxSelection: true,
+        width: 50,
+        pinned: 'left',
+        resizable: false,
+        sortable: false,
+        filter: false,
+      },
     {
       field: 'type',
       headerName: '종류',
@@ -169,6 +230,33 @@ const ArchiveListPage = () => {
       filter: false,
     },
     {
+      field: 'isPublic',
+      headerName: '공개 여부',
+      width: 105,
+      sortable: true,
+      filter: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
+      cellRenderer: (params: ICellRendererParams<ArchivedOutput>) => {
+        if (!params.data) return null;
+        const isPub = params.data.isPublic;
+        return (
+          <button
+            type="button"
+            onClick={() => params.data && handleTogglePublic(params.data)}
+            className={`flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-semibold border transition-all cursor-pointer ${
+              isPub
+                ? 'bg-emerald-50 text-emerald-700 border-emerald-300 hover:bg-emerald-100'
+                : 'bg-gray-100 text-gray-500 border-gray-200 hover:bg-gray-200'
+            }`}
+            title={isPub ? '클릭 시 비공개로 전환합니다' : '클릭 시 공개로 전환합니다'}
+          >
+            {isPub ? <Globe size={11} className="shrink-0" /> : <Lock size={11} className="shrink-0" />}
+            <span>{isPub ? '공개' : '비공개'}</span>
+          </button>
+        );
+      },
+    },
+    {
       field: 'note',
       headerName: '메모',
       flex: 1,
@@ -180,15 +268,15 @@ const ArchiveListPage = () => {
     {
       field: 'sourceFolderId',
       headerName: '원본 폴더',
-      width: 130,
+      width: 110,
       filter: false,
       cellRenderer: (params: ICellRendererParams<ArchivedOutput>) =>
         params.value ? (
           <button
-            className="text-blue-600 hover:underline text-sm"
+            className="text-blue-600 hover:underline text-sm font-medium"
             onClick={() => navigate(`/folder/${params.value}`)}
           >
-            폴더 #{params.value}
+            #{params.value}
           </button>
         ) : (
           <span className="text-gray-400 text-sm">-</span>
@@ -206,6 +294,8 @@ const ArchiveListPage = () => {
       headerName: '크기',
       width: 100,
       filter: false,
+      headerClass: 'ag-right-aligned-header',
+      cellStyle: { textAlign: 'right' },
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => formatFileSize(p.value),
     },
     {
@@ -213,98 +303,88 @@ const ArchiveListPage = () => {
       headerName: '소요 시간',
       width: 110,
       filter: false,
+      headerClass: 'ag-right-aligned-header',
+      cellStyle: { textAlign: 'right' },
       valueFormatter: (p: ValueFormatterParams<ArchivedOutput>) => p.value ? formatElapsed(p.value) : '-',
     },
     {
-      headerName: '미리보기',
-      width: 90,
+      headerName: '액션',
+      width: 180,
+      pinned: 'right',
       sortable: false,
       filter: false,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-      cellRenderer: (params: ICellRendererParams<ArchivedOutput>) => (
-        <button
-          title="미리보기"
-          onClick={() => params.data && setPreviewItem(params.data)}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, borderRadius: 8,
-            border: '1px solid #6ee7b7', background: 'transparent', color: '#059669',
-            cursor: 'pointer', transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#059669';
-            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-            (e.currentTarget as HTMLButtonElement).style.color = '#059669';
-          }}
-        >
-          <Eye size={16} strokeWidth={2} />
-        </button>
-      ),
+      resizable: false,
+      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'flex-start', paddingLeft: '8px' },
+      cellRenderer: (params: ICellRendererParams<ArchivedOutput>) => {
+        if (!params.data) return null;
+        const item = params.data;
+        const isPub = item.isPublic;
+
+        return (
+          <div className="flex items-center gap-1">
+            {/* 미리보기 */}
+            <button
+              title="미리보기"
+              onClick={() => setPreviewItem(item)}
+              className="w-7 h-7 rounded-md border border-emerald-300 text-emerald-600 hover:bg-emerald-50 hover:border-emerald-400 flex items-center justify-center cursor-pointer transition-colors"
+            >
+              <Eye size={14} strokeWidth={2} />
+            </button>
+
+            {/* 다운로드 */}
+            <button
+              title="다운로드"
+              onClick={() => handleDownload(item.id, item.displayFilename)}
+              className="w-7 h-7 rounded-md border border-blue-300 text-blue-600 hover:bg-blue-50 hover:border-blue-400 flex items-center justify-center cursor-pointer transition-colors"
+            >
+              <Download size={14} strokeWidth={2} />
+            </button>
+
+            {/* 삭제 */}
+            <button
+              title="보관소에서 삭제"
+              onClick={() => handleDelete(item.id, item.displayFilename)}
+              className="w-7 h-7 rounded-md border border-red-300 text-red-600 hover:bg-red-50 hover:border-red-400 flex items-center justify-center cursor-pointer transition-colors"
+            >
+              <Trash2 size={14} strokeWidth={2} />
+            </button>
+
+            {/* 공유 링크 복사 */}
+            {isPub ? (
+              <button
+                title="공유 링크 복사"
+                onClick={() => handleCopyShareLink(item.shareKey)}
+                className="w-7 h-7 rounded-md border border-indigo-300 text-indigo-600 hover:bg-indigo-50 hover:border-indigo-400 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <Link2 size={14} strokeWidth={2} />
+              </button>
+            ) : (
+              <button
+                title="비공개 상태입니다 (먼저 공개로 설정해주세요)"
+                disabled
+                className="w-7 h-7 rounded-md border border-gray-200 text-gray-300 flex items-center justify-center cursor-not-allowed bg-gray-50/50"
+              >
+                <Link2 size={14} strokeWidth={2} />
+              </button>
+            )}
+
+            {/* 새 링크 재발급 (공개 시에만 활성화) */}
+            {isPub && (
+              <button
+                title="새 링크로 재발급 (이전 링크 무효화)"
+                onClick={() => handleReissueShareKey(item)}
+                className="w-7 h-7 rounded-md border border-amber-300 text-amber-600 hover:bg-amber-50 hover:border-amber-400 flex items-center justify-center cursor-pointer transition-colors"
+              >
+                <RotateCw size={13} strokeWidth={2} />
+              </button>
+            )}
+          </div>
+        );
+      },
     },
-    {
-      headerName: '다운로드',
-      width: 90,
-      sortable: false,
-      filter: false,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-      cellRenderer: (params: ICellRendererParams<ArchivedOutput>) => (
-        <button
-          title="다운로드"
-          onClick={() => params.data && handleDownload(params.data.id, params.data.displayFilename)}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, borderRadius: 8,
-            border: '1px solid #93c5fd', background: 'transparent', color: '#3b82f6',
-            cursor: 'pointer', transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#3b82f6';
-            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-            (e.currentTarget as HTMLButtonElement).style.color = '#3b82f6';
-          }}
-        >
-          <Download size={16} strokeWidth={2} />
-        </button>
-      ),
-    },
-    {
-      headerName: '삭제',
-      width: 70,
-      sortable: false,
-      filter: false,
-      cellStyle: { display: 'flex', alignItems: 'center', justifyContent: 'center' },
-      cellRenderer: (params: ICellRendererParams<ArchivedOutput>) => (
-        <button
-          title="삭제"
-          onClick={() => params.data && handleDelete(params.data.id, params.data.displayFilename)}
-          style={{
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            width: 32, height: 32, borderRadius: 8,
-            border: '1px solid #fca5a5', background: 'transparent', color: '#ef4444',
-            cursor: 'pointer', transition: 'all 0.15s ease',
-          }}
-          onMouseEnter={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = '#ef4444';
-            (e.currentTarget as HTMLButtonElement).style.color = '#fff';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = '0 2px 8px rgba(239,68,68,0.35)';
-          }}
-          onMouseLeave={e => {
-            (e.currentTarget as HTMLButtonElement).style.background = 'transparent';
-            (e.currentTarget as HTMLButtonElement).style.color = '#ef4444';
-            (e.currentTarget as HTMLButtonElement).style.boxShadow = 'none';
-          }}
-        >
-          <Trash2 size={16} strokeWidth={2} />
-        </button>
-      ),
-    },
-  ], [handleDelete, handleDownload, navigate]);
+  ];
+  return cols;
+}, [handleDelete, handleDownload, handleTogglePublic, handleCopyShareLink, handleReissueShareKey, navigate]);
 
   if (isLoading) {
     return (
@@ -316,7 +396,7 @@ const ArchiveListPage = () => {
   }
 
   return (
-    <div className="space-y-4 max-w-7xl mx-auto py-2">
+    <div className="space-y-4 max-w-[1680px] w-full mx-auto py-2">
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

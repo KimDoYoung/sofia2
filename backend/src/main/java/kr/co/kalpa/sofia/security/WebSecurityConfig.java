@@ -88,7 +88,10 @@ public class WebSecurityConfig {
                                         .requestMatchers(
                                                 "/api/assets/bgm/stream/**",
                                                 "/api/slideshow/stream/**",
-                                                "/api/slideshow/download/**")
+                                                "/api/slideshow/download/**",
+                                                "/api/archive/public/**")
+                                        .permitAll()
+                                        .requestMatchers("/archive/share/**")
                                         .permitAll()
                                         .anyRequest()
                                         .authenticated());

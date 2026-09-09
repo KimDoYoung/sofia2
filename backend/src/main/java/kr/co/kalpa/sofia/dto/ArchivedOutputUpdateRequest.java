@@ -12,4 +12,5 @@ import lombok.Setter;
 public class ArchivedOutputUpdateRequest {
     private String note;
     private String displayFilename;
+    private Boolean isPublic;
 }

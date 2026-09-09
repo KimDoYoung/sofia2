@@ -60,7 +60,15 @@ public class ArchivedOutputController {
             @PathVariable Long id, @RequestBody ArchivedOutputUpdateRequest request) {
         return ResponseEntity.ok(
                 archivedOutputService.updateMeta(
-                        id, request.getNote(), request.getDisplayFilename()));
+                        id,
+                        request.getNote(),
+                        request.getDisplayFilename(),
+                        request.getIsPublic()));
+    }
+
+    @PostMapping("/{id}/reissue-share-key")
+    public ResponseEntity<ArchivedOutput> reissueShareKey(@PathVariable Long id) {
+        return ResponseEntity.ok(archivedOutputService.reissueShareKey(id));
     }
 
     @DeleteMapping("/{id}")
@@ -96,6 +104,41 @@ public class ArchivedOutputController {
                 .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .header(HttpHeaders.ACCEPT_RANGES, "bytes")
                 .contentType(archivedOutputService.resolveMediaType(meta.getType()))
+                .body(resource);
+    }
+
+    @GetMapping("/public/{shareKey}")
+    public ResponseEntity<ArchivedOutput> getPublicMeta(@PathVariable String shareKey) {
+        return ResponseEntity.ok(archivedOutputService.getPublicMeta(shareKey));
+    }
+
+    @GetMapping("/public/{shareKey}/view")
+    public ResponseEntity<Resource> viewPublic(@PathVariable String shareKey) {
+        ArchivedOutput meta = archivedOutputService.getPublicMeta(shareKey);
+        Resource resource = archivedOutputService.getPublicFile(shareKey);
+        if (resource == null) return ResponseEntity.notFound().build();
+        ContentDisposition disposition =
+                ContentDisposition.inline()
+                        .filename(meta.getDisplayFilename(), StandardCharsets.UTF_8)
+                        .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
+                .header(HttpHeaders.ACCEPT_RANGES, "bytes")
+                .contentType(archivedOutputService.resolveMediaType(meta.getType()))
+                .body(resource);
+    }
+
+    @GetMapping("/public/{shareKey}/download")
+    public ResponseEntity<Resource> downloadPublic(@PathVariable String shareKey) {
+        ArchivedOutput meta = archivedOutputService.getPublicMeta(shareKey);
+        Resource resource = archivedOutputService.getPublicFile(shareKey);
+        if (resource == null) return ResponseEntity.notFound().build();
+        ContentDisposition disposition =
+                ContentDisposition.attachment()
+                        .filename(meta.getDisplayFilename(), StandardCharsets.UTF_8)
+                        .build();
+        return ResponseEntity.ok()
+                .header(HttpHeaders.CONTENT_DISPOSITION, disposition.toString())
                 .body(resource);
     }
 }

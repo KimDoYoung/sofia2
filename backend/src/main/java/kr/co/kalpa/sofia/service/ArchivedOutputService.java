@@ -46,6 +46,33 @@ public class ArchivedOutputService {
         } catch (IOException e) {
             log.error("Failed to initialize archive directory", e);
         }
+        migrateMissingShareKeys();
+    }
+
+    private void migrateMissingShareKeys() {
+        try {
+            List<ArchivedOutput> all = archivedOutputRepository.findAll();
+            for (ArchivedOutput item : all) {
+                boolean changed = false;
+                if (item.getShareKey() == null || item.getShareKey().isBlank()) {
+                    item.setShareKey(generateShareKey());
+                    changed = true;
+                }
+                if (item.getIsPublic() == null) {
+                    item.setIsPublic(false);
+                    changed = true;
+                }
+                if (changed) {
+                    archivedOutputRepository.save(item);
+                }
+            }
+        } catch (Exception e) {
+            log.warn("Failed to migrate missing share keys during init", e);
+        }
+    }
+
+    public String generateShareKey() {
+        return UUID.randomUUID().toString().replace("-", "");
     }
 
     public ArchivedOutput saveUpload(
@@ -117,14 +144,39 @@ public class ArchivedOutputService {
                 : archivedOutputRepository.findAllByOrderByCreatedAtDesc();
     }
 
-    public ArchivedOutput updateMeta(Long id, String note, String displayFilename) {
+    public ArchivedOutput updateMeta(
+            Long id, String note, String displayFilename, Boolean isPublic) {
         ArchivedOutput item = getMeta(id);
         if (note != null) item.setNote(note);
         if (StringUtils.hasText(displayFilename)) {
             item.setDisplayFilename(
                     normalizeDisplayFilename(displayFilename, item.getFileExtension()));
         }
+        if (isPublic != null) {
+            item.setIsPublic(isPublic);
+        }
+        if (item.getShareKey() == null || item.getShareKey().isBlank()) {
+            item.setShareKey(generateShareKey());
+        }
         return archivedOutputRepository.save(item);
+    }
+
+    public ArchivedOutput reissueShareKey(Long id) {
+        ArchivedOutput item = getMeta(id);
+        item.setShareKey(generateShareKey());
+        return archivedOutputRepository.save(item);
+    }
+
+    public ArchivedOutput getPublicMeta(String shareKey) {
+        return archivedOutputRepository
+                .findByShareKeyAndIsPublicTrue(shareKey)
+                .orElseThrow(() -> new IllegalArgumentException("공개된 항목을 찾을 수 없습니다: " + shareKey));
+    }
+
+    public Resource getPublicFile(String shareKey) {
+        ArchivedOutput meta = getPublicMeta(shareKey);
+        Path path = archiveDir.resolve(meta.getStoredFilename());
+        return Files.exists(path) ? new FileSystemResource(path) : null;
     }
 
     public void delete(Long id) {

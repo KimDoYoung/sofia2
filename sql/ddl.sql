@@ -85,3 +85,30 @@ CREATE TABLE IF NOT EXISTS bookmarks (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX IF NOT EXISTS idx_bookmarks_user_id ON bookmarks(user_id);
+
+-- 5. 보관소 테이블 (archived_outputs)
+CREATE TABLE IF NOT EXISTS archived_outputs (
+    id BIGSERIAL PRIMARY KEY,
+    type VARCHAR(20) NOT NULL,
+    stored_filename VARCHAR(255) NOT NULL UNIQUE,
+    display_filename VARCHAR(255) NOT NULL,
+    note TEXT,
+    source_folder_id BIGINT REFERENCES image_folders(id) ON DELETE SET NULL,
+    file_size BIGINT NOT NULL,
+    file_extension VARCHAR(10) NOT NULL,
+    elapsed_ms INTEGER,
+    created_at TIMESTAMP WITHOUT TIME ZONE NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    is_public BOOLEAN NOT NULL DEFAULT FALSE,
+    share_key VARCHAR(32) UNIQUE,
+    CONSTRAINT chk_archived_output_type CHECK (type IN ('PDF', 'MERGE', 'COLLAGE', 'EFFECT', 'SLIDESHOW'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_archived_outputs_type ON archived_outputs(type);
+CREATE INDEX IF NOT EXISTS idx_archived_outputs_created_at ON archived_outputs(created_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS idx_archived_outputs_share_key ON archived_outputs(share_key);
+
+-- 기존 테이블이 있는 경우를 위한 컬럼 추가 마이그레이션 구문:
+-- ALTER TABLE sofia.archived_outputs ADD COLUMN IF NOT EXISTS is_public BOOLEAN NOT NULL DEFAULT FALSE;
+-- ALTER TABLE sofia.archived_outputs ADD COLUMN IF NOT EXISTS share_key VARCHAR(32);
+-- UPDATE sofia.archived_outputs SET share_key = md5(random()::text || clock_timestamp()::text) WHERE share_key IS NULL;
+-- CREATE UNIQUE INDEX IF NOT EXISTS idx_archived_outputs_share_key ON sofia.archived_outputs(share_key);

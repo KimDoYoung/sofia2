@@ -9,6 +9,7 @@ import AddFolderPage from '@/domain/folder/AddFolderPage';
 import SettingsPage from '@/domain/user/SettingsPage';
 import AboutPage from '@/domain/about/AboutPage';
 import ArchiveListPage from '@/domain/archive/ArchiveListPage';
+import { SharedArchivePage } from '@/domain/archive/SharedArchivePage';
 
 const ProtectedLayout = () => {
   const { isAuthenticated } = useAuthStore();
@@ -34,6 +35,7 @@ function App() {
     <Router basename="/sofia">
       <Routes>
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/archive/share/:shareKey" element={<SharedArchivePage />} />
         <Route element={<ProtectedLayout />}>
           <Route path="/" element={<FolderListPage />} />
           <Route path="/folder/add" element={<AddFolderPage />} />
