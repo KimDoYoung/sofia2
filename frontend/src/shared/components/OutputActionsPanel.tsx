@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Button } from '@/shared/components/ui/button';
-import { Download, Archive, ChevronDown, ChevronUp, Copy } from 'lucide-react';
+import { Download, Archive, ChevronDown, ChevronUp, Copy, Check } from 'lucide-react';
 import { formatElapsed } from '@/shared/utils/elapsedTime';
 
 export interface ArchiveMetaInput {
@@ -35,6 +35,22 @@ export const OutputActionsPanel = ({
   const [isMetaOpen, setIsMetaOpen] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
+  const [isCopying, setIsCopying] = useState(false);
+  const [isCopied, setIsCopied] = useState(false);
+
+  const handleCopy = async () => {
+    if (!onCopyToClipboard || isCopying) return;
+    setIsCopying(true);
+    try {
+      await onCopyToClipboard();
+      setIsCopied(true);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      // 에러는 onCopyToClipboard 내부에서 처리/전달
+    } finally {
+      setIsCopying(false);
+    }
+  };
 
   const getMeta = (): ArchiveMetaInput => ({
     displayFilename: displayFilename.trim() || defaultFilename,
@@ -120,11 +136,20 @@ export const OutputActionsPanel = ({
           <Button
             variant="outline"
             size="sm"
-            onClick={onCopyToClipboard}
-            className="gap-1.5 cursor-pointer"
+            onClick={handleCopy}
+            disabled={isCopying}
+            className={`gap-1.5 cursor-pointer transition-colors ${
+              isCopied ? 'border-emerald-500 text-emerald-600 bg-emerald-50 hover:bg-emerald-100' : ''
+            }`}
           >
-            <Copy size={14} />
-            클립보드로 복사
+            {isCopying ? (
+              <div className="w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full animate-spin" />
+            ) : isCopied ? (
+              <Check size={14} className="text-emerald-600" />
+            ) : (
+              <Copy size={14} />
+            )}
+            <span>{isCopied ? '복사 완료!' : '클립보드로 복사'}</span>
           </Button>
         )}
         <Button

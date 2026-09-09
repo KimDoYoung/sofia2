@@ -26,6 +26,7 @@ import {
 import type { ImageFile } from '../types';
 import type { BgmAssetDto } from '@/domain/user/components/BgmAssetManager';
 import { Button } from '@/shared/components/ui/button';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface SlideShowModalProps {
   isOpen: boolean;
@@ -99,6 +100,8 @@ export const SlideShowModal = ({
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [generationError, setGenerationError] = useState<string | null>(null);
   const [slideElapsedMs, setSlideElapsedMs] = useState<number | null>(null);
+
+  useEscapeKey(isOpen, onClose, isGenerating);
 
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const generationStartRef = useRef<number | null>(null);

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { X, Layers, Check, Palette } from 'lucide-react';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 export interface MergeOptions {
   border: boolean;
@@ -47,6 +48,8 @@ export const MergeOptionsModal = ({
   onConfirm,
   isProcessing,
 }: MergeOptionsModalProps) => {
+  useEscapeKey(isOpen, onClose, isProcessing);
+
   // 테두리선 상태
   const [border, setBorder] = useState<boolean>(false);
   const [borderWidth, setBorderWidth] = useState<number>(1);

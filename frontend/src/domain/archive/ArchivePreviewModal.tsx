@@ -1,4 +1,5 @@
 import { X, Archive } from 'lucide-react';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface PreviewItem {
   id: number;
@@ -13,6 +14,8 @@ interface ArchivePreviewModalProps {
 }
 
 export const ArchivePreviewModal = ({ isOpen, onClose, item }: ArchivePreviewModalProps) => {
+  useEscapeKey(isOpen, onClose);
+
   if (!isOpen || !item) return null;
 
   const viewUrl = `/sofia/api/archive/${item.id}/view`;

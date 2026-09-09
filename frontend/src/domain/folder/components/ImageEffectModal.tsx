@@ -40,6 +40,7 @@ import {
   downloadCanvas,
 } from '../utils/imageEffectProcessors';
 import { useToast } from '@/shared/components/ui/use-toast';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface ImageEffectModalProps {
   isOpen: boolean;
@@ -63,6 +64,8 @@ export const ImageEffectModal = ({
   folderId,
 }: ImageEffectModalProps) => {
   const { toast } = useToast();
+
+  useEscapeKey(isOpen, onClose);
 
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const originalPreviewCanvasRef = useRef<HTMLCanvasElement | null>(null);

@@ -4,6 +4,7 @@ import { apiClient } from '@/lib/api';
 import { OutputActionsPanel } from '@/shared/components/OutputActionsPanel';
 import type { ArchiveMetaInput } from '@/shared/components/OutputActionsPanel';
 import { useToast } from '@/shared/components/ui/use-toast';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface MergePreviewModalProps {
   isOpen: boolean;
@@ -54,6 +55,8 @@ export const MergePreviewModal = ({ isOpen, onClose, blob, filename, elapsedMs, 
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [copyError, setCopyError] = useState<string | null>(null);
 
+  useEscapeKey(isOpen, onClose);
+
   useEffect(() => {
     if (isOpen && blob) {
       const url = URL.createObjectURL(blob);
@@ -94,16 +97,24 @@ export const MergePreviewModal = ({ isOpen, onClose, blob, filename, elapsedMs, 
 
   const handleCopy = async () => {
     if (!navigator.clipboard || typeof ClipboardItem === 'undefined') {
-      setCopyError('이 브라우저에서는 이미지 클립보드 복사를 지원하지 않습니다. 다운로드를 이용해주세요.');
-      return;
+      const msg = !window.isSecureContext
+        ? '보안 연결(HTTPS)이 아니어서 브라우저에서 이미지 클립보드 복사를 지원하지 않습니다. 다운로드를 이용해주세요.'
+        : '이 브라우저에서는 이미지 클립보드 복사를 지원하지 않습니다. 다운로드를 이용해주세요.';
+      setCopyError(msg);
+      toast({ title: '복사 실패', description: msg, variant: 'destructive' });
+      throw new Error(msg);
     }
     setCopyError(null);
     try {
       const pngBlob = await convertBlobToPng(blob);
       await navigator.clipboard.write([new ClipboardItem({ 'image/png': pngBlob })]);
+      toast({ title: '복사 완료', description: '병합 이미지가 클립보드에 복사되었습니다.' });
     } catch (err) {
       console.error('Clipboard copy failed:', err);
-      setCopyError('클립보드 복사에 실패했습니다. 다운로드를 이용해주세요.');
+      const msg = '클립보드 복사에 실패했습니다. 다운로드를 이용해주세요.';
+      setCopyError(msg);
+      toast({ title: '복사 실패', description: msg, variant: 'destructive' });
+      throw err;
     }
   };
 

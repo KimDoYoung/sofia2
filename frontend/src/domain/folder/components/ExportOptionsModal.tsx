@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Button } from '@/shared/components/ui/button';
 import { X, FileText, Layers } from 'lucide-react';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface ExportOptionsModalProps {
   isOpen: boolean;
@@ -23,6 +24,8 @@ export const ExportOptionsModal = ({
   onConfirm,
   isProcessing
 }: ExportOptionsModalProps) => {
+  useEscapeKey(isOpen, onClose, isProcessing);
+
   // PDF state
   const [imagesPerPage, setImagesPerPage] = useState<number>(1);
   const [orientation, setOrientation] = useState<string>('auto');

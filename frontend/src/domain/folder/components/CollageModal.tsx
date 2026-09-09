@@ -24,11 +24,9 @@ import type {
 import {
   getAvailableTemplates,
 } from '../utils/collageLayouts';
-import {
-  renderCollageToCanvas,
-  downloadCanvasImage,
-} from '../utils/collageRenderer';
+import { renderCollageToCanvas, downloadCanvasImage } from '../utils/collageRenderer';
 import { useToast } from '@/shared/components/ui/use-toast';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface CollageModalProps {
   isOpen: boolean;
@@ -70,6 +68,8 @@ export const CollageModal = ({
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [isRendering, setIsRendering] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
+
+  useEscapeKey(isOpen, onClose, isExporting);
 
   // 기본 텍스트 생성 (오늘 날짜 · SOFIA MOMENTS)
   const getDefaultCollageText = useCallback(() => {

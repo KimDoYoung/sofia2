@@ -4,6 +4,7 @@ import { apiClient } from '@/lib/api';
 import { OutputActionsPanel } from '@/shared/components/OutputActionsPanel';
 import type { ArchiveMetaInput } from '@/shared/components/OutputActionsPanel';
 import { useToast } from '@/shared/components/ui/use-toast';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 interface PdfResultModalProps {
   isOpen: boolean;
@@ -26,6 +27,8 @@ export const PdfResultModal = ({
 }: PdfResultModalProps) => {
   const { toast } = useToast();
   const [blobUrl, setBlobUrl] = useState<string | null>(null);
+
+  useEscapeKey(isOpen, onClose);
 
   useEffect(() => {
     if (isOpen && blob) {

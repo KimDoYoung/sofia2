@@ -3,6 +3,7 @@ import { Button } from '@/shared/components/ui/button';
 import { Input } from '@/shared/components/ui/input';
 import { X, Check, Palette } from 'lucide-react';
 import pdfIcon from '@/assets/icons/pdf.svg';
+import { useEscapeKey } from '@/shared/hooks/useEscapeKey';
 
 export interface PdfExportOptions {
   orientation: 'auto' | 'portrait' | 'landscape';
@@ -53,6 +54,8 @@ export const PdfOptionsModal = ({
   onConfirm,
   isProcessing,
 }: PdfOptionsModalProps) => {
+  useEscapeKey(isOpen, onClose, isProcessing);
+
   // 방향
   const [orientation, setOrientation] = useState<'auto' | 'portrait' | 'landscape'>('auto');
 
