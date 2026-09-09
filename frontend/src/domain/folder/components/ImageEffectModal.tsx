@@ -261,7 +261,7 @@ export const ImageEffectModal = ({
     });
 
   const handleArchiveSingle = async () => {
-    if (!activeImage) return;
+    if (!activeImage || isArchiving) return;
     setIsArchiving(true);
     const start = performance.now();
     try {
@@ -288,16 +288,16 @@ export const ImageEffectModal = ({
         headers: { 'Content-Type': 'multipart/form-data' },
       });
       toast({ title: '효과 보관 완료', description: '보관소에 저장되었습니다.' });
+      onClose();
     } catch (err) {
       console.error('Archive single effect failed:', err);
       toast({ title: '저장 실패', description: '보관소 저장 중 오류가 발생했습니다.', variant: 'destructive' });
-    } finally {
       setIsArchiving(false);
     }
   };
 
   const handleArchiveBatch = async () => {
-    if (selectedImages.length === 0) return;
+    if (selectedImages.length === 0 || isArchiving) return;
     setIsArchiving(true);
     setBatchArchiveProgress({ current: 0, total: selectedImages.length });
     const batchStart = performance.now();
@@ -329,10 +329,10 @@ export const ImageEffectModal = ({
         await new Promise(res => setTimeout(res, 100));
       }
       toast({ title: '일괄 보관 완료', description: `${selectedImages.length}개 이미지가 보관소에 저장되었습니다.` });
+      onClose();
     } catch (err) {
       console.error('Archive batch effect failed:', err);
       toast({ title: '일괄 저장 실패', description: '보관소 저장 중 오류가 발생했습니다.', variant: 'destructive' });
-    } finally {
       setIsArchiving(false);
       setBatchArchiveProgress(null);
     }

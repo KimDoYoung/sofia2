@@ -400,6 +400,7 @@ export const SlideShowModal = ({
                     await handleArchiveSlideshow(meta);
                     handleDownloadSlideshow();
                   }}
+                  onClose={onClose}
                 />
               </div>
             </div>

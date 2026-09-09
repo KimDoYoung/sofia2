@@ -388,7 +388,7 @@ const ImageViewPage = () => {
               </Button>
 
               <Button variant="outline" size="sm" className="h-9 gap-2 border-gray-200" asChild>
-                <a href={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`} download={image.orgName}>
+                <a href={`/sofia/api/images/${image.id}/download`} download={image.orgName}>
                   <Download size={16} />
                   <span className="hidden lg:inline">다운로드</span>
                 </a>
@@ -476,7 +476,7 @@ const ImageViewPage = () => {
                 {/* 다운로드 */}
                 <a
                   className="w-full flex items-center gap-3 px-4 py-2.5 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-                  href={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`}
+                  href={`/sofia/api/images/${image.id}/download`}
                   download={image.orgName}
                   onClick={closeMenu}
                 >
@@ -588,7 +588,7 @@ const ImageViewPage = () => {
                 </button>
                 <a
                   className="p-2 hover:bg-white/20 rounded-full transition-colors text-white"
-                  href={`/sofia/api/images/${image.id}/raw?t=${imageTimestamp}`}
+                  href={`/sofia/api/images/${image.id}/download`}
                   download={image.orgName}
                   title="다운로드"
                 >

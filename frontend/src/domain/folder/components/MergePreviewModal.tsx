@@ -152,6 +152,7 @@ export const MergePreviewModal = ({ isOpen, onClose, blob, filename, elapsedMs, 
               await uploadToArchive(meta);
               handleDownload();
             }}
+            onClose={onClose}
           />
         </div>
       </div>

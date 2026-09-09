@@ -16,6 +16,8 @@ interface OutputActionsPanelProps {
   onCopyToClipboard?: () => Promise<void>;
   defaultFilename: string;
   initialNote?: string;
+  /** 저장(또는 저장 후 다운로드) 성공 시 호출됩니다. 보통 모달을 닫는 데 사용합니다. */
+  onClose?: () => void;
 }
 
 export const OutputActionsPanel = ({
@@ -26,6 +28,7 @@ export const OutputActionsPanel = ({
   onCopyToClipboard,
   defaultFilename,
   initialNote = '',
+  onClose,
 }: OutputActionsPanelProps) => {
   const [displayFilename, setDisplayFilename] = useState(defaultFilename);
   const [note, setNote] = useState(initialNote);
@@ -39,25 +42,35 @@ export const OutputActionsPanel = ({
   });
 
   const handleSave = async () => {
+    if (isSaving) return;
     setIsSaving(true);
     setSaveError(null);
     try {
       await onSaveToArchive(getMeta());
+      if (onClose) {
+        onClose();
+      } else {
+        setIsSaving(false);
+      }
     } catch {
       setSaveError('보관소 저장에 실패했습니다.');
-    } finally {
       setIsSaving(false);
     }
   };
 
   const handleSaveThenDownload = async () => {
+    if (isSaving) return;
     setIsSaving(true);
     setSaveError(null);
     try {
       await onSaveThenDownload(getMeta());
+      if (onClose) {
+        onClose();
+      } else {
+        setIsSaving(false);
+      }
     } catch {
       setSaveError('저장 후 다운로드에 실패했습니다.');
-    } finally {
       setIsSaving(false);
     }
   };
@@ -148,7 +161,7 @@ export const OutputActionsPanel = ({
           ) : (
             <Archive size={14} />
           )}
-          저장 후 다운로드
+          보관소 저장 후 다운로드
         </Button>
       </div>
     </div>

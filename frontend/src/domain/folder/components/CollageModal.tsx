@@ -249,6 +249,7 @@ export const CollageModal = ({
   };
 
   const handleArchive = async (andDownload = false) => {
+    if (isExporting) return;
     setIsExporting(true);
     const start = performance.now();
     try {
@@ -279,10 +280,10 @@ export const CollageModal = ({
       if (andDownload) {
         downloadCanvasImage(exportCanvas, filename, 0.95);
       }
+      onClose();
     } catch (err) {
       console.error('Archive collage error:', err);
       toast({ title: '저장 실패', description: '보관소 저장 중 오류가 발생했습니다.', variant: 'destructive' });
-    } finally {
       setIsExporting(false);
     }
   };

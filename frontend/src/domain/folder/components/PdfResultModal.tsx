@@ -97,6 +97,7 @@ export const PdfResultModal = ({
               await uploadToArchive(meta);
               handleDownload();
             }}
+            onClose={onClose}
           />
         </div>
       </div>

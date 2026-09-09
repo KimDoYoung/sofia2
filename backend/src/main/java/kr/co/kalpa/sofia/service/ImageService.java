@@ -576,7 +576,34 @@ public class ImageService {
         int drawY;
     }
 
+    /**
+     * Thumbnailator는 기본적으로 EXIF Orientation 태그를 읽어 이미지를 자동으로 바로 세운 뒤(useExifOrientation=true)
+     * 렌더링하므로, 원본 파일의 물리적 픽셀 width/height(EXIF 미반영)만으로 계산한 크기와 실제 렌더링 결과의 크기가 어긋나 병합/PDF 출력 시 이미지가
+     * 늘어나 보이는 왜곡이 발생한다. Orientation이 5~8(90도 계열 회전)이면 실제 렌더링 결과는 폭/높이가 뒤바뀌므로 여기서도 동일하게 뒤바꿔 맞춰준다.
+     */
+    private boolean isExifOrientationSwapped(Path imagePath) {
+        try {
+            com.drew.metadata.Metadata metadata =
+                    com.drew.imaging.ImageMetadataReader.readMetadata(imagePath.toFile());
+            com.drew.metadata.exif.ExifIFD0Directory dir =
+                    metadata.getFirstDirectoryOfType(
+                            com.drew.metadata.exif.ExifIFD0Directory.class);
+            if (dir != null
+                    && dir.containsTag(com.drew.metadata.exif.ExifIFD0Directory.TAG_ORIENTATION)) {
+                int orientation =
+                        dir.getInt(com.drew.metadata.exif.ExifIFD0Directory.TAG_ORIENTATION);
+                return orientation >= 5 && orientation <= 8;
+            }
+        } catch (Exception e) {
+            log.debug("No EXIF orientation info for {}: {}", imagePath, e.getMessage());
+        }
+        return false;
+    }
+
     private java.awt.Dimension getImageDimension(Path imagePath, int rotAngle) {
+        int w = -1;
+        int h = -1;
+
         try (javax.imageio.stream.ImageInputStream in =
                 ImageIO.createImageInputStream(imagePath.toFile())) {
             if (in != null) {
@@ -585,13 +612,8 @@ public class ImageService {
                     javax.imageio.ImageReader reader = readers.next();
                     try {
                         reader.setInput(in);
-                        int w = reader.getWidth(0);
-                        int h = reader.getHeight(0);
-                        if (rotAngle == 90 || rotAngle == 270) {
-                            return new java.awt.Dimension(h, w);
-                        } else {
-                            return new java.awt.Dimension(w, h);
-                        }
+                        w = reader.getWidth(0);
+                        h = reader.getHeight(0);
                     } finally {
                         reader.dispose();
                     }
@@ -604,22 +626,34 @@ public class ImageService {
                     e.getMessage());
         }
 
-        try {
-            BufferedImage bi = ImageIO.read(imagePath.toFile());
-            if (bi != null) {
-                int w = bi.getWidth();
-                int h = bi.getHeight();
-                bi.flush();
-                if (rotAngle == 90 || rotAngle == 270) {
-                    return new java.awt.Dimension(h, w);
-                } else {
-                    return new java.awt.Dimension(w, h);
+        if (w <= 0 || h <= 0) {
+            try {
+                BufferedImage bi = ImageIO.read(imagePath.toFile());
+                if (bi != null) {
+                    w = bi.getWidth();
+                    h = bi.getHeight();
+                    bi.flush();
                 }
+            } catch (Exception e) {
+                log.error("Failed to read image dimension for {}: {}", imagePath, e.getMessage());
             }
-        } catch (Exception e) {
-            log.error("Failed to read image dimension for {}: {}", imagePath, e.getMessage());
         }
-        return null;
+
+        if (w <= 0 || h <= 0) {
+            return null;
+        }
+
+        if (isExifOrientationSwapped(imagePath)) {
+            int tmp = w;
+            w = h;
+            h = tmp;
+        }
+        if (rotAngle == 90 || rotAngle == 270) {
+            int tmp = w;
+            w = h;
+            h = tmp;
+        }
+        return new java.awt.Dimension(w, h);
     }
 
     public Path exportAsMergedImage(
