@@ -1,6 +1,16 @@
 package kr.co.kalpa.sofia.service;
 
 import jakarta.annotation.PostConstruct;
+import java.awt.BasicStroke;
+import java.awt.Color;
+import java.awt.Font;
+import java.awt.FontMetrics;
+import java.awt.Graphics2D;
+import java.awt.GraphicsEnvironment;
+import java.awt.LinearGradientPaint;
+import java.awt.RenderingHints;
+import java.awt.geom.Point2D;
+import java.awt.image.BufferedImage;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -8,16 +18,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Random;
+import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.imageio.ImageIO;
 import kr.co.kalpa.sofia.domain.ImageFile;
 import kr.co.kalpa.sofia.dto.SlideShowRequest;
 import kr.co.kalpa.sofia.dto.SlideShowTaskStatus;
@@ -127,6 +141,7 @@ public class SlideShowService {
 
     private void runGeneration(String taskId, SlideShowRequest request) {
         Path outputPath = null;
+        List<Path> titleCardTempFiles = new ArrayList<>();
 
         try {
             updateStatus(taskId, "PROCESSING", 5, "이미지 정보 확인 및 로드 중...");
@@ -175,32 +190,102 @@ public class SlideShowService {
                 throw new IllegalStateException("서버 디스크에 존재하는 이미지가 2장 미만입니다.");
             }
 
+            // 해상도 결정 (타이틀 카드 생성 전에 먼저 확정)
+            int width = 1920;
+            int height = 1080;
+            int blurW = 160;
+            int blurH = 90;
+
+            String aspect = request.getAspectRatio() != null ? request.getAspectRatio() : "16:9";
+            if ("9:16".equals(aspect)) {
+                width = 1080;
+                height = 1920;
+                blurW = 90;
+                blurH = 160;
+            } else if ("1:1".equals(aspect)) {
+                width = 1080;
+                height = 1080;
+                blurW = 120;
+                blurH = 120;
+            }
+
+            // 오프닝/엔딩 타이틀 카드 생성 및 삽입
+            boolean hasIntro =
+                    Boolean.TRUE.equals(request.getEnableIntro())
+                            && StringUtils.hasText(request.getIntroTitle());
+            boolean hasOutro =
+                    Boolean.TRUE.equals(request.getEnableOutro())
+                            && StringUtils.hasText(request.getOutroTitle());
+            int introImageIndex = -1;
+            int outroImageIndex = -1;
+
+            if (hasIntro) {
+                Path cardPath =
+                        generateTitleCardImage(
+                                request.getIntroTitle(),
+                                request.getIntroSubtitle(),
+                                request.getIntroTheme() != null
+                                        ? request.getIntroTheme()
+                                        : "sunset",
+                                width,
+                                height);
+                imagePaths.add(0, cardPath);
+                rotations.add(0, 0);
+                titleCardTempFiles.add(cardPath);
+                introImageIndex = 0;
+            }
+            if (hasOutro) {
+                Path cardPath =
+                        generateTitleCardImage(
+                                request.getOutroTitle(),
+                                request.getOutroSubtitle(),
+                                request.getOutroTheme() != null
+                                        ? request.getOutroTheme()
+                                        : "sunset",
+                                width,
+                                height);
+                imagePaths.add(cardPath);
+                rotations.add(0);
+                titleCardTempFiles.add(cardPath);
+                outroImageIndex = imagePaths.size() - 1;
+            }
+
             int n = imagePaths.size();
 
-            // 사진별 재생시간: "random"이면 각 사진마다 남은 프리셋(2/3/4초) 중 하나를 독립적으로 무작위 선택
+            // 사진별 재생시간: 타이틀 카드는 전용 duration 사용
             List<Double> durations = new ArrayList<>(n);
             String rawDuration = request.getDurationPerImage();
             boolean randomDuration =
                     "random".equalsIgnoreCase(rawDuration == null ? "" : rawDuration.trim());
-            if (randomDuration) {
-                for (int i = 0; i < n; i++) {
+            double fixedDurationValue = 3.0;
+            try {
+                if (!randomDuration && StringUtils.hasText(rawDuration)) {
+                    double parsed = Double.parseDouble(rawDuration.trim());
+                    if (parsed >= 1.0) {
+                        fixedDurationValue = parsed;
+                    }
+                }
+            } catch (NumberFormatException ignored) {
+            }
+            double introDur =
+                    (request.getIntroDuration() != null && request.getIntroDuration() >= 1.0)
+                            ? request.getIntroDuration()
+                            : 3.0;
+            double outroDur =
+                    (request.getOutroDuration() != null && request.getOutroDuration() >= 1.0)
+                            ? request.getOutroDuration()
+                            : 3.0;
+
+            for (int i = 0; i < n; i++) {
+                if (i == introImageIndex) {
+                    durations.add(introDur);
+                } else if (i == outroImageIndex) {
+                    durations.add(outroDur);
+                } else if (randomDuration) {
                     durations.add(
                             RANDOM_DURATION_POOL.get(RANDOM.nextInt(RANDOM_DURATION_POOL.size())));
-                }
-            } else {
-                double fixedDuration = 3.0;
-                try {
-                    if (StringUtils.hasText(rawDuration)) {
-                        double parsed = Double.parseDouble(rawDuration.trim());
-                        if (parsed >= 1.0) {
-                            fixedDuration = parsed;
-                        }
-                    }
-                } catch (NumberFormatException ignored) {
-                    // 파싱 실패 시 기본값(3.0초) 유지
-                }
-                for (int i = 0; i < n; i++) {
-                    durations.add(fixedDuration);
+                } else {
+                    durations.add(fixedDurationValue);
                 }
             }
 
@@ -232,25 +317,6 @@ public class SlideShowService {
                 }
             }
 
-            // 해상도 결정
-            int width = 1920;
-            int height = 1080;
-            int blurW = 160;
-            int blurH = 90;
-
-            String aspect = request.getAspectRatio() != null ? request.getAspectRatio() : "16:9";
-            if ("9:16".equals(aspect)) {
-                width = 1080;
-                height = 1920;
-                blurW = 90;
-                blurH = 160;
-            } else if ("1:1".equals(aspect)) {
-                width = 1080;
-                height = 1080;
-                blurW = 120;
-                blurH = 120;
-            }
-
             double totalDuration =
                     durations.stream().mapToDouble(Double::doubleValue).sum()
                             - ((n - 1) * transDuration);
@@ -262,8 +328,7 @@ public class SlideShowService {
             }
             boolean hasAudio = (bgmPath != null && Files.exists(bgmPath));
 
-            // 슬라이드별 효과: 모드에 따라 뽑을 풀을 결정하고, 사진마다 독립적으로 하나씩 무작위 배정
-            // random: 7개 효과 전체 중 무작위 / oldstyle: 세피아·흑백 중 무작위 / none: 효과 없음
+            // 슬라이드별 효과: 타이틀 카드 슬라이드는 항상 "none"
             String effectMode =
                     StringUtils.hasText(request.getEffectMode())
                             ? request.getEffectMode().trim().toLowerCase()
@@ -278,10 +343,14 @@ public class SlideShowService {
             }
             List<String> slideEffects = new ArrayList<>(n);
             for (int i = 0; i < n; i++) {
-                slideEffects.add(
-                        effectPool != null
-                                ? effectPool.get(RANDOM.nextInt(effectPool.size()))
-                                : "none");
+                if (i == introImageIndex || i == outroImageIndex) {
+                    slideEffects.add("none");
+                } else {
+                    slideEffects.add(
+                            effectPool != null
+                                    ? effectPool.get(RANDOM.nextInt(effectPool.size()))
+                                    : "none");
+                }
             }
 
             // geq 기반 효과(sunlight/bokeh/lightleak/snow)는 슬라이드마다 별도의 lavfi 입력이
@@ -339,7 +408,6 @@ public class SlideShowService {
                                     i, i, simpleEffectFilterSuffix(slideEffect), i));
                 } else if (geqInputIndexForSlide[i] >= 0) {
                     // 저해상도로 효과 패턴을 만든 뒤 확대하여 screen 블렌드로 합성
-                    // (screen은 항상 밝게만 만들어 원본을 어둡게 하지 않는다)
                     filter.append(
                             String.format(
                                     "[bg%d][fg%d]overlay=(W-w)/2:(H-h)/2,setsar=1,fps=30[v%d_base];\n",
@@ -447,6 +515,13 @@ public class SlideShowService {
         } catch (Exception e) {
             log.error("Error generating slideshow for task {}", taskId, e);
             updateStatus(taskId, "FAILED", 0, "오류 발생: " + e.getMessage());
+        } finally {
+            for (Path p : titleCardTempFiles) {
+                try {
+                    Files.deleteIfExists(p);
+                } catch (IOException ignored) {
+                }
+            }
         }
     }
 
@@ -762,6 +837,211 @@ public class SlideShowService {
             task.setStatus(status);
             task.setProgress(progress);
             task.setMessage(message);
+        }
+    }
+
+    // ─────────────────────────────────────────────────────────────
+    // 타이틀 카드 이미지 생성 (Java2D / AWT)
+    // ─────────────────────────────────────────────────────────────
+
+    private Path generateTitleCardImage(
+            String title, String subtitle, String theme, int width, int height) throws IOException {
+        BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+        Graphics2D g = img.createGraphics();
+        g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
+        g.setRenderingHint(
+                RenderingHints.KEY_TEXT_ANTIALIASING, RenderingHints.VALUE_TEXT_ANTIALIAS_ON);
+        g.setRenderingHint(
+                RenderingHints.KEY_INTERPOLATION, RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        g.setRenderingHint(RenderingHints.KEY_RENDERING, RenderingHints.VALUE_RENDER_QUALITY);
+
+        drawTitleCardBackground(g, theme, width, height);
+        drawTitleCardFrame(g, theme, width, height);
+        drawTitleCardText(g, title, subtitle, theme, width, height);
+
+        g.dispose();
+
+        Path cardPath = tempVideoDir.resolve("titlecard_" + UUID.randomUUID() + ".png");
+        ImageIO.write(img, "PNG", cardPath.toFile());
+        return cardPath;
+    }
+
+    private void drawTitleCardBackground(Graphics2D g, String theme, int width, int height) {
+        Color[] colors;
+        float[] fractions = {0f, 0.5f, 1f};
+        switch (theme == null ? "sunset" : theme.toLowerCase()) {
+            case "forest":
+                colors =
+                        new Color[] {
+                            new Color(11, 82, 91), new Color(26, 147, 111), new Color(8, 55, 65)
+                        };
+                break;
+            case "midnight":
+                colors =
+                        new Color[] {
+                            new Color(8, 8, 40), new Color(45, 18, 90), new Color(15, 5, 55)
+                        };
+                break;
+            case "blossom":
+                colors =
+                        new Color[] {
+                            new Color(255, 220, 210),
+                            new Color(255, 182, 193),
+                            new Color(255, 205, 178)
+                        };
+                break;
+            case "vintage":
+                colors =
+                        new Color[] {
+                            new Color(195, 160, 100), new Color(130, 90, 50), new Color(60, 30, 12)
+                        };
+                break;
+            default: // sunset
+                colors =
+                        new Color[] {
+                            new Color(235, 90, 40), new Color(200, 90, 140), new Color(50, 35, 90)
+                        };
+                break;
+        }
+        LinearGradientPaint gradient =
+                new LinearGradientPaint(
+                        new Point2D.Float(0, 0),
+                        new Point2D.Float(width, height),
+                        fractions,
+                        colors);
+        g.setPaint(gradient);
+        g.fillRect(0, 0, width, height);
+
+        // midnight 테마: 별빛 점 효과
+        if ("midnight".equals(theme)) {
+            g.setColor(new Color(255, 255, 255, 110));
+            Random rng = new Random(42);
+            for (int i = 0; i < 80; i++) {
+                int sx = rng.nextInt(width);
+                int sy = rng.nextInt(height);
+                int ss = rng.nextInt(3) + 1;
+                g.fillOval(sx, sy, ss, ss);
+            }
+        }
+    }
+
+    private Color getTitleCardFrameColor(String theme) {
+        switch (theme == null ? "sunset" : theme.toLowerCase()) {
+            case "forest":
+                return new Color(255, 255, 255, 180);
+            case "midnight":
+                return new Color(255, 215, 0, 210);
+            case "blossom":
+                return new Color(255, 255, 255, 210);
+            case "vintage":
+                return new Color(210, 175, 115, 220);
+            default:
+                return new Color(255, 215, 0, 210);
+        }
+    }
+
+    private void drawTitleCardFrame(Graphics2D g, String theme, int width, int height) {
+        Color fc = getTitleCardFrameColor(theme);
+        int unit = Math.min(width, height);
+        int m = (int) (unit * 0.05);
+
+        g.setColor(fc);
+        g.setStroke(new BasicStroke(unit * 0.003f));
+        g.drawRect(m, m, width - 2 * m, height - 2 * m);
+
+        int im = m + (int) (unit * 0.012);
+        g.setStroke(new BasicStroke(unit * 0.001f));
+        g.drawRect(im, im, width - 2 * im, height - 2 * im);
+
+        int dotSize = Math.max(6, (int) (unit * 0.008));
+        int[][] corners = {{m, m}, {width - m, m}, {m, height - m}, {width - m, height - m}};
+        for (int[] c : corners) {
+            g.fillRect(c[0] - dotSize / 2, c[1] - dotSize / 2, dotSize, dotSize);
+        }
+    }
+
+    private Color getTitleCardTextColor(String theme) {
+        if ("blossom".equals(theme)) return new Color(100, 50, 60);
+        return Color.WHITE;
+    }
+
+    private Font findKoreanFont(int style, float size) {
+        String[] filePaths = {
+            "/usr/share/fonts/noto-cjk/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/noto-cjk/NotoSansCJKkr-Regular.otf",
+            "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+        };
+        for (String fp : filePaths) {
+            try (java.io.InputStream is = Files.newInputStream(Paths.get(fp))) {
+                return Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(style, size);
+            } catch (Exception ignored) {
+            }
+        }
+        Set<String> available =
+                new HashSet<>(
+                        Arrays.asList(
+                                GraphicsEnvironment.getLocalGraphicsEnvironment()
+                                        .getAvailableFontFamilyNames()));
+        for (String name : new String[] {"NanumGothic", "Noto Sans CJK KR", "Malgun Gothic"}) {
+            if (available.contains(name)) {
+                return new Font(name, style, (int) size).deriveFont(size);
+            }
+        }
+        return new Font(Font.SANS_SERIF, style, (int) size);
+    }
+
+    private void drawTitleCardText(
+            Graphics2D g, String title, String subtitle, String theme, int width, int height) {
+        Color textColor = getTitleCardTextColor(theme);
+        Color frameColor = getTitleCardFrameColor(theme);
+        int cx = width / 2;
+        int cy = height / 2;
+        int unit = Math.min(width, height);
+
+        // 제목 (큰 볼드)
+        float titleSize = unit * 0.072f;
+        Font titleFont = findKoreanFont(Font.BOLD, titleSize);
+        g.setFont(titleFont);
+        FontMetrics tfm = g.getFontMetrics();
+
+        int titleY = cy - (int) (unit * 0.06f);
+        if (StringUtils.hasText(title)) {
+            int tx = cx - tfm.stringWidth(title) / 2;
+            g.setColor(new Color(0, 0, 0, 130));
+            g.drawString(title, tx + 3, titleY + 3);
+            g.setColor(textColor);
+            g.drawString(title, tx, titleY);
+        }
+
+        // 중앙 디바이더 선 + 다이아몬드 장식
+        int dividerY = cy + (int) (unit * 0.02f);
+        int dividerHalfWidth = (int) (width * 0.25f);
+        g.setColor(frameColor);
+        g.setStroke(new BasicStroke(unit * 0.002f));
+        g.drawLine(cx - dividerHalfWidth, dividerY, cx + dividerHalfWidth, dividerY);
+
+        int dSize = Math.max(4, (int) (unit * 0.007f));
+        int[] xp = {cx, cx + dSize, cx, cx - dSize};
+        int[] yp = {dividerY - dSize, dividerY, dividerY + dSize, dividerY};
+        g.fillPolygon(xp, yp, 4);
+
+        // 부제목 (작은 일반체)
+        if (StringUtils.hasText(subtitle)) {
+            float subSize = unit * 0.038f;
+            Font subFont = findKoreanFont(Font.PLAIN, subSize);
+            g.setFont(subFont);
+            FontMetrics sfm = g.getFontMetrics();
+
+            int subY = cy + (int) (unit * 0.11f);
+            int sx = cx - sfm.stringWidth(subtitle) / 2;
+
+            g.setColor(new Color(0, 0, 0, 100));
+            g.drawString(subtitle, sx + 2, subY + 2);
+            g.setColor(
+                    new Color(textColor.getRed(), textColor.getGreen(), textColor.getBlue(), 220));
+            g.drawString(subtitle, sx, subY);
         }
     }
 }

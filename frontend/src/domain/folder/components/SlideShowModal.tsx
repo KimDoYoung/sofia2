@@ -22,6 +22,7 @@ import {
   Square,
   Music,
   Shuffle,
+  Clapperboard,
 } from 'lucide-react';
 import type { ImageFile } from '../types';
 import type { BgmAssetDto } from '@/domain/user/components/BgmAssetManager';
@@ -75,6 +76,40 @@ const RATIOS = [
   { value: '1:1', label: '1:1 정사각', desc: '인스타그램 피드', icon: Square },
 ];
 
+const TITLE_THEMES = [
+  { id: 'sunset',   name: '골든 선셋',       gradient: 'linear-gradient(135deg, #EB5A28, #C85A8C, #32235A)' },
+  { id: 'forest',   name: '에메랄드 포레스트', gradient: 'linear-gradient(135deg, #0B525B, #1A936F, #083741)' },
+  { id: 'midnight', name: '미드나잇 오로라',   gradient: 'linear-gradient(135deg, #08082B, #2D125A, #0F0537)' },
+  { id: 'blossom',  name: '소프트 블라썸',     gradient: 'linear-gradient(135deg, #FFDCD2, #FFB6C1, #FFCDB2)' },
+  { id: 'vintage',  name: '클래식 시네마',     gradient: 'linear-gradient(135deg, #C3A064, #825A32, #3C1E0C)' },
+];
+
+const TitleCardPreview = ({
+  title, subtitle, theme, aspectRatio,
+}: {
+  title: string; subtitle: string; theme: string; aspectRatio: string;
+}) => {
+  const themeData = TITLE_THEMES.find((t) => t.id === theme) ?? TITLE_THEMES[0];
+  const isPortrait = aspectRatio === '9:16';
+  const w = isPortrait ? 72 : aspectRatio === '1:1' ? 110 : 150;
+  const h = isPortrait ? 128 : aspectRatio === '1:1' ? 110 : 85;
+  return (
+    <div
+      className="relative rounded-lg overflow-hidden flex items-center justify-center text-center shrink-0"
+      style={{ background: themeData.gradient, width: w, height: h, minWidth: w }}
+    >
+      <div className="absolute inset-[4px] border border-white/40 rounded pointer-events-none" />
+      <div className="px-2 py-1 w-full">
+        <p className="text-white text-[8px] font-bold leading-tight line-clamp-2">{title || '제목'}</p>
+        <div className="my-0.5 h-px bg-white/60 mx-3" />
+        {subtitle && (
+          <p className="text-white/80 text-[6px] leading-tight line-clamp-1">{subtitle}</p>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export const SlideShowModal = ({
   isOpen,
   onClose,
@@ -89,6 +124,16 @@ export const SlideShowModal = ({
   const [effectMode, setEffectMode] = useState<'random' | 'oldstyle' | 'none'>('none');
   const [aspectRatio, setAspectRatio] = useState<string>('16:9');
   const [selectedBgm, setSelectedBgm] = useState<string>('');
+
+  // 오프닝/엔딩 타이틀 카드
+  const [enableIntro, setEnableIntro] = useState(false);
+  const [introTitle, setIntroTitle] = useState('');
+  const [introSubtitle, setIntroSubtitle] = useState('');
+  const [introTheme, setIntroTheme] = useState('sunset');
+  const [enableOutro, setEnableOutro] = useState(false);
+  const [outroTitle, setOutroTitle] = useState('슬라이드가 끝났습니다');
+  const [outroSubtitle, setOutroSubtitle] = useState('재밌게 보셨길 바라겠습니다');
+  const [outroTheme, setOutroTheme] = useState('sunset');
 
   // 오디오 미리듣기
   const [previewBgm, setPreviewBgm] = useState<string | null>(null);
@@ -138,13 +183,22 @@ export const SlideShowModal = ({
       if (bgmAssets && bgmAssets.length > 0) {
         setSelectedBgm((prev) => (prev ? prev : bgmAssets[0].filename));
       }
+      // 타이틀 카드 초기값
+      setEnableIntro(false);
+      setIntroTitle(folderName ? `${folderName}의 추억` : '소중한 추억의 기록');
+      setIntroSubtitle('');
+      setIntroTheme('sunset');
+      setEnableOutro(false);
+      setOutroTitle('슬라이드가 끝났습니다');
+      setOutroSubtitle('재밌게 보셨길 바라겠습니다');
+      setOutroTheme('sunset');
     } else {
       stopBgm();
       if (pollingRef.current) {
         clearInterval(pollingRef.current);
       }
     }
-  }, [isOpen, selectedImages, bgmAssets, stopBgm]);
+  }, [isOpen, selectedImages, bgmAssets, stopBgm, folderName]);
 
   const toggleBgmPreview = (filename: string, streamUrl: string) => {
     if (previewBgm === filename) {
@@ -201,6 +255,16 @@ export const SlideShowModal = ({
         aspectRatio,
         bgmFilename: selectedBgm || null,
         effectMode,
+        enableIntro,
+        introTitle: enableIntro ? introTitle : null,
+        introSubtitle: enableIntro ? introSubtitle : null,
+        introTheme,
+        introDuration: 3.0,
+        enableOutro,
+        outroTitle: enableOutro ? outroTitle : null,
+        outroSubtitle: enableOutro ? outroSubtitle : null,
+        outroTheme,
+        outroDuration: 3.0,
       };
 
       const res = await apiClient.post('/slideshow/generate', payload);
@@ -689,6 +753,129 @@ export const SlideShowModal = ({
                         </div>
                       )}
                     </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 3. 오프닝 & 엔딩 타이틀 카드 */}
+              <div className="border rounded-xl overflow-hidden">
+                <div className="bg-gray-50/80 px-4 py-3 flex items-center gap-2 border-b">
+                  <Clapperboard size={15} className="text-rose-500" />
+                  <span className="text-sm font-bold text-gray-700">오프닝 & 엔딩 타이틀 카드</span>
+                  <span className="ml-auto text-xs text-gray-400">선택 옵션</span>
+                </div>
+
+                <div className="p-4 space-y-4">
+                  {/* 오프닝 카드 */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={enableIntro}
+                        onChange={(e) => setEnableIntro(e.target.checked)}
+                        className="rounded accent-rose-500"
+                      />
+                      <span className="text-sm font-semibold text-gray-700">오프닝 카드 (시작 화면)</span>
+                    </label>
+                    {enableIntro && (
+                      <div className="flex gap-3 pl-6">
+                        <TitleCardPreview
+                          title={introTitle}
+                          subtitle={introSubtitle}
+                          theme={introTheme}
+                          aspectRatio={aspectRatio}
+                        />
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="text"
+                            placeholder="제목 (예: 2025년 산티아고 순례길)"
+                            value={introTitle}
+                            onChange={(e) => setIntroTitle(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          />
+                          <input
+                            type="text"
+                            placeholder="부제목 (예: 함께한 소중한 기록들)"
+                            value={introSubtitle}
+                            onChange={(e) => setIntroSubtitle(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          />
+                          <div className="flex flex-wrap gap-1.5">
+                            {TITLE_THEMES.map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setIntroTheme(t.id)}
+                                className={`px-2.5 py-1 text-[10px] rounded-full border transition-all ${
+                                  introTheme === t.id
+                                    ? 'border-rose-500 bg-rose-50 text-rose-700 font-bold'
+                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                              >
+                                {t.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="border-t border-dashed border-gray-200" />
+
+                  {/* 엔딩 카드 */}
+                  <div className="space-y-3">
+                    <label className="flex items-center gap-2 cursor-pointer select-none">
+                      <input
+                        type="checkbox"
+                        checked={enableOutro}
+                        onChange={(e) => setEnableOutro(e.target.checked)}
+                        className="rounded accent-rose-500"
+                      />
+                      <span className="text-sm font-semibold text-gray-700">엔딩 카드 (마지막 화면)</span>
+                    </label>
+                    {enableOutro && (
+                      <div className="flex gap-3 pl-6">
+                        <TitleCardPreview
+                          title={outroTitle}
+                          subtitle={outroSubtitle}
+                          theme={outroTheme}
+                          aspectRatio={aspectRatio}
+                        />
+                        <div className="flex-1 space-y-2">
+                          <input
+                            type="text"
+                            placeholder="제목"
+                            value={outroTitle}
+                            onChange={(e) => setOutroTitle(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          />
+                          <input
+                            type="text"
+                            placeholder="부제목"
+                            value={outroSubtitle}
+                            onChange={(e) => setOutroSubtitle(e.target.value)}
+                            className="w-full px-3 py-1.5 text-xs border rounded-lg focus:outline-none focus:ring-2 focus:ring-rose-400"
+                          />
+                          <div className="flex flex-wrap gap-1.5">
+                            {TITLE_THEMES.map((t) => (
+                              <button
+                                key={t.id}
+                                type="button"
+                                onClick={() => setOutroTheme(t.id)}
+                                className={`px-2.5 py-1 text-[10px] rounded-full border transition-all ${
+                                  outroTheme === t.id
+                                    ? 'border-rose-500 bg-rose-50 text-rose-700 font-bold'
+                                    : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                                }`}
+                              >
+                                {t.name}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )}
                   </div>
                 </div>
               </div>

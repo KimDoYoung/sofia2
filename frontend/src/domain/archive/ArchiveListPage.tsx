@@ -142,6 +142,7 @@ const ArchiveListPage = () => {
         document.body.removeChild(ta);
       }
       toast({ title: '복사 완료', description: '공유 링크가 클립보드에 복사되었습니다.' });
+      window.open(url, '_blank', 'noopener,noreferrer');
     } catch {
       toast({ title: '오류', description: '링크 복사에 실패했습니다.', variant: 'destructive' });
     }

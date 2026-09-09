@@ -22,4 +22,18 @@ public class SlideShowRequest {
     private String videoTitle;
     // "random"(전체 효과 중 무작위) / "oldstyle"(세피아·흑백 중 무작위) / "none"(효과 없음)
     @Builder.Default private String effectMode = "none";
+
+    // 오프닝 타이틀 카드 옵션
+    @Builder.Default private Boolean enableIntro = false;
+    private String introTitle;
+    private String introSubtitle;
+    @Builder.Default private String introTheme = "sunset";
+    @Builder.Default private Double introDuration = 3.0;
+
+    // 엔딩 클로징 카드 옵션
+    @Builder.Default private Boolean enableOutro = false;
+    private String outroTitle;
+    private String outroSubtitle;
+    @Builder.Default private String outroTheme = "sunset";
+    @Builder.Default private Double outroDuration = 3.0;
 }
