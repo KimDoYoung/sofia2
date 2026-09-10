@@ -280,6 +280,18 @@ const ImageViewPage = () => {
         {/* 우측 */}
         <div className="flex items-center gap-2">
 
+          {/* ── 목록으로 (history back) ── */}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate(-1)}
+            className="h-9 gap-1.5 border-gray-200"
+            title="이전 화면으로 돌아가기"
+          >
+            <ChevronLeft size={16} />
+            <span className="hidden sm:inline">목록으로</span>
+          </Button>
+
           {/* ── 네비게이터: sm 이상에서만 상단에 표시 ── */}
           <div className="hidden sm:flex items-center bg-gray-50 p-1 rounded-lg border border-gray-200">
             <Button

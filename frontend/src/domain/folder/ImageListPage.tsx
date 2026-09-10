@@ -113,6 +113,26 @@ const ImageListPage = () => {
   const currentFolder = folders?.find(f => f.id === Number(folderId));
   const folderName = currentFolder?.folderName;
 
+  const currentFolderIndex = folders?.findIndex(f => f.id === Number(folderId));
+  const prevFolderId = currentFolderIndex !== undefined && currentFolderIndex > 0
+    ? folders?.[currentFolderIndex - 1].id
+    : null;
+  const nextFolderId = currentFolderIndex !== undefined && currentFolderIndex < (folders?.length || 0) - 1
+    ? folders?.[currentFolderIndex + 1].id
+    : null;
+
+  const handlePrevFolder = () => {
+    if (prevFolderId) navigate(`/folder/${prevFolderId}`);
+  };
+
+  const handleNextFolder = () => {
+    if (nextFolderId) navigate(`/folder/${nextFolderId}`);
+  };
+
+  const handleSelectFolder = () => {
+    navigate('/');
+  };
+
   const updateImageMutation = useMutation({
     mutationFn: async ({ id, note, orgName }: { id: number; note?: string; orgName?: string }) => {
       await apiClient.patch(`/images/${id}`, { note, orgName });
@@ -515,6 +535,11 @@ const ImageListPage = () => {
           onExportPdf={() => setIsPdfModalOpen(true)}
           onExportMerge={() => setIsMergeModalOpen(true)}
           onScrollToTop={scrollToTop}
+          onPrevFolder={handlePrevFolder}
+          onNextFolder={handleNextFolder}
+          onSelectFolder={handleSelectFolder}
+          hasPrevFolder={!!prevFolderId}
+          hasNextFolder={!!nextFolderId}
         />
       )}
 
