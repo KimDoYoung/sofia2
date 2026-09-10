@@ -224,6 +224,8 @@ public class SlideShowService {
             int introImageIndex = -1;
             int outroImageIndex = -1;
 
+            boolean decorationEnabled = Boolean.TRUE.equals(request.getEnableDecoration());
+
             if (hasIntro) {
                 Path cardPath =
                         generateTitleCardImage(
@@ -233,7 +235,8 @@ public class SlideShowService {
                                         ? request.getIntroTheme()
                                         : "sunset",
                                 width,
-                                height);
+                                height,
+                                decorationEnabled);
                 imagePaths.add(0, cardPath);
                 rotations.add(0, 0);
                 titleCardTempFiles.add(cardPath);
@@ -248,7 +251,8 @@ public class SlideShowService {
                                         ? request.getOutroTheme()
                                         : "sunset",
                                 width,
-                                height);
+                                height,
+                                decorationEnabled);
                 imagePaths.add(cardPath);
                 rotations.add(0);
                 titleCardTempFiles.add(cardPath);
@@ -850,7 +854,13 @@ public class SlideShowService {
     // ─────────────────────────────────────────────────────────────
 
     private Path generateTitleCardImage(
-            String title, String subtitle, String theme, int width, int height) throws IOException {
+            String title,
+            String subtitle,
+            String theme,
+            int width,
+            int height,
+            boolean enableDecoration)
+            throws IOException {
         BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
         Graphics2D g = img.createGraphics();
         g.setRenderingHint(RenderingHints.KEY_ANTIALIASING, RenderingHints.VALUE_ANTIALIAS_ON);
@@ -863,7 +873,9 @@ public class SlideShowService {
         drawTitleCardBackground(g, theme, width, height);
         drawTitleCardFrame(g, theme, width, height);
         drawTitleCardText(g, title, subtitle, theme, width, height);
-        drawDecorations(g, width, height);
+        if (enableDecoration) {
+            drawDecorations(g, width, height);
+        }
 
         g.dispose();
 
@@ -977,7 +989,11 @@ public class SlideShowService {
             "/usr/share/fonts/noto-cjk/NotoSansCJKkr-Regular.otf",
             "/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc",
             "/usr/share/fonts/truetype/nanum/NanumGothic.ttf",
-            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc"
+            "/usr/share/fonts/truetype/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/noto/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/google-noto-cjk/NotoSansCJK-Regular.ttc",
+            "/usr/share/fonts/truetype/NanumGothic/NanumGothic.ttf",
+            "/usr/share/fonts/NanumGothic/NanumGothic.ttf",
         };
         for (String fp : filePaths) {
             try (java.io.InputStream is = Files.newInputStream(Paths.get(fp))) {
@@ -995,6 +1011,28 @@ public class SlideShowService {
                 return new Font(name, style, (int) size).deriveFont(size);
             }
         }
+        // fc-list로 시스템에 등록된 한글 폰트 동적 탐색
+        try {
+            Process p = new ProcessBuilder("fc-list", ":lang=ko", "--format=%{file}\n").start();
+            try (BufferedReader br =
+                    new BufferedReader(new InputStreamReader(p.getInputStream()))) {
+                String line;
+                while ((line = br.readLine()) != null) {
+                    line = line.trim();
+                    if (!line.isEmpty() && Files.exists(Paths.get(line))) {
+                        try (java.io.InputStream is = Files.newInputStream(Paths.get(line))) {
+                            Font f =
+                                    Font.createFont(Font.TRUETYPE_FONT, is).deriveFont(style, size);
+                            log.info("Korean font found via fc-list: {}", line);
+                            return f;
+                        } catch (Exception ignored) {
+                        }
+                    }
+                }
+            }
+        } catch (Exception ignored) {
+        }
+        log.warn("No Korean font found — Korean text may render as boxes");
         return new Font(Font.SANS_SERIF, style, (int) size);
     }
 

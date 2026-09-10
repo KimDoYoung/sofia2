@@ -36,4 +36,7 @@ public class SlideShowRequest {
     private String outroSubtitle;
     @Builder.Default private String outroTheme = "sunset";
     @Builder.Default private Double outroDuration = 3.0;
+
+    // 타이틀 카드 PNG 데코레이션 삽입 여부
+    @Builder.Default private Boolean enableDecoration = true;
 }

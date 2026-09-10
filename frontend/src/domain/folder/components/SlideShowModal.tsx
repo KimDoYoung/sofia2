@@ -134,6 +134,7 @@ export const SlideShowModal = ({
   const [outroTitle, setOutroTitle] = useState('슬라이드가 끝났습니다');
   const [outroSubtitle, setOutroSubtitle] = useState('재밌게 보셨길 바라겠습니다');
   const [outroTheme, setOutroTheme] = useState('sunset');
+  const [enableDecoration, setEnableDecoration] = useState(true);
 
   // 오디오 미리듣기
   const [previewBgm, setPreviewBgm] = useState<string | null>(null);
@@ -192,6 +193,7 @@ export const SlideShowModal = ({
       setOutroTitle('슬라이드가 끝났습니다');
       setOutroSubtitle('재밌게 보셨길 바라겠습니다');
       setOutroTheme('sunset');
+      setEnableDecoration(true);
     } else {
       stopBgm();
       if (pollingRef.current) {
@@ -265,6 +267,7 @@ export const SlideShowModal = ({
         outroSubtitle: enableOutro ? outroSubtitle : null,
         outroTheme,
         outroDuration: 3.0,
+        enableDecoration,
       };
 
       const res = await apiClient.post('/slideshow/generate', payload);
@@ -762,7 +765,18 @@ export const SlideShowModal = ({
                 <div className="bg-gray-50/80 px-4 py-3 flex items-center gap-2 border-b">
                   <Clapperboard size={15} className="text-rose-500" />
                   <span className="text-sm font-bold text-gray-700">오프닝 & 엔딩 타이틀 카드</span>
-                  <span className="ml-auto text-xs text-gray-400">선택 옵션</span>
+                  <span className="ml-auto flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 cursor-pointer select-none text-xs text-gray-600">
+                      <input
+                        type="checkbox"
+                        checked={enableDecoration}
+                        onChange={(e) => setEnableDecoration(e.target.checked)}
+                        className="rounded accent-rose-500"
+                      />
+                      PNG 데코레이션 삽입
+                    </label>
+                    <span className="text-xs text-gray-400">선택 옵션</span>
+                  </span>
                 </div>
 
                 <div className="p-4 space-y-4">
